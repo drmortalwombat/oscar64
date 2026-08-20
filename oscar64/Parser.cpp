@@ -2486,7 +2486,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 	}
 	else		
 	{		
-		Expression* rexp = ParseRExpression();
+		Expression* rexp = ParseExpression(false);
 		rexp = CoerceExpression(rexp, dtype);
 		exp = new Expression(rexp->mLocation, EX_INITIALIZATION);
 		exp->mToken = TK_ASSIGN;
@@ -7827,7 +7827,17 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_SIGNED:
 	case TK_CONST:
 		if (lhs)
-			exp = ParseDeclarationExpression(nullptr);
+		{
+			Declaration* dec = ParseBaseTypeDeclaration(0, true);
+			if (mScanner->mToken != TK_OPEN_PARENTHESIS)
+				exp = ParseDeclarationExpression(dec);
+			else
+			{
+				exp = new Expression(mScanner->mLocation, EX_TYPE);
+				exp->mDecValue = nullptr;
+				exp->mDecType = ParseTypeID(tid, dec);
+			}
+		}
 		else
 		{
 			exp = new Expression(mScanner->mLocation, EX_TYPE);
@@ -12264,6 +12274,31 @@ Expression* Parser::ParseStatement(void)
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_VOID);
 #endif
+			break;
+
+		case TK_INT:
+		case TK_SHORT:
+		case TK_LONG:
+		case TK_FLOAT:
+		case TK_CHAR:
+		case TK_BOOL:
+		case TK_VOID:
+		case TK_UNSIGNED:
+		case TK_SIGNED:
+		case TK_CONST:
+		case TK_VOLATILE:
+		case TK_STRUCT:
+		case TK_CLASS:
+		case TK_UNION:
+		case TK_ENUM:
+		case TK_STATIC:
+		case TK_AUTO:
+		case TK_STRIPED:
+		case TK_DECLTYPE:
+		case TK_MEMMAP:
+		case TK_TYPENAME:
+		case TK_EXTERN:
+			exp = CleanupExpression(ParseDeclarationExpression(nullptr));
 			break;
 
 		default:

@@ -229,8 +229,8 @@ void GlobalAnalyzer::AutoInline(void)
 						}
 						else if (invokes == 1 && f->mComplexity > 100)
 						{
-//							printf("CHECK INLINING2 %s <- %s %d\n", f->mIdent->mString, f->mCallers[0]->mIdent->mString, f->mCallers[0]->mCalled.Size());
-							if (cost < 0 || f->mCallers[0]->mComplexity + cost  < 1000 || f->mCallers[0]->mCalled.Size() == 1)
+//							printf("CHECK INLINING2 %s <- %s %d (%d + %d)\n", f->mIdent->mString, f->mCallers[0]->mIdent->mString, f->mCallers[0]->mCalled.Size(), f->mCallers[0]->mComplexity, cost);
+							if (cost < 0 || f->mCallers[0]->mComplexity + cost  < 2500 || f->mCallers[0]->mCalled.Size() == 1)
 								doinline = true;
 						}
 						else 

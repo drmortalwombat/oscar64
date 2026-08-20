@@ -132,6 +132,14 @@ void LinkerObject::AddOrigins(const ExpandingArray<CodeLocation>& locations)
 }
 
 
+int LinkerObject::at(int offset) const
+{
+	if (offset >= 0 && offset < mSize)
+		return mData[offset];
+	else
+		return 0;
+}
+
 void LinkerObject::EnsureSpace(int offset, int size)
 {
 	if (offset + size > mSize)

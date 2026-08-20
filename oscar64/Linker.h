@@ -230,6 +230,8 @@ public:
 	uint8* AddSpace(int size);
 	void EnsureSpace(int offset, int size);
 
+	int at(int offset) const;
+
 	GrowingArray<LinkerReference*>	mReferences;
 
 	LinkerReference* FindReference(int64 offset);

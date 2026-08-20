@@ -17419,6 +17419,20 @@ void NativeCodeBasicBlock::GlobalRegisterXMap(int reg)
 					ins.mType = ASMIT_NOP;
 					ins.mMode = ASMIM_IMPLIED;
 					break;
+				case ASMIT_ADC:
+				case ASMIT_ORA:
+				case ASMIT_AND:
+				case ASMIT_EOR:
+				{
+					assert(i > 0);
+					int j = i - 1;
+					if (j > 0 && mIns[j].mType == ASMIT_CLC)
+						j--;
+					assert(mIns[j].mType == ASMIT_LDA);
+					ins.CopyMode(mIns[j]);
+					mIns[j].mType = ASMIT_TXA;
+					mIns[j].mMode = ASMIM_IMPLIED;
+				}	break;
 				}
 			}
 		}
@@ -17464,6 +17478,20 @@ void NativeCodeBasicBlock::GlobalRegisterYMap(int reg)
 					ins.mType = ASMIT_NOP;
 					ins.mMode = ASMIM_IMPLIED;
 					break;
+				case ASMIT_ADC:
+				case ASMIT_ORA:
+				case ASMIT_AND:
+				case ASMIT_EOR:
+				{
+					assert(i > 0);
+					int j = i - 1;
+					if (j > 0 && mIns[j].mType == ASMIT_CLC)
+						j--;
+					assert(mIns[j].mType == ASMIT_LDA);
+					ins.CopyMode(mIns[j]);
+					mIns[j].mType = ASMIT_TYA;
+					mIns[j].mMode = ASMIM_IMPLIED;
+				}	break;
 				}
 			}
 		}
@@ -27250,6 +27278,54 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 						yregs[ins.mAddress] += 3 * iinc;
 					if (xregs[ins.mAddress] >= 0)
 						xregs[ins.mAddress] += 3 * iinc;
+					break;
+				case ASMIT_ADC:
+				case ASMIT_ORA:
+				case ASMIT_AND:
+				case ASMIT_EOR:
+					if (i > 0)
+					{
+						int j = i - 1;
+						if (j > 0 && mIns[j].mType == ASMIT_CLC)
+							j--;
+						if (mIns[j].mType == ASMIT_LDA)
+						{
+							if (mIns[j].mMode == ASMIM_INDIRECT_Y || mIns[j].mMode == ASMIM_ABSOLUTE_Y)
+							{
+								if (xregs[ins.mAddress] >= 0)
+									xregs[ins.mAddress] += iinc;
+								yregs[ins.mAddress + 0] = -1;
+							}
+							else if (mIns[j].mMode == ASMIM_ABSOLUTE_X)
+							{
+								if (yregs[ins.mAddress] >= 0)
+									yregs[ins.mAddress] += iinc;
+								xregs[ins.mAddress + 0] = -1;
+							}
+							else if (mIns[j].mMode == ASMIM_ABSOLUTE || mIns[j].mMode == ASMIM_IMMEDIATE || mIns[j].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[j].mMode == ASMIM_ZERO_PAGE)
+							{
+								if (xregs[ins.mAddress] >= 0)
+									xregs[ins.mAddress] += iinc;
+								if (yregs[ins.mAddress] >= 0)
+									yregs[ins.mAddress] += iinc;
+							}
+							else
+							{
+								xregs[ins.mAddress + 0] = -1;
+								yregs[ins.mAddress + 0] = -1;
+							}
+						}
+						else
+						{
+							xregs[ins.mAddress + 0] = -1;
+							yregs[ins.mAddress + 0] = -1;
+						}
+					}
+					else
+					{
+						xregs[ins.mAddress + 0] = -1;
+						yregs[ins.mAddress + 0] = -1;
+					}
 					break;
 				default:
 					xregs[ins.mAddress + 0] = -1;
@@ -48983,8 +49059,15 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		{
 			if (!prevBlock)
 				return OptimizeSimpleLoopInvariant(proc, full);
+
+			exitBlock->mEntryRequiredRegs += CPU_REG_X;
+			mExitRequiredRegs += CPU_REG_X;
+
 			exitBlock->mIns.Insert(0, mIns[ei]);
 			mIns.Remove(ei);
+
+			while (ei > mIns.Size())
+				mIns[ei++].mLive |= LIVE_CPU_REG_X;
 
 			CheckLive();
 
@@ -58024,7 +58107,44 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 #endif
 
-	
+
+	for (int i = 0; i < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0x00 && (mIns[i].mLive & LIVE_CPU_REG_Z))
+		{
+			int j = i - 1;
+			while (j >= 0 && !mIns[j].ReferencesAccu())
+				j--;
+			if (j >= 0)
+			{
+				if (mIns[j].mType == ASMIT_TXA && !ChangesXReg(j + 1, i))
+				{
+					mIns[i].mType = ASMIT_TXA;
+					mIns[i].mMode = ASMIM_IMPLIED;
+
+					mIns[j].mType = ASMIT_NOP;
+					while (j < i)
+						mIns[j++].mLive |= LIVE_CPU_REG_X;
+
+					changed = true;
+				}
+				else if (mIns[j].mType == ASMIT_TYA && !ChangesYReg(j + 1, i))
+				{
+					mIns[i].mType = ASMIT_TYA;
+					mIns[i].mMode = ASMIM_IMPLIED;
+
+					mIns[j].mType = ASMIT_NOP;
+					while (j < i)
+						mIns[j++].mLive |= LIVE_CPU_REG_Y;
+
+					changed = true;
+				}
+			}
+		}
+	}
+
+	CheckLive();
+
 #if 1
 	for (int i = 0; i + 1 < mIns.Size(); i++)
 	{

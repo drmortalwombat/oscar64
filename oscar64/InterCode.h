@@ -269,7 +269,7 @@ public:
 class InterVariable
 {
 public:
-	bool							mUsed, mAliased, mTemp, mNotAliased;
+	bool							mUsed, mAliased, mTemp, mNotAliased, mSingleAssigned, mAssigned;
 	int								mIndex, mSize, mOffset, mAlignment, mTempIndex, mByteIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
@@ -277,7 +277,7 @@ public:
 	Declaration					*	mDeclaration;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mTemp(false), mNotAliased(false), mIndex(-1), mSize(0), mOffset(0), mAlignment(1), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
+		: mUsed(false), mAliased(false), mTemp(false), mNotAliased(false), mSingleAssigned(false), mAssigned(false), mIndex(-1), mSize(0), mOffset(0), mAlignment(1), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
 	{
 	}
 };
@@ -465,6 +465,7 @@ public:
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int & nlocals, int & nparams);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 	void RecheckLocalAliased(void);
+	void CopyLocalSingleAssignedConstants(GrowingInstructionPtrArray& localTable);
 
 	void CollectLocalUsedTemps(int numTemps);
 	bool PropagateNonLocalUsedConstTemps(void);

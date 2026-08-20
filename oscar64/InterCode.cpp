@@ -2291,8 +2291,6 @@ InterOperand InterCodeBasicBlock::LoadConstantOperand(const InterInstruction* in
 
 void InterCodeBasicBlock::LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray&staticProcs)
 {
-	const uint8* data;
-
 	LinkerObject	*	lobj;
 	int					offset, stride;
 
@@ -2310,83 +2308,72 @@ void InterCodeBasicBlock::LoadConstantFold(InterInstruction* ins, InterInstructi
 	}
 
 	
-	if (offset >= 0 && offset + stride * (InterTypeSize[ins->mDst.mType] - 1) < lobj->mSize)
+	if (offset < 0 || offset + stride * (InterTypeSize[ins->mDst.mType] - 1) >= lobj->mSize)
+		mProc->mModule->mErrors->Error(ins->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant index out of bounds");
+
+	switch (ins->mDst.mType)
 	{
-		data = lobj->mData + offset;
-
-		switch (ins->mDst.mType)
+	case IT_BOOL:
+		ins->mConst.mIntConst = lobj->at(offset + 0 * stride) ? 1 : 0;
+	case IT_INT8:
+		ins->mConst.mIntConst = lobj->at(offset + 0 * stride);
+		break;
+	case IT_INT16:
+		ins->mConst.mIntConst = lobj->at(offset + 0 * stride) | (lobj->at(offset + 1 * stride) << 8);
+		break;
+	case IT_POINTER:
+	{
+		int i = 0;
+		while (i < lobj->mReferences.Size() && lobj->mReferences[i]->mOffset != offset)
+			i++;
+		if (i < lobj->mReferences.Size())
 		{
-		case IT_BOOL:
-			ins->mConst.mIntConst = data[0] ? 1 : 0;
-		case IT_INT8:
-			ins->mConst.mIntConst = data[0];
-			break;
-		case IT_INT16:
-			ins->mConst.mIntConst = (int)data[0 * stride] | ((int)data[1 * stride] << 8);
-			break;
-		case IT_POINTER:
-		{
-			int i = 0;
-			while (i < lobj->mReferences.Size() && lobj->mReferences[i]->mOffset != offset)
-				i++;
-			if (i < lobj->mReferences.Size())
+			int j = 0;
+			while (j < staticVars.Size() && !(staticVars[j] && staticVars[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
+				j++;
+			if (j < staticVars.Size())
 			{
-				int j = 0;
-				while (j < staticVars.Size() && !(staticVars[j] && staticVars[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
-					j++;
-				if (j < staticVars.Size())
-				{
-					ins->mConst.mMemory = IM_GLOBAL;
-					ins->mConst.mVarIndex = staticVars[j]->mIndex;
-				}
-				else
-				{
-					j = 0;
-					while (j < staticProcs.Size() && !(staticProcs[j] && staticProcs[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
-						j++;
-
-					if (j < staticProcs.Size())
-					{
-						ins->mConst.mMemory = IM_PROCEDURE;
-						ins->mConst.mVarIndex = staticProcs[j]->mID;
-					}
-					else
-					{
-						ins->mConst.mMemory = IM_GLOBAL;
-						ins->mConst.mVarIndex = -1;
-					}
-				}
-
-				ins->mConst.mLinkerObject = lobj->mReferences[i]->mRefObject;
-				ins->mConst.mIntConst = lobj->mReferences[i]->mRefOffset;
-				ins->mConst.mOperandSize = ins->mConst.mLinkerObject->mSize;
+				ins->mConst.mMemory = IM_GLOBAL;
+				ins->mConst.mVarIndex = staticVars[j]->mIndex;
 			}
 			else
 			{
-				ins->mConst.mIntConst = (int)data[0 * stride] | ((int)data[1 * stride] << 8);
-				ins->mConst.mMemory = IM_ABSOLUTE;
+				j = 0;
+				while (j < staticProcs.Size() && !(staticProcs[j] && staticProcs[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
+					j++;
+
+				if (j < staticProcs.Size())
+				{
+					ins->mConst.mMemory = IM_PROCEDURE;
+					ins->mConst.mVarIndex = staticProcs[j]->mID;
+				}
+				else
+				{
+					ins->mConst.mMemory = IM_GLOBAL;
+					ins->mConst.mVarIndex = -1;
+				}
 			}
 
-		} break;
-		case IT_INT32:
-			ins->mConst.mIntConst = (int)data[0 * stride] | ((int)data[1 * stride] << 8) | ((int)data[2 * stride] << 16) | ((int)data[3 * stride] << 24);
-			break;
-		case IT_FLOAT:
-		{
-			union { float f; unsigned int v; } cc;
-			cc.v = (int)data[0 * stride] | (data[1 * stride] << 8) | (data[2 * stride] << 16) | (data[3 * stride] << 24);
-			ins->mConst.mFloatConst = cc.f;
-		} break;
+			ins->mConst.mLinkerObject = lobj->mReferences[i]->mRefObject;
+			ins->mConst.mIntConst = lobj->mReferences[i]->mRefOffset;
+			ins->mConst.mOperandSize = ins->mConst.mLinkerObject->mSize;
 		}
-	}
-	else
-	{
-		ins->mConst.mIntConst = 0;
-		ins->mConst.mFloatConst = 0;
-		ins->mConst.mMemory = IM_ABSOLUTE;
-		ins->mConst.mLinkerObject = nullptr;
+		else
+		{
+			ins->mConst.mIntConst = lobj->at(offset + 0 * stride) | (lobj->at(offset + 1 * stride) << 8);
+			ins->mConst.mMemory = IM_ABSOLUTE;
+		}
 
-		mProc->mModule->mErrors->Error(ins->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant index out of bounds");
+	} break;
+	case IT_INT32:
+		ins->mConst.mIntConst = lobj->at(offset + 0 * stride) | (lobj->at(offset + 1 * stride) << 8) | (lobj->at(offset + 2 * stride) << 16) | (lobj->at(offset + 3 * stride) << 24);
+		break;
+	case IT_FLOAT:
+	{
+		union { float f; unsigned int v; } cc;
+		cc.v = lobj->at(offset + 0 * stride) | (lobj->at(offset + 1 * stride) << 8) | (lobj->at(offset + 2 * stride) << 16) | (lobj->at(offset + 3 * stride) << 24);
+		ins->mConst.mFloatConst = cc.f;
+	} break;
 	}
 
 	ins->mCode = IC_CONSTANT;
@@ -6298,7 +6285,7 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 		else if (mMemory == IM_INDIRECT && mMemoryBase != IM_INDIRECT && mMemoryBase != IM_NONE)
 		{
 			const char* vname = "";
-			bool	aliased = false;
+			bool	aliased = false, singleAssignment = false;
 
 			if (mMemoryBase == IM_LOCAL)
 			{
@@ -6308,11 +6295,13 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 				{
 					vname = "";
 					aliased = proc->mLocalVars[mVarIndex]->mAliased;
+					singleAssignment = proc->mLocalVars[mVarIndex]->mSingleAssigned;
 				}
 				else
 				{
 					vname = proc->mLocalVars[mVarIndex]->mIdent->mString;
 					aliased = proc->mLocalVars[mVarIndex]->mAliased;
+					singleAssignment = proc->mLocalVars[mVarIndex]->mSingleAssigned;
 				}
 			}
 			else if (mMemoryBase == IM_PROCEDURE)
@@ -6337,11 +6326,13 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 				{
 					vname = "";
 					aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+					singleAssignment = proc->mModule->mGlobalVars[mVarIndex]->mSingleAssigned;
 				}
 				else
 				{
 					vname = proc->mModule->mGlobalVars[mVarIndex]->mIdent->mString;
 					aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+					singleAssignment = proc->mModule->mGlobalVars[mVarIndex]->mSingleAssigned;
 				}
 			}
 			else if (mMemoryBase == IM_ABSOLUTE)
@@ -6349,10 +6340,20 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 				vname = "ABS";
 			}
 
-			if (aliased)
-				fprintf(file, " {V(%d '%s' A)} ", mVarIndex, vname);
+			if (singleAssignment)
+			{
+				if (aliased)
+					fprintf(file, " {V(%d '%s' SA)} ", mVarIndex, vname);
+				else
+					fprintf(file, " {V(%d '%s' S)} ", mVarIndex, vname);
+			}
 			else
-				fprintf(file, " {V(%d '%s')} ", mVarIndex, vname);
+			{
+				if (aliased)
+					fprintf(file, " {V(%d '%s' A)} ", mVarIndex, vname);
+				else
+					fprintf(file, " {V(%d '%s')} ", mVarIndex, vname);
+			}
 		}
 
 		if (mRange.mMinState >= IntegerValueRange::S_WEAK || mRange.mMaxState >= IntegerValueRange::S_WEAK)
@@ -6377,7 +6378,7 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 	else if (mType == IT_POINTER)
 	{
 		const char* vname = "";
-		bool	aliased = false;
+		bool	aliased = false, singleAssignment = false;
 
 		if (mMemory == IM_LOCAL)
 		{
@@ -6387,11 +6388,13 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 			{
 				vname = "";
 				aliased = proc->mLocalVars[mVarIndex]->mAliased;
+				singleAssignment = proc->mLocalVars[mVarIndex]->mSingleAssigned;
 			}
 			else
 			{
 				vname = proc->mLocalVars[mVarIndex]->mIdent->mString;
 				aliased = proc->mLocalVars[mVarIndex]->mAliased;
+				singleAssignment = proc->mLocalVars[mVarIndex]->mSingleAssigned;
 			}
 		}
 		else if (mMemory == IM_PROCEDURE)
@@ -6416,18 +6419,30 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 			{
 				vname = "";
 				aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+				singleAssignment = proc->mModule->mGlobalVars[mVarIndex]->mSingleAssigned;
 			}
 			else
 			{
 				vname = proc->mModule->mGlobalVars[mVarIndex]->mIdent->mString;
 				aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+				singleAssignment = proc->mModule->mGlobalVars[mVarIndex]->mSingleAssigned;
 			}
 		}
-		
-		if (aliased)
-			fprintf(file, "V(%d '%s' A)+%d ", mVarIndex, vname, int(mIntConst));
+
+		if (singleAssignment)
+		{
+			if (aliased)
+				fprintf(file, "V(%d '%s' SA)+%d ", mVarIndex, vname, int(mIntConst));
+			else
+				fprintf(file, "V(%d '%s' S)+%d ", mVarIndex, vname, int(mIntConst));
+		}
 		else
-			fprintf(file, "V(%d '%s')+%d ", mVarIndex, vname, int(mIntConst));
+		{
+			if (aliased)
+				fprintf(file, "V(%d '%s' A)+%d ", mVarIndex, vname, int(mIntConst));
+			else
+				fprintf(file, "V(%d '%s')+%d ", mVarIndex, vname, int(mIntConst));
+		}
 	}
 	else if (IsIntegerType(mType) || mType == IT_BOOL)
 	{
@@ -7968,6 +7983,77 @@ void InterCodeBasicBlock::CollectLocalAddressTemps(GrowingIntArray& localTable, 
 	}
 }
 
+void InterCodeBasicBlock::CopyLocalSingleAssignedConstants(GrowingInstructionPtrArray& localTable)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_LEA || ins->mCode == IC_STORE)
+			{
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_LOCAL)
+				{
+					InterInstruction* cins = localTable[ins->mSrc[1].mVarIndex];
+					if (cins)
+					{
+						ins->mSrc[1].mIntConst += cins->mSrc[0].mIntConst;
+						ins->mSrc[1].mMemory = cins->mSrc[0].mMemory;
+						ins->mSrc[1].mMemoryBase = cins->mSrc[0].mMemoryBase;
+						ins->mSrc[1].mVarIndex = cins->mSrc[0].mVarIndex;
+						ins->mSrc[1].mLinkerObject = cins->mSrc[0].mLinkerObject;
+					}
+				}
+			}
+			else if (ins->mCode == IC_LOAD || ins->mCode == IC_COPY)
+			{
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_LOCAL)
+				{
+					InterInstruction* cins = localTable[ins->mSrc[0].mVarIndex];
+					if (cins)
+					{
+						ins->mSrc[0].mIntConst += cins->mSrc[0].mIntConst;
+						ins->mSrc[0].mMemory = cins->mSrc[0].mMemory;
+						ins->mSrc[0].mMemoryBase = cins->mSrc[0].mMemoryBase;
+						ins->mSrc[0].mVarIndex = cins->mSrc[0].mVarIndex;
+						ins->mSrc[0].mLinkerObject = cins->mSrc[0].mLinkerObject;
+					}
+				}
+			}
+			else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER)
+			{
+				if (ins->mConst.mMemory == IM_LOCAL)
+				{
+					InterInstruction* cins = localTable[ins->mConst.mVarIndex];
+					if (cins)
+					{
+						ins->mConst.mIntConst += cins->mSrc[0].mIntConst;
+						ins->mConst.mMemory = cins->mSrc[0].mMemory;
+						ins->mConst.mMemoryBase = cins->mSrc[0].mMemoryBase;
+						ins->mConst.mVarIndex = cins->mSrc[0].mVarIndex;
+						ins->mConst.mLinkerObject = cins->mSrc[0].mLinkerObject;
+					}
+				}
+			}
+			
+			if (ins->mCode == IC_COPY)
+			{
+				if (ins->mSrc[1].mMemory == IM_LOCAL && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mLinkerObject && (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
+				{
+					InterVariable * v = mProc->mLocalVars[ins->mSrc[1].mVarIndex];
+					if (v && v->mSingleAssigned)
+						localTable[ins->mSrc[1].mVarIndex] = ins;
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CopyLocalSingleAssignedConstants(localTable);
+		if (mFalseJump) mFalseJump->CopyLocalSingleAssignedConstants(localTable);
+	}
+}
+
 void InterCodeBasicBlock::RecheckLocalAliased(void)
 {
 	if (!mVisited)
@@ -7978,6 +8064,8 @@ void InterCodeBasicBlock::RecheckLocalAliased(void)
 		{
 			InterVariable* v = nullptr;
 
+			bool	reading = false, aliased = false;
+
 			InterInstruction* ins = mInstructions[i];
 			if (ins->mCode == IC_LEA)
 			{
@@ -7987,6 +8075,9 @@ void InterCodeBasicBlock::RecheckLocalAliased(void)
 						v = mProc->mLocalVars[ins->mSrc[1].mVarIndex];
 					else if (ins->mSrc[1].mMemory == IM_PARAM || ins->mSrc[1].mMemory == IM_FPARAM)
 						v = mProc->mParamVars[ins->mSrc[1].mVarIndex];
+					if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+						reading = true;
+					aliased = true;
 				}
 			}
 			else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER)
@@ -7995,12 +8086,28 @@ void InterCodeBasicBlock::RecheckLocalAliased(void)
 					v = mProc->mLocalVars[ins->mConst.mVarIndex];
 				else if (ins->mConst.mMemory == IM_PARAM || ins->mConst.mMemory == IM_FPARAM)
 					v = mProc->mParamVars[ins->mConst.mVarIndex];
+				aliased = true;
+			}
+			else if ((ins->mCode == IC_STORE || ins->mCode == IC_COPY || ins->mCode == IC_FILL || ins->mCode == IC_STRCPY) && ins->mSrc[1].mTemp < 0)
+			{
+				if (ins->mSrc[1].mMemory == IM_LOCAL)
+					v = mProc->mLocalVars[ins->mSrc[1].mVarIndex];
 			}
 
 			if (v)
 			{
-				if (!v->mNotAliased)
+				if (aliased && !v->mNotAliased)
 					v->mAliased = true;
+
+				if (!reading)
+				{
+					if (v->mAssigned)
+						v->mSingleAssigned = false;
+					else
+						v->mSingleAssigned = true;
+
+					v->mAssigned = true;
+				}
 			}
 		}
 
@@ -19940,7 +20047,8 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 										ci->mOperator == IA_CMPNE && eblock->mTrueJump == this ||
 										ci->mOperator == IA_CMPGU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0 ||
 										ci->mOperator == IA_CMPLU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 ||
-										ci->mOperator == IA_CMPLEU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0)
+										ci->mOperator == IA_CMPLEU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 ||
+										ci->mOperator == IA_CMPGES && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0)
 									{
 										if (ci->mSrc[0].mTemp < 0)
 											lc.mEnd = ci->mSrc[0].mIntConst;
@@ -20090,7 +20198,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 							int64	end = lcs[k].mEnd;
 							int64	step = lcs[k].mStep;
 
-							if (lcs[k].mCmp->mOperator == IA_CMPLEU)
+							if (lcs[k].mCmp->mOperator == IA_CMPLEU || lcs[k].mCmp->mOperator == IA_CMPGES)
 								end += step;
 
 							if (step > 0 && end > start || step < 0 && end < start)
@@ -20142,7 +20250,12 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 									lcs[k].mCmp->mSrc[ti] = lcs[j].mInc->mDst;
 									lcs[k].mCmp->mSrc[ci] = lcs[j].mInit->mConst;
 									lcs[k].mCmp->mSrc[ci].mIntConst += loop * lcs[j].mStep;
-									if (lcs[k].mCmp->mOperator == IA_CMPGU || lcs[k].mCmp->mOperator == IA_CMPLEU)
+									if (lcs[j].mStep < 0 && lcs[k].mCmp->mSrc[ci].mIntConst == lcs[j].mStep && (lcs[j].mInit->mConst.mIntConst < SignedTypeMax(lcs[j].mInc->mDst.mType)))
+									{
+										lcs[k].mCmp->mSrc[ci].mIntConst = 0;
+										lcs[k].mCmp->mOperator = IA_CMPGES;
+									}
+									else if (lcs[k].mCmp->mOperator == IA_CMPGU || lcs[k].mCmp->mOperator == IA_CMPLEU || lcs[k].mCmp->mOperator == IA_CMPGES)
 										lcs[k].mCmp->mOperator = IA_CMPNE;
 
 									InterInstruction* iins = lcs[k].mInit->Clone();
@@ -28933,7 +29046,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "case_b");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -29124,6 +29237,15 @@ void InterCodeProcedure::Close(void)
 			mLocalVars[i]->mAliased = true;
 
 	RecheckLocalAliased();
+
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
+		GrowingInstructionPtrArray	localTable(nullptr);
+		ResetVisited();
+		mEntryBlock->CopyLocalSingleAssignedConstants(localTable);
+	}
+
+	DisassembleDebug("CopyLocalSingleAssignedConstants");
 
 	BuildDataFlowSets();
 
@@ -30874,6 +30996,7 @@ void InterCodeProcedure::RecheckLocalAliased(void)
 				v->mAliased = false;
 			else
 				v->mNotAliased = true;
+			v->mAssigned = v->mSingleAssigned = false;
 		}
 	}
 	for (int i = 0; i < mParamVars.Size(); i++)
@@ -30885,6 +31008,7 @@ void InterCodeProcedure::RecheckLocalAliased(void)
 				v->mAliased = false;
 			else
 				v->mNotAliased = true;
+			v->mAssigned = v->mSingleAssigned = false;
 		}
 	}
 	ResetVisited();
