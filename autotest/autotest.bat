@@ -339,6 +339,9 @@ rem @echo off
 @call :test calleroffsettest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testn bitfieldstructinittest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error

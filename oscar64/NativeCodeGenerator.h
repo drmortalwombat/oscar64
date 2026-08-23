@@ -278,6 +278,7 @@ public:
 	bool IsLoad(void) const;
 	bool IsLogic(void) const;
 	bool IsArithmetic(void) const;
+	bool IsCompare(void) const;
 	bool IsAddSub(void) const;
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
@@ -714,7 +715,9 @@ public:
 	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final);
 	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
-	bool ReverseBitfieldForwarding(void);
+	bool ReverseBitFieldForwarding(void);
+	int FindReverseBitFieldMask(int at, int xat, int yat);
+	bool ReverseBitFieldInvalidating(void);
 	bool OffsetValueForwarding(const ValueNumberingDataSet & data);
 	bool AbsoluteValueForwarding(const ExpandingArray<NativeCodeLoadStorePair>& npairs);
 	bool IndexXYValueForwarding(int xreg, int xoffset, int xvalue, int yreg, int yoffset, int yvalue);
@@ -761,6 +764,8 @@ public:
 	bool MayBeMovedBeforeBlock(int start, int end);
 	bool SafeInjectSequenceFromBack(NativeCodeBasicBlock* block, int start, int end);
 	bool JoinCommonBranchCodeSequences(void);
+
+	bool JoinCommonBranchBlocks(void);
 
 	bool JoinConditionSequence(void);
 
