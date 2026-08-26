@@ -53,6 +53,89 @@ int NativeCodeMapper::MapInstruction(const NativeCodeInstruction& ins, LinkerSec
 	return n->mIndex;
 }
 
+NativeCodeLoopMapper::NativeCodeLoopMapper(void)
+{
+	for (int i = 0; i < HashSize; i++)
+		mHash[i] = nullptr;
+}
+
+NativeCodeLoopMapper::~NativeCodeLoopMapper(void)
+{
+	Reset();
+}
+
+void NativeCodeLoopMapper::Reset(void)
+{
+	for (int i = 0; i < HashSize; i++)
+	{
+		LoopNode* n = mHash[i];
+		while (n)
+		{
+			LoopNode* nn = n->mNext;
+			delete n;
+			n = nn;
+		}
+		mHash[i] = nullptr;
+	}
+}
+
+bool NativeCodeLoopMapper::MapBasicBlock(NativeCodeBasicBlock* block, LinkerSection* ls)
+{
+	uint32	hash = 0;
+	int		size = 2;
+	for (int i = 0; i < block->mIns.Size(); i++)
+	{
+		hash = hash * 17 + block->mIns[i].CodeHash();
+		size += AsmInsModeSize[block->mIns[i].mMode];
+	}
+	hash %= HashSize;
+
+	AsmInsType loopBranch = block->mTrueJump == block ? block->mBranch : InvertBranchCondition(block->mBranch);
+
+	LoopNode* n = mHash[hash];
+	while (n)
+	{
+		NativeCodeBasicBlock* nb = n->mLoops[0];
+		if (block->mIns.Size() == nb->mIns.Size() && loopBranch == n->mLoopBranch && ls == n->mSection && size == n->mSize)
+		{
+			int k = 0;
+			while (k < block->mIns.Size() && block->mIns[k].CodeSame(nb->mIns[k]))
+				k++;
+			if (k == block->mIns.Size())
+			{
+				n->mLoops.Push(block);
+				return true;
+			}
+		}
+		n = n->mNext;
+	}
+
+	n = new LoopNode();
+	n->mSection = ls;
+	n->mSize = size;
+	n->mLoopBranch = loopBranch;
+	n->mLoops.Push(block);
+	n->mNext = mHash[hash];
+	mHash[hash] = n;
+	return true;
+}
+
+void NativeCodeLoopMapper::GetLoopMatches(ExpandingArray<LoopNode*>& loopNodes)
+{
+	for (int i = 0; i < HashSize; i++)
+	{
+		LoopNode* n = mHash[i];
+		while (n)
+		{
+			if (n->mLoops.Size() > 1 && n->mSize >= 4 && (n->mLoops.Size() - 1) * (n->mSize - 3) >= 3)
+				loopNodes.Push(n);
+			n = n->mNext;
+		}
+	}
+}
+
+
+
 SuffixTree::SuffixTree(const int* str, int s, SuffixTree* n)
 {
 	mSeg = str;
@@ -185,11 +268,18 @@ int SuffixTree::LongestMatch(NativeCodeMapper& map, int size, int isize, int& ms
 	{
 		isize += mSize;
 
+		int bonus = 0;
+		int last = 0;
 		for (int i = 0; i < mSize; i++)
 		{
 			if (mSeg[i] >= 0)
+			{
 				size += AsmInsModeSize[map.mIns[mSeg[i]].mMode];
+				last = mSeg[i];
+			}
 		}
+		if (map.mIns[last].mType == ASMIT_JSR && map.mIns[last].mLinkerObject)
+			bonus = 2;
 
 		assert(size < 10000);
 
@@ -204,7 +294,7 @@ int SuffixTree::LongestMatch(NativeCodeMapper& map, int size, int isize, int& ms
 			}
 		}
 
-		if (size >= 6 && (size - 3) * (cnt - 1) > msize)
+		if (size >= 6 && (size + bonus - 3) * (cnt - 1) > msize)
 		{
 			// Second run to cross check for overlaps
 			ExpandingArray<SuffixSegment>	segs;
@@ -227,9 +317,9 @@ int SuffixTree::LongestMatch(NativeCodeMapper& map, int size, int isize, int& ms
 					cnt--;
 			}
 
-			if (cnt > 1 && (size - 3) * (cnt - 1) > msize)
+			if (cnt > 1 && (size + bonus - 3) * (cnt - 1) > msize)
 			{
-				msize = (size - 3) * (cnt - 1);
+				msize = (size + bonus - 3) * (cnt - 1);
 				mtree = this;
 			}
 		}
@@ -254,7 +344,7 @@ void SuffixTree::Print(FILE * file, NativeCodeMapper& map, int depth)
 		else
 		{
 			NativeCodeBasicBlock* block = map.mBlocks[- (mSeg[i] + 1)];
-			fprintf(file, "%s,%d", block->mProc->mInterProc->mIdent->mString, block->mIndex);
+			fprintf(file, "%s,%d", block->mProc->mIdent->mString, block->mIndex);
 		}
 		fprintf(file, "]");
 	}

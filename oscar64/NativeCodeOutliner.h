@@ -29,6 +29,32 @@ protected:
 	InsNode							*		mHash[HashSize];
 };
 
+class NativeCodeLoopMapper
+{
+public:
+	NativeCodeLoopMapper(void);
+	~NativeCodeLoopMapper(void);
+
+	void Reset(void);
+	bool MapBasicBlock(NativeCodeBasicBlock* block, LinkerSection* ls);
+
+	struct LoopNode
+	{
+		LinkerSection* mSection;
+		LoopNode* mNext;
+		AsmInsType								mLoopBranch;
+		ExpandingArray<NativeCodeBasicBlock*>	mLoops;
+		int										mSize;
+	};
+
+	void GetLoopMatches(ExpandingArray<LoopNode*>& loopNodes);
+
+protected:
+	static const int HashSize = 256;
+
+	LoopNode* mHash[HashSize];
+};
+
 struct SuffixSegment
 {
 	NativeCodeBasicBlock	*	mBlock;

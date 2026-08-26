@@ -11,6 +11,9 @@ class NativeCodeInstruction;
 
 class NativeCodeMapper;
 class SuffixTree;
+class NativeCodeLoopMapper;
+
+AsmInsType InvertBranchCondition(AsmInsType code);
 
 enum NativeRegisterDataMode : uint8
 {
@@ -974,6 +977,9 @@ public:
 	bool JoinSameBranch(NativeCodeBasicBlock* block);
 	bool MergeSameBranch(void);
 
+	bool MoveCallingParamDown(int at);
+	bool MoveCallingParamsDown(void);
+
 	bool FinalCheckedSizeReduction(void);
 
 	bool CheckBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
@@ -1088,6 +1094,10 @@ public:
 	int mSuffixStringLength;
 	int* mSuffixString;
 	void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree * tree);
+	void AddToLoopMapper(NativeCodeLoopMapper& mapper);
+	void CountCallUsage(void);
+	void RegisterCallUsage(void);
+
 
 };
 
@@ -1110,8 +1120,9 @@ class NativeCodeProcedure
 
 		int		mProgStart, mProgSize, mIndex, mFrameOffset, mStackExpand;
 		int		mFastCallBase;
-		bool	mNoFrame, mSimpleInline;
+		bool	mNoFrame, mSimpleInline, mAssembled, mAsmInline;
 		int		mTempBlocks;
+		int		mUseCount;
 
 		ExpandingArray<LinkerReference>	mRelocations;
 		ExpandingArray< NativeCodeBasicBlock*>	 mBlocks;
@@ -1127,6 +1138,7 @@ class NativeCodeProcedure
 		void Assemble(void);
 
 		void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree* tree);
+		void AddToLoopMapper(NativeCodeLoopMapper& mapper);
 
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 		NativeCodeBasicBlock* AllocateBlock(void);
@@ -1145,6 +1157,8 @@ class NativeCodeProcedure
 		void ResetIndexFlipped(void);
 		void CheckBlocks(bool sequence = false);
 		void TrimBlocks(void);
+
+		void CountCallUsage(void);
 
 		void SaveTempsToStack(int tempSave);
 		void LoadTempsFromStack(int tempSave);

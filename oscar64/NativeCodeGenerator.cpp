@@ -5543,17 +5543,42 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 		block->mRelocations.Push(rl);
 		block->PutByte(0xEA);
 	}
-	else if (mType == ASMIT_JSR && mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE))
+	else if ((mType == ASMIT_JSR || mType == ASMIT_JMP) && mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE))
 	{
+		if (mLinkerObject->mNativeProc && !mLinkerObject->mNativeProc->mAssembled)
+		{
+			// Ensure embedded function is assembled
+			mLinkerObject->mNativeProc->Assemble();
+		}
+#if 0
+		if (mLinkerObject->mIdent)
+			printf("Outinline %s:%d -> %s\n", block->mProc->mIdent->mString, block->mIndex, mLinkerObject->mIdent->mString);
+#endif
 		int	pos = block->mCode.Size();
 		int size = mLinkerObject->mSize;
+		bool	jump = false;
 
-		// skip RTS on embedding
-		if (mLinkerObject->mData[size - 1] == 0x60)
-			size--;
+		if (mType == ASMIT_JSR)
+		{
+			// skip RTS on embedding
+			if (mLinkerObject->mData[size - 1] == 0x60)
+				size--;
+			else if (mLinkerObject->mData[size - 3] == 0x4c)
+			{
+				size -= 3;
+				jump = true;
+			}
+		}
 
 		for (int i = 0; i < size; i++)
 			block->PutByte(mLinkerObject->mData[i]);
+		if (jump)
+		{
+			block->PutByte(0x20);
+			for (int i = 1; i < 3; i++)
+				block->PutByte(mLinkerObject->mData[size + i]);
+		}
+
 		for (int i = 0; i < mLinkerObject->mReferences.Size(); i++)
 		{
 			LinkerReference	rl = *(mLinkerObject->mReferences[i]);
@@ -5796,7 +5821,7 @@ void NativeCodeBasicBlock::PutWord(uint16 code)
 	this->mCode.Push((uint8)(code >> 8));
 }
 
-static AsmInsType InvertBranchCondition(AsmInsType code)
+AsmInsType InvertBranchCondition(AsmInsType code)
 {
 	switch (code)
 	{
@@ -37305,6 +37330,69 @@ bool NativeCodeBasicBlock::JoinSameBranch(NativeCodeBasicBlock* block)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::MoveCallingParamDown(int at)
+{
+	int i = at + 2;
+	int k = -1;
+	while (i < mIns.Size())
+	{
+		if (mIns[at].MayBeChangedOnAddress(mIns[i]))
+			break;
+		if (mIns[i].MayReference(mIns[at + 1]))
+			break;
+		if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress >= BC_REG_FPARAMS && mIns[i].mAddress < BC_REG_FPARAMS_END && mIns[i].ChangesAddress())
+			break;
+
+		if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+				;
+			else
+				k = i + 1;
+		}
+
+		i++;
+	}
+
+	if (k > at + 2)
+	{
+		mIns.Insert(k, mIns[at]);
+		mIns.Insert(k + 1, mIns[at + 1]);
+		mIns.Remove(at, 2);
+		return true;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::MoveCallingParamsDown(void) 
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int i = mIns.Size() - 2;
+		while (i >= 0)
+		{
+			if (mIns[i].mType == ASMIT_LDA && (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i].mMode == ASMIM_ABSOLUTE || mIns[i].mMode == ASMIM_ZERO_PAGE) &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				!mIns[i + 1].mLinkerObject && mIns[i + 1].mAddress >= BC_REG_FPARAMS && mIns[i + 1].mAddress < BC_REG_FPARAMS_END &&
+				!(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				if (MoveCallingParamDown(i))
+					changed = true;
+			}
+			i--;
+		}
+
+		if (mTrueJump && mTrueJump->MoveCallingParamsDown()) changed = true;
+		if (mFalseJump && mFalseJump->MoveCallingParamsDown()) changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 {
 	bool	changed = false;
@@ -68054,6 +68142,43 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 	return false;
 }
 
+void NativeCodeBasicBlock::AddToLoopMapper(NativeCodeLoopMapper& mapper)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && (mTrueJump == this || mFalseJump == this))
+		{
+			mapper.MapBasicBlock(this, mProc->mLinkerObject->mSection);
+		}
+
+		if (mTrueJump) mTrueJump->AddToLoopMapper(mapper);
+		if (mFalseJump) mFalseJump->AddToLoopMapper(mapper);
+	}
+}
+
+void NativeCodeBasicBlock::CountCallUsage(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if ((mIns[i].mType == ASMIT_JSR || mIns[i].mType == ASMIT_JMP) && mIns[i].mLinkerObject && mIns[i].mLinkerObject->mNativeProc)
+			{
+//				printf("Count %s -> %s\n", mProc->mIdent->mString, mIns[i].mLinkerObject->mNativeProc->mIdent->mString);
+
+				mIns[i].mLinkerObject->mNativeProc->CountCallUsage();
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CountCallUsage();
+		if (mFalseJump) mFalseJump->CountCallUsage();
+	}
+}
+
 void NativeCodeBasicBlock::AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree * tree)
 {
 	if (!mVisited)
@@ -68902,7 +69027,7 @@ NativeCodeBasicBlock::~NativeCodeBasicBlock(void)
 }
 
 NativeCodeProcedure::NativeCodeProcedure(NativeCodeGenerator* generator)
-	: mGenerator(generator), mSimpleInline(false)
+	: mGenerator(generator), mSimpleInline(false), mAssembled(false), mAsmInline(false)
 {
 	mTempBlocks = 1000;
 }
@@ -68954,6 +69079,12 @@ void NativeCodeProcedure::Disassemble(FILE* file)
 
 	ResetVisited();
 	mEntryBlock->Disassemble(file);
+}
+
+void NativeCodeProcedure::AddToLoopMapper(NativeCodeLoopMapper& mapper)
+{
+	ResetVisited();
+	mEntryBlock->AddToLoopMapper(mapper);
 }
 
 void NativeCodeProcedure::AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree* tree)
@@ -69815,6 +69946,11 @@ void NativeCodeProcedure::MergeCalls(void)
 
 void NativeCodeProcedure::Assemble(void)
 {
+	if (mAssembled)
+		return;
+
+	mAssembled = true;
+
 	CheckFunc = !strcmp(mIdent->mString, "cwin_edit_char");
 
 	mEntryBlock->Assemble();
@@ -71744,6 +71880,9 @@ void NativeCodeProcedure::Optimize(void)
 	}
 
 	ResetVisited();
+	mEntryBlock->MoveCallingParamsDown();
+
+	ResetVisited();
 	if (mEntryBlock->FinalCheckedSizeReduction())
 	{
 		BuildDataFlowSets();
@@ -71856,6 +71995,17 @@ void NativeCodeProcedure::TrimBlocks(void)
 	}
 	mBlocks.SetSize(j, false);
 }
+
+void NativeCodeProcedure::CountCallUsage(void)
+{
+	mUseCount++;
+	if (mUseCount == 1)
+	{
+		ResetVisited();
+		mEntryBlock->CountCallUsage();
+	}
+}
+
 
 NativeCodeBasicBlock* NativeCodeProcedure::CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* sblock)
 {
@@ -73154,9 +73304,74 @@ void NativeCodeGenerator::OutlineFunctions(void)
 
 	bool	progress;
 
-	int k = 0;
-
 	int numOutlines = 0;
+
+
+	NativeCodeLoopMapper	lmapper;
+	for (int i = 0; i < mProcedures.Size(); i++)
+	{
+		if ((mProcedures[i]->mCompilerOptions & COPT_OPTIMIZE_OUTLINE))
+			mProcedures[i]->AddToLoopMapper(lmapper);
+	}
+
+	ExpandingArray<NativeCodeLoopMapper::LoopNode*> loopNodes;
+	ExpandingArray<NativeCodeProcedure* > loopProcs;
+
+	lmapper.GetLoopMatches(loopNodes);
+	for (int i = 0; i < loopNodes.Size(); i++)
+	{
+		auto n = loopNodes[i];
+
+		NativeCodeBasicBlock* block = n->mLoops[0];
+
+		NativeCodeProcedure* nproc = new NativeCodeProcedure(this);
+
+		NativeCodeBasicBlock* nblock = nproc->AllocateBlock();
+		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+
+		nproc->mLocation = block->mIns[0].mIns ? block->mIns[0].mIns->mLocation : block->mProc->mLocation;
+		nproc->mCompilerOptions = block->mProc->mCompilerOptions;
+		nproc->mIdent = Ident::Unique("$outline", numOutlines);
+		nproc->mLinkerObject = mLinker->AddObject(nproc->mLocation, nproc->mIdent, block->mProc->mLinkerObject->mSection, LOT_NATIVE_CODE);
+		nproc->mLinkerObject->mNativeProc = nproc;
+		nproc->mEntryBlock = nblock;
+		nproc->mInterProc = nullptr;
+		nproc->mAsmInline = true;
+
+		for (int i = 0; i < block->mIns.Size(); i++)
+			nblock->mIns.Push(block->mIns[i]);
+		nblock->Close(block->mBranchIns, nblock, eblock, n->mLoopBranch);
+
+		eblock->mIns.Push(NativeCodeInstruction(block->mIns[0].mIns, ASMIT_RTS));
+		eblock->Close(block->mBranchIns, nullptr, nullptr, ASMIT_RTS);
+
+		for (int i = 0; i < n->mLoops.Size(); i++)
+		{
+			NativeCodeBasicBlock* block = n->mLoops[i];
+			block->mIns.SetSize(0);
+			block->mIns.Push(NativeCodeInstruction(block->mBranchIns, ASMIT_JSR, ASMIM_ABSOLUTE, 0, nproc->mLinkerObject));
+			block->mBranch = ASMIT_JMP;
+			if (block->mTrueJump == block)
+				block->mTrueJump = block->mFalseJump;
+			block->mFalseJump = nullptr;
+			block->mNumEntries--;
+
+			if (!loopProcs.Contains(block->mProc))
+				loopProcs.Push(block->mProc);
+		}
+
+		mProcedures.Push(nproc);
+
+		numOutlines++;
+	}
+
+	for (int i = 0; i < loopProcs.Size(); i++)
+	{
+		loopProcs[i]->ResetVisited();
+		loopProcs[i]->mEntryBlock->MergeBasicBlocks();
+	}
+
+	int k = 0;
 	do {
 		progress = false;
 
@@ -73172,7 +73387,9 @@ void NativeCodeGenerator::OutlineFunctions(void)
 #if 0
 		FILE* f;
 
-		if (!fopen_s(&f, "r:\\suffix.txt", "w"))
+		char	sname[20];
+		sprintf_s(sname, "r:\\suffix%02d.txt", k);
+		if (!fopen_s(&f, sname, "w"))
 		{
 			tree->Print(f, mapper, 0);
 			fclose(f);
@@ -73180,10 +73397,10 @@ void NativeCodeGenerator::OutlineFunctions(void)
 #endif
 
 		SuffixTree* ltree = nullptr;
-		int lsize = 6;
+		int lsize = 5;
 
 		tree->LongestMatch(mapper, 0, 0, lsize, ltree);
-		if (lsize > 6)
+		if (lsize > 5)
 		{
 			ExpandingArray<SuffixSegment>	segs;
 			ltree->ReplaceCalls(mapper, segs);
@@ -73200,8 +73417,10 @@ void NativeCodeGenerator::OutlineFunctions(void)
 			nproc->mCompilerOptions = block->mProc->mCompilerOptions;
 			nproc->mIdent = Ident::Unique("$outline", numOutlines);
 			nproc->mLinkerObject = mLinker->AddObject(nproc->mLocation, nproc->mIdent, block->mProc->mLinkerObject->mSection, LOT_NATIVE_CODE);
+			nproc->mLinkerObject->mNativeProc = nproc;
 			nproc->mEntryBlock = nblock;
 			nproc->mInterProc = nullptr;
+			nproc->mAsmInline = true;
 
 			bool dojmp = false;
 
@@ -73374,12 +73593,29 @@ void NativeCodeGenerator::OutlineFunctions(void)
 		delete tree;
 		mapper.Reset();
 
-#if 0
 		k++;
+#if 0
 		if (k == 2)
 			break;
 #endif
 	} while (progress);
+
+#if 1
+	for (int i = 0; i < mProcedures.Size(); i++)
+		mProcedures[i]->mUseCount = 0;
+	for (int i = 0; i < mProcedures.Size(); i++)
+	{
+		if (!mProcedures[i]->mAsmInline)
+			mProcedures[i]->CountCallUsage();
+	}
+
+	for (int i = 0; i < mProcedures.Size(); i++)
+	{
+//		printf("%s : %d\n", mProcedures[i]->mIdent->mString, mProcedures[i]->mUseCount);
+		if (mProcedures[i]->mUseCount == 1 && mProcedures[i]->mAsmInline)
+			mProcedures[i]->mLinkerObject->mFlags |= LOBJF_INLINE;
+	}
+#endif
 }
 
 void NativeCodeGenerator::BuildFunctionProxies(void)
