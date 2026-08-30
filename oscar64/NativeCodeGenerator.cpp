@@ -7,6 +7,7 @@
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
 #define DISASSEMBLE_OPT	0
+#define CHECK_FUNC		"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -790,57 +791,62 @@ const char* NativeCodeInstruction::AddrName(char* buffer) const
 void NativeCodeInstruction::Disassemble(FILE* file) const
 {
 	char	buffer[160];
-	char	flags[4];
 	char	i = 0;
-	if (mFlags & NCIF_VOLATILE)
-		flags[i++] = 'V';
-	if (mFlags & NCIF_MEMMAP)
-		flags[i++] = 'M';
-	flags[i++] = 0;
+
+	fprintf(file, "{%c%c%c%c%c%c} {%c%c} ",
+		(mLive & LIVE_CPU_REG_A ? 'A' : '-'),
+		(mLive & LIVE_CPU_REG_X ? 'X' : '-'),
+		(mLive & LIVE_CPU_REG_Y ? 'Y' : '-'),
+		(mLive & LIVE_CPU_REG_C ? 'C' : '-'),
+		(mLive & LIVE_CPU_REG_Z ? 'Z' : '-'),
+		(mLive & LIVE_MEM ? 'M' : '-'),
+
+		(mFlags & NCIF_VOLATILE ? 'V' : '-'),
+		(mFlags & NCIF_MEMMAP ? 'M' : '-'));
 
 	switch (mMode)
 	{
 	case ASMIM_IMPLIED:
-		fprintf(file, "%s", AsmInstructionNames[mType]);
+		fprintf(file, "[  -  ]  %s", AsmInstructionNames[mType]);
 		break;
 	case ASMIM_IMMEDIATE:
-		fprintf(file, "%s #$%02x\t[%02x-%02x]", AsmInstructionNames[mType], mAddress, mMinVal, mMaxVal);
+		fprintf(file, "[%02x-%02x]  %s #$%02x", mMinVal, mMaxVal, AsmInstructionNames[mType], mAddress);
 		break;
 	case ASMIM_IMMEDIATE_ADDRESS:
 		if (mFlags & NCIF_LOWER)
-			fprintf(file, "%s #<%s\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+			fprintf(file, "[%02x-%02x]  %s #<%s", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		else
-			fprintf(file, "%s #>%s\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+			fprintf(file, "[%02x-%02x]  %s #>%s", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_ZERO_PAGE:
-		fprintf(file, "%s %s\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "[%02x-%02x]  %s %s", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_ZERO_PAGE_X:
-		fprintf(file, "%s %s, x\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "[%02x-%02x]  %s %s, x", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_ZERO_PAGE_Y:
-		fprintf(file, "%s %s, y\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "[%02x-%02x]  %s %s, y", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_ABSOLUTE:
-		fprintf(file, "%s %s\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
+		fprintf(file, "[%02x-%02x]  %s %s", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_ABSOLUTE_X:
-		fprintf(file, "%s %s, x\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
+		fprintf(file, "[%02x-%02x]  %s %s, x", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_ABSOLUTE_Y:
-		fprintf(file, "%s %s, y\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
+		fprintf(file, "[%02x-%02x]  %s %s, y", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_INDIRECT:
-		fprintf(file, "%s (%s)", AsmInstructionNames[mType], AddrName(buffer));
+		fprintf(file, "[  -  ]  %s (%s)", AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_INDIRECT_X:
-		fprintf(file, "%s (%s, x)\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
+		fprintf(file, "[%02x-%02x]  %s (%s, x)", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_INDIRECT_Y:
-		fprintf(file, "%s (%s), y\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
+		fprintf(file, "[%02x-%02x]  %s (%s), y", mMinVal, mMaxVal, AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_RELATIVE:
-		fprintf(file, "%s %d", AsmInstructionNames[mType], mAddress);
+		fprintf(file, "[  -  ]  %s %d", AsmInstructionNames[mType], mAddress);
 		break;
 	}
 }
@@ -15597,9 +15603,9 @@ void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 		{
 			if (mEntryRequiredRegs[i])
 			{
-				fprintf(file, "%02x", i);
 				if (!first)
 					fprintf(file, ", ");
+				fprintf(file, "%02x", i);
 				first = false;
 			}
 		}
@@ -15651,7 +15657,9 @@ void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 		mIns[i].Disassemble(file);
 		fprintf(file, "\n");
 	}
-	fprintf(file, "%03d (%4d) %s", mIns.Size(), mBranchIns ? mBranchIns->mLocation.mLine : 0, AsmInstructionNames[mBranch]);
+
+	fprintf(file, "%03d (%4d) {------} {--} [  -  ]  %s", mIns.Size(), mBranchIns ? mBranchIns->mLocation.mLine : 0, AsmInstructionNames[mBranch]);
+
 	if (mTrueJump)
 	{
 		fprintf(file, " L%d", mTrueJump->mIndex);
@@ -21713,9 +21721,6 @@ bool NativeCodeBasicBlock::CompressSwitchCascade(int lower, int upper, int cmp, 
 	{
 		mVisited = true;
 
-//		if (CheckFunc)
-//			printf("Compress %d : %d..%d, %d\n", mIndex, lower, upper, cmp);
-			
 		if (mNumEntries > 1)
 		{
 			lower = 0x00;
@@ -69437,7 +69442,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "sidfx_loop_2");
+	CheckFunc = !strcmp(mIdent->mString, CHECK_FUNC);
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -70091,7 +70096,7 @@ void NativeCodeProcedure::Assemble(void)
 
 	mAssembled = true;
 
-	CheckFunc = !strcmp(mIdent->mString, "cwin_edit_char");
+	CheckFunc = !strcmp(mIdent->mString, CHECK_FUNC);
 
 	mEntryBlock->Assemble();
 
