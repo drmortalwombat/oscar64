@@ -3,11 +3,12 @@
 #include "NativeCodeOutliner.h"
 #include "Declaration.h"
 
-#define JUMP_TO_BRANCH	1
-#define CHECK_NULLPTR	0
-#define REYCLE_JUMPS	1
-#define DISASSEMBLE_OPT	0
-#define CHECK_FUNC		"main"
+#define JUMP_TO_BRANCH		1
+#define CHECK_NULLPTR		0
+#define REYCLE_JUMPS		1
+#define DISASSEMBLE_OPT		0
+#define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -69194,11 +69195,11 @@ void NativeCodeProcedure::DisassembleDebug(const char* name)
 
 	if (!initial)
 	{
-		fopen_s(&file, "r:\\ntivdiss.txt", "a");
+		fopen_s(&file, DISASSEMBLE_FILE, "a");
 	}
 	else
 	{
-		fopen_s(&file, "r:\\ntivdiss.txt", "w");
+		fopen_s(&file, DISASSEMBLE_FILE, "w");
 		initial = false;
 	}
 
