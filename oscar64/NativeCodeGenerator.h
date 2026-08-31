@@ -665,6 +665,8 @@ public:
 	bool ForwardZpXIndex(bool full);
 	bool ForwardAXYReg(void);
 
+	int InstructionRepeatCount(int at, AsmInsType type) const;
+
 	// Join sequences of TXA, CLC, ADC #xx into INX, TXA sequences if possible
 	bool JoinXYCascade(void);
 
@@ -699,6 +701,10 @@ public:
 	int RetrieveYValue(int at = 65536, int depth = 0) const;
 	int RetrieveZPValue(int reg, int at, int depth = 0) const;
 	int RetrieveAMax(int at) const;
+
+	int RetrieveXMax(int at) const;
+	int RetrieveYMax(int at) const;
+
 	int FindFreeAccu(int at) const;
 	bool IsSameZPValue(int reg1, int reg2, int depth = 0) const;
 

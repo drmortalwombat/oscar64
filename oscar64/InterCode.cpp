@@ -5,7 +5,9 @@
 #include <math.h>
 #include <algorithm>
 
-#define DISASSEMBLE_OPT	0
+#define DISASSEMBLE_OPT		0
+#define DISASSEMBLE_FILE	"r:\\cldiss.txt"
+#define CHECK_FUNC			"station_display_window"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -13330,7 +13332,28 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 		if (mLoopHead)
 		{
-			ltvalue.Clear();
+#if 1
+			if ((mTrueJump == this || mFalseJump == this) && mEntryBlocks.Size() == 2)
+			{
+				for (int i = 0; i < mInstructions.Size(); i++)
+				{
+					InterInstruction* ins(mInstructions[i]);
+
+					int dtemp = ins->mDst.mTemp;
+					if (dtemp >= 0)
+					{
+						ltvalue[dtemp] = nullptr;
+						for (int j = 0; j < ltvalue.Size(); j++)
+						{
+							if (ltvalue[j] && ltvalue[j]->ReferencesTemp(dtemp))
+								ltvalue[j] = nullptr;
+						}
+					}
+				}
+			}
+			else
+#endif
+				ltvalue.Clear();
 		}
 		else if (mNumEntries > 0)
 		{
@@ -13718,7 +13741,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							ins->mSrc[1].mVarIndex = pins->mSrc[1].mVarIndex;
 						}
 
-						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[1].mIntConst + pins->mSrc[0].mIntConst >= 0)
+						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[1].mIntConst + pins->mSrc[0].mIntConst >= 0 && (!pins->mSrc[1].mFinal || mInstructions.Contains(pins)))
 						{
 							ins->mSrc[1].mMemory = pins->mSrc[1].mMemory;
 							ins->mSrc[1].ForwardTemp(pins->mSrc[1]);
@@ -13744,7 +13767,6 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mSrc[1].mIntConst += ins->mSrc[1].mIntConst;
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_POINTER;
-								nins->mDst.mRange = ins->mDst.mRange;
 
 								ins->mSrc[1].mRange.Reset();
 								ins->mSrc[1].mIntConst = 0;
@@ -13752,6 +13774,37 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 								mInstructions.Insert(k + 1, nins);
 								changed = true;
+							}
+						}
+#endif
+#if 1
+						else if (pins->mSrc[0].mTemp >= 0 && pins->mSrc[1].mTemp >= 0 && pins->mSrc[0].IsUByte() && ltvalue[pins->mSrc[1].mTemp])
+						{
+							InterInstruction* ppins = ltvalue[pins->mSrc[1].mTemp];
+
+							if (ppins->mCode == IC_LEA && ppins->mSrc[0].mTemp < 0 && 
+								ppins->mSrc[0].mIntConst >= 0 && ins->mSrc[1].mIntConst >= 0 && ppins->mSrc[0].mIntConst <= 2 &&
+								ppins->mSrc[0].mIntConst + pins->mSrc[0].mRange.mMaxValue + ins->mSrc[1].mIntConst < 256)
+							{
+								int k = mInstructions.IndexOf(pins);
+								if (k >= 0)
+								{
+									if (spareTemps + 2 >= ltvalue.Size())
+										return true;
+
+									InterInstruction* nins = new InterInstruction(ins->mLocation, IC_LEA);
+									nins->mSrc[0].Forward(pins->mSrc[0]);
+									nins->mSrc[1].ForwardMem(ppins->mSrc[1]);
+									nins->mDst.mTemp = spareTemps++;
+									nins->mDst.mType = IT_POINTER;
+
+									ins->mSrc[1].mRange.Reset();
+									ins->mSrc[1].mTemp = nins->mDst.mTemp;
+									ins->mSrc[1].mIntConst += ppins->mSrc[0].mIntConst;
+
+									mInstructions.Insert(k + 1, nins);
+									changed = true;
+								}
 							}
 						}
 #endif
@@ -13773,7 +13826,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							ins->mSrc[0].mVarIndex = pins->mSrc[1].mVarIndex;
 						}
 
-						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
+						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0 && (!pins->mSrc[1].mFinal || mInstructions.Contains(pins)))
 						{
 							int64 offset = ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst;
 							int osize = ins->mSrc[0].mOperandSize;
@@ -13807,6 +13860,37 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								changed = true;
 							}
 						}
+#if 1
+						else if (pins->mSrc[0].mTemp >= 0 && pins->mSrc[1].mTemp >= 0 && pins->mSrc[0].IsUByte() && ltvalue[pins->mSrc[1].mTemp])
+						{
+							InterInstruction* ppins = ltvalue[pins->mSrc[1].mTemp];
+
+							if (ppins->mCode == IC_LEA && ppins->mSrc[0].mTemp < 0 &&
+								ppins->mSrc[0].mIntConst >= 0 && ins->mSrc[0].mIntConst >= 0 && ppins->mSrc[0].mIntConst <= 2 &&
+								ppins->mSrc[0].mIntConst + pins->mSrc[0].mRange.mMaxValue + ins->mSrc[0].mIntConst < 256)
+							{
+								int k = mInstructions.IndexOf(pins);
+								if (k >= 0)
+								{
+									if (spareTemps + 2 >= ltvalue.Size())
+										return true;
+
+									InterInstruction* nins = new InterInstruction(ins->mLocation, IC_LEA);
+									nins->mSrc[0].Forward(pins->mSrc[0]);
+									nins->mSrc[1].ForwardMem(ppins->mSrc[1]);
+									nins->mDst.mTemp = spareTemps++;
+									nins->mDst.mType = IT_POINTER;
+
+									ins->mSrc[0].mRange.Reset();
+									ins->mSrc[0].mTemp = nins->mDst.mTemp;
+									ins->mSrc[0].mIntConst += ppins->mSrc[0].mIntConst;
+
+									mInstructions.Insert(k + 1, nins);
+									changed = true;
+								}
+							}
+						}
+#endif
 					}
 				}
 				break;
@@ -29046,7 +29130,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, CHECK_FUNC);
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -31338,11 +31422,11 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 
 	if (!initial)
 	{
-		fopen_s(&file, "r:\\cldiss.txt", "a");
+		fopen_s(&file, DISASSEMBLE_FILE, "a");
 	}
 	else
 	{
-		fopen_s(&file, "r:\\cldiss.txt", "w");
+		fopen_s(&file, DISASSEMBLE_FILE, "w");
 		initial = false;
 	}
 
