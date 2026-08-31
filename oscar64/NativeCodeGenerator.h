@@ -700,10 +700,14 @@ public:
 	int RetrieveXValue(int at = 65536, int depth = 0) const;
 	int RetrieveYValue(int at = 65536, int depth = 0) const;
 	int RetrieveZPValue(int reg, int at, int depth = 0) const;
+	
 	int RetrieveAMax(int at) const;
-
 	int RetrieveXMax(int at) const;
 	int RetrieveYMax(int at) const;
+
+	int RetrieveAMin(int at) const;
+	int RetrieveXMin(int at) const;
+	int RetrieveYMin(int at) const;
 
 	int FindFreeAccu(int at) const;
 	bool IsSameZPValue(int reg1, int reg2, int depth = 0) const;

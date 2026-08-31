@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"station_display_window"
+#define CHECK_FUNC			"shipyard_navigate"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -1156,7 +1156,19 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			return false;
 	case IM_INDIRECT:
 		if (op1.mTemp == op2.mTemp)
-			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		{
+			if (op1.mStride > 1 && op2.mStride > 1)
+			{
+				if (op1.mIntConst % op1.mStride == op2.mIntConst % op2.mStride)
+					return op1.mIntConst / op1.mStride < op2.mIntConst / op2.mStride + op2.mOperandSize && op2.mIntConst / op2.mStride < op1.mIntConst / op1.mStride + op1.mOperandSize;
+				else
+					return false;
+			}
+			else
+			{
+				return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+			}
+		}
 		else if (op1.mLinkerObject && op2.mLinkerObject && op1.mLinkerObject != op2.mLinkerObject)
 			return false;
 		else if (op1.mRestricted && op2.mRestricted && op1.mRestricted != op2.mRestricted)

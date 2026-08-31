@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"test"
+#define CHECK_FUNC			"check_mulli"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -29817,6 +29817,27 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 					}
 				}
 			}
+#if 1
+			else if (sz > 0 && mIns[sz - 1].mType == ASMIT_ORA && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x00)
+			{
+				if (!(mIns[sz - 1].mLive & LIVE_CPU_REG_X) &&
+					(mTrueJump->mNumEntries == 1 && mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TAX ||
+					 mFalseJump->mNumEntries == 1 && mFalseJump->mIns.Size() > 0 && mFalseJump->mIns[0].mType == ASMIT_TAX))
+				{
+					mIns[sz - 1].mType = ASMIT_TAX;
+					mIns[sz - 1].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (!(mIns[sz - 1].mLive & LIVE_CPU_REG_Y) &&
+					(mTrueJump->mNumEntries == 1 && mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TAY ||
+					 mFalseJump->mNumEntries == 1 && mFalseJump->mIns.Size() > 0 && mFalseJump->mIns[0].mType == ASMIT_TAY))
+				{
+					mIns[sz - 1].mType = ASMIT_TAY;
+					mIns[sz - 1].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+#endif
 		}
 
 
@@ -40327,6 +40348,355 @@ int NativeCodeBasicBlock::RetrieveAMax(int at) const
 
 	return intmin(amax, BinMask(amax) & ~azeros);
 }
+
+int NativeCodeBasicBlock::RetrieveXMin(int at) const
+{
+	int i = at;
+	while (i > 0)
+	{
+		i--;
+		const NativeCodeInstruction& ins(mIns[i]);
+		if (mIns[i].ChangesXReg())
+		{
+			if (ins.mType == ASMIT_LDX)
+				break;
+			else if (ins.mMode == ASMIM_IMPLIED || ins.mMode == ASMIM_IMMEDIATE)
+				;
+			else
+				break;
+		}
+	}
+
+	int xmax = 0xff, xmin = 0x00;
+	while (i < at)
+	{
+		const NativeCodeInstruction& ins(mIns[i]);
+
+		if (ins.ChangesAccu())
+		{
+			switch (ins.mType)
+			{
+			case ASMIT_INX:
+				if (xmax < 0xff)
+				{
+					xmax++;
+					xmin++;
+				}
+				else
+					xmin = 0xff;
+				break;
+			case ASMIT_DEX:
+				if (xmin > 0x00)
+				{
+					xmax--;
+					xmin--;
+				}
+				else
+					xmax = 0xff;
+				break;
+			case ASMIT_LDX:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+				{
+					xmin = xmax = ins.mAddress;
+				}
+				else if (ins.mMode == ASMIM_ZERO_PAGE)
+				{
+					xmin = ins.mMinVal;
+					xmax = ins.mMaxVal;
+				}
+				else if (ins.mLinkerObject)
+				{
+					int base = ins.mAddress;
+					if (base >= ins.mLinkerObject->mSize && base >= 0x8000)
+						base -= 0x10000;
+
+					int size = ins.mLinkerObject->mSize - base;
+					if (ins.mLinkerObject->mStripe > 1)
+					{
+						int ssize = ins.mLinkerObject->mStripe - base % ins.mLinkerObject->mStripe;
+						if (ssize == 1 && size > ins.mLinkerObject->mStripe)
+							size = ins.mLinkerObject->mStripe + 1;
+						else
+							size = ssize;
+					}
+					if (size > 256)
+						size = 256;
+
+					xmax = 0x00; xmin = 0xff;
+
+					for (int i = 0; i < size; i++)
+					{
+						if (i + base >= 0)
+						{
+							int b = ins.mLinkerObject->mData[base + i];
+							if (b > xmax)
+								xmax = b;
+							if (b < xmin)
+								xmin = b;
+						}
+					}
+				}
+				else
+				{
+					xmin = 0x00;
+					xmax = 0xff;
+				}
+				break;
+			case ASMIT_TAX:
+				xmin = RetrieveAMin(i);
+				xmax = 0xff;
+				break;
+			default:
+				xmax = 0xff;
+				xmin = 0x00;
+				break;
+			}
+		}
+
+		i++;
+	}
+
+	return xmin;
+}
+
+int NativeCodeBasicBlock::RetrieveYMin(int at) const
+{
+	int i = at;
+	while (i > 0)
+	{
+		i--;
+		const NativeCodeInstruction& ins(mIns[i]);
+		if (mIns[i].ChangesYReg())
+		{
+			if (ins.mType == ASMIT_LDY)
+				break;
+			else if (ins.mMode == ASMIM_IMPLIED || ins.mMode == ASMIM_IMMEDIATE)
+				;
+			else
+				break;
+		}
+	}
+
+	int ymax = 0xff, ymin = 0x00;
+	while (i < at)
+	{
+		const NativeCodeInstruction& ins(mIns[i]);
+
+		if (ins.ChangesAccu())
+		{
+			switch (ins.mType)
+			{
+			case ASMIT_INX:
+				if (ymax < 0xff)
+				{
+					ymax++;
+					ymin++;
+				}
+				else
+					ymin = 0xff;
+				break;
+			case ASMIT_DEX:
+				if (ymin > 0x00)
+				{
+					ymax--;
+					ymin--;
+				}
+				else
+					ymax = 0xff;
+				break;
+			case ASMIT_LDX:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+				{
+					ymin = ymax = ins.mAddress;
+				}
+				else if (ins.mMode == ASMIM_ZERO_PAGE)
+				{
+					ymin = ins.mMinVal;
+					ymax = ins.mMaxVal;
+				}
+				else if (ins.mLinkerObject)
+				{
+					int base = ins.mAddress;
+					if (base >= ins.mLinkerObject->mSize && base >= 0x8000)
+						base -= 0x10000;
+
+					int size = ins.mLinkerObject->mSize - base;
+					if (ins.mLinkerObject->mStripe > 1)
+					{
+						int ssize = ins.mLinkerObject->mStripe - base % ins.mLinkerObject->mStripe;
+						if (ssize == 1 && size > ins.mLinkerObject->mStripe)
+							size = ins.mLinkerObject->mStripe + 1;
+						else
+							size = ssize;
+					}
+					if (size > 256)
+						size = 256;
+
+					ymax = 0x00; ymin = 0xff;
+
+					for (int i = 0; i < size; i++)
+					{
+						if (i + base >= 0)
+						{
+							int b = ins.mLinkerObject->mData[base + i];
+							if (b > ymax)
+								ymax = b;
+							if (b < ymin)
+								ymin = b;
+						}
+					}
+				}
+				else
+				{
+					ymin = 0x00;
+					ymax = 0xff;
+				}
+				break;
+			case ASMIT_TAY:
+				ymin = RetrieveAMin(i);
+				ymax = 0xff;
+				break;
+			default:
+				ymax = 0xff;
+				ymin = 0x00;
+				break;
+			}
+		}
+
+		i++;
+	}
+
+	return ymin;
+}
+
+int NativeCodeBasicBlock::RetrieveAMin(int at) const
+{
+	int i = at;
+	while (i > 0)
+	{
+		i--;
+		const NativeCodeInstruction& ins(mIns[i]);
+		if (mIns[i].ChangesAccu())
+		{
+			if (ins.mType == ASMIT_LDA)
+				break;
+			else if (ins.mMode == ASMIM_IMPLIED || ins.mMode == ASMIM_IMMEDIATE)
+				;
+			else
+				break;
+		}
+	}
+
+	int amin = 0xff, aones = 0x00;
+	while (i < at)
+	{
+		const NativeCodeInstruction& ins(mIns[i]);
+
+		if (ins.ChangesAccu())
+		{
+			switch (ins.mType)
+			{
+			case ASMIT_ASL:
+				aones = (aones << 1) & 0xff;
+				amin <<= 1;
+				if (amin > 0xff)
+					amin = 0xff;
+				break;
+			case ASMIT_LSR:
+				aones = aones >> 1;
+				amin >>= 1;
+				break;
+			case ASMIT_ROL:
+				aones = (aones << 1) & 0xff;
+				amin <<= 1;
+				if (amin > 0xff)
+					amin = 0xff;
+				break;
+			case ASMIT_ROR:
+				aones = aones >> 1;
+				amin = amin >> 1;
+				break;
+			case ASMIT_LDA:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+				{
+					amin = ins.mAddress;
+					aones = ins.mAddress;
+				}
+				else if (ins.mMode == ASMIM_ZERO_PAGE)
+				{
+					amin = ins.mMinVal;
+					aones = 0x00;
+				}
+				else if (ins.mLinkerObject)
+				{
+					int base = ins.mAddress;
+					if (base >= ins.mLinkerObject->mSize && base >= 0x8000)
+						base -= 0x10000;
+
+					int size = ins.mLinkerObject->mSize - base;
+					if (ins.mLinkerObject->mStripe > 1)
+					{
+						int ssize = ins.mLinkerObject->mStripe - base % ins.mLinkerObject->mStripe;
+						if (ssize == 1 && size > ins.mLinkerObject->mStripe)
+							size = ins.mLinkerObject->mStripe + 1;
+						else
+							size = ssize;
+					}
+					if (size > 256)
+						size = 256;
+
+					amin = 0xff;
+					aones = 0xff;
+
+					for (int i = 0; i < size; i++)
+					{
+						if (i + base >= 0)
+						{
+							int b = ins.mLinkerObject->mData[base + i];
+							if (b < amin)
+								amin = b;
+							aones &= b;
+						}
+					}
+				}
+				else
+				{
+					amin = 0x00;
+					aones = 0x00;
+				}
+				break;
+			case ASMIT_AND:
+				aones &= ins.mAddress;
+				break;
+			case ASMIT_ORA:
+				aones |= ins.mAddress;
+				break;
+			case ASMIT_EOR:
+				aones &= ~ins.mAddress & 0xff;
+				amin = 0x00;
+				break;
+
+			case ASMIT_TXA:
+				amin = RetrieveXMin(i);
+				aones = 0x00;
+				break;
+			case ASMIT_TYA:
+				amin = RetrieveYMin(i);
+				aones = 0x00;
+				break;
+			default:
+				amin = 0x00;
+				aones = 0x00;
+				break;
+			}
+		}
+
+		i++;
+	}
+
+	return intmax(amin, aones);
+}
+
 
 int NativeCodeBasicBlock::RetrieveAValue(int at, int depth) const
 {
@@ -58374,11 +58744,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			}
 			else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
 			{
-				int cy = RetrieveYValue(i - 1, 2);
 				if (mIns[i + 1].mLinkerObject && mIns[i + 1].mLinkerObject->mSize >= 256 && mIns[i].mType == ASMIT_INY && RetrieveYMax(i - 1) == 0xff)
+					;
+				else if (mIns[i + 1].mLinkerObject && mIns[i + 1].mLinkerObject->mSize >= 256 && mIns[i].mType == ASMIT_DEY && RetrieveYMin(i - 1) == 0x00)
 					;
 				else
 				{
+					int cy = RetrieveYValue(i - 1, 2);
 					if (mIns[i].mType == ASMIT_INY)
 					{
 						if (cy == 255)
@@ -58410,11 +58782,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			}
 			else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
 			{
-				int cx = RetrieveXValue(i - 1, 2);
 				if (mIns[i + 1].mLinkerObject && mIns[i + 1].mLinkerObject->mSize >= 256 && mIns[i].mType == ASMIT_INX && RetrieveXMax(i - 1) == 0xff)
+					;
+				else if (mIns[i + 1].mLinkerObject && mIns[i + 1].mLinkerObject->mSize >= 256 && mIns[i].mType == ASMIT_DEX && RetrieveXMin(i - 1) == 0x00)
 					;
 				else
 				{
+					int cx = RetrieveXValue(i - 1, 2);
 					if (mIns[i].mType == ASMIT_INX)
 					{
 						if (cx == 255)
