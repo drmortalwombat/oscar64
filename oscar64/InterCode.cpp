@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"shipyard_navigate"
+#define CHECK_FUNC			"place_square"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -23508,6 +23508,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 									{
 										InterOperand	op = ins0->mSrc[1];
 										ins0->mSrc[1] = ins1->mSrc[0];
+										ins0->mDst.mRange.Reset();
 										ins1->mSrc[0] = op;
 										if (dep[ins0->mSrc[0].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[1].mTemp] == DEP_UNKNOWN)
 											ins0->mInvariant = true;
@@ -23621,7 +23622,6 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 			GrowingArray<InterInstructionPtr>	indexins(nullptr);
 			GrowingArray<InterInstructionPtr>	pindexins(nullptr);
-
 
 			InterInstruction* cins = nullptr;
 			if (mInstructions.Size() > 2 && mInstructions[mInstructions.Size() - 2]->mCode == IC_RELATIONAL_OPERATOR)
