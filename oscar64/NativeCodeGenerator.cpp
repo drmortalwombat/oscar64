@@ -18072,7 +18072,8 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 						changed = true;
 					}
 #if 1
-					else if (yoffset >= 2 && i + 1 < mIns.Size() && (k = InstructionRepeatCount(i + 1, ASMIT_INY)) >= yoffset - 2)
+					// The LDY and k INYs must provide enough slots for yoffset - k DEYs.
+					else if (yoffset >= 2 && i + 1 < mIns.Size() && (k = InstructionRepeatCount(i + 1, ASMIT_INY)) * 2 + 1 >= yoffset)
 					{
 						for (int j = ypred; j < i; j++)
 							mIns[j].mLive |= live;
