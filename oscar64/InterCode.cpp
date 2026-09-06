@@ -5068,6 +5068,9 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 				{
 					mSrc[i] = ains->mConst;
 					mSrc[i].mType = t;
+
+					if (IsIntegerType(mSrc[i].mType))
+						mSrc[i].mIntConst = LimitIntConstValue(mSrc[i].mType, mSrc[i].mIntConst);
 					changed = true;
 				}
 				else if (t == IT_POINTER && ains->mConst.mType == IT_INT16)
@@ -6186,6 +6189,25 @@ bool InterInstruction::ConstantFolding(void)
 				mConst.mIntConst = mSrc[0].mIntConst;
 				mConst.mLinkerObject = nullptr;
 				mConst.mOperandSize = 2;
+				mNumOperands = 0;
+				return true;
+			}
+			else if (IsIntegerType(mDst.mType) && IsIntegerType(mSrc[0].mType))
+			{
+				mCode = IC_CONSTANT;
+				mConst.mType = mDst.mType;
+				if (mDst.mType == IT_INT8)
+					mConst.mIntConst = (uint8)mSrc[0].mIntConst;
+				else if (mDst.mType == IT_INT16)
+					mConst.mIntConst = (uint16)mSrc[0].mIntConst;
+				else if (mDst.mType == IT_INT32)
+					mConst.mIntConst = (uint32)mSrc[0].mIntConst;
+				else if (mDst.mType == IT_BOOL)
+					mConst.mIntConst = mSrc[0].mIntConst != 0;
+				else
+					mConst.mIntConst = mSrc[0].mIntConst;
+				mConst.mLinkerObject = nullptr;
+				mConst.mOperandSize = InterTypeSize[mDst.mType];
 				mNumOperands = 0;
 				return true;
 			}
@@ -7524,6 +7546,27 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mSrc[0].mTemp = -1;
 					ins->mNumOperands = 0;
 				}
+			}
+		}
+		else if (TypeInteger(ins->mSrc[0].mType) && TypeInteger(ins->mDst.mType))
+		{
+			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
+			{
+				ins->mCode = IC_CONSTANT;
+				ins->mConst.mType = ins->mDst.mType;
+				if (ins->mDst.mType == IT_INT8)
+					ins->mConst.mIntConst = (uint8)tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+				else if (ins->mDst.mType == IT_INT16)
+					ins->mConst.mIntConst = (uint16)tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+				else if (ins->mDst.mType == IT_INT32)
+					ins->mConst.mIntConst = (uint32)tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+				else if (ins->mDst.mType == IT_BOOL)
+					ins->mConst.mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst != 0;
+				else
+					ins->mConst.mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+				ins->mConst.mOperandSize = InterTypeSize[ins->mDst.mType];
+				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 			}
 		}
 		break;
