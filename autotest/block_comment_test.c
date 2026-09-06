@@ -12,6 +12,7 @@
 #define IDENTITY(value) (value)
 #define ADD(a, b) ((a) + (b))
 #define MULTI(a, b, c) ((a) + (b) + (c))
+#define COMBINE(a, b) ((a) * 100 + (b))
 
 int main(void)
 {
@@ -77,6 +78,14 @@ int main(void)
 		/* arg 3 */ 3
 	);
 	assert(m6 == 6);
+
+	int m7 = COMBINE(
+		// First parameter, with comma,
+		12,
+		// Second parameter, with comma and 'quotes'
+		34
+	);
+	assert(m7 == 1234);
 
 	return 0;
 }
