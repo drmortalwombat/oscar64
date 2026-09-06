@@ -1182,6 +1182,48 @@ void Scanner::NextPreToken(void)
  								else if (ch == quoteChar)
  									quoteChar = 0;
  							}
+ 							else if (ch == '/' && mLine[offset + 1] == '/')
+ 							{
+ 								while (mLine[offset])
+ 									offset++;
+
+ 								if (arglen < (int)sizeof(argbuf) - 1)
+ 									argbuf[arglen++] = ' ';
+ 								continue;
+ 							}
+ 							else if (ch == '/' && mLine[offset + 1] == '*')
+ 							{
+ 								offset += 2;
+ 								bool star = false;
+
+ 								for (;;)
+ 								{
+ 									while (!mLine[offset])
+ 									{
+ 										if (!mPreprocessor->NextLine())
+ 										{
+ 											argEof = true;
+ 											break;
+ 										}
+ 										offset = 0;
+ 									}
+
+ 									if (argEof)
+ 										break;
+
+ 									if (star && mLine[offset] == '/')
+ 									{
+ 										offset++;
+ 										break;
+ 									}
+ 									star = (mLine[offset] == '*');
+ 									offset++;
+ 								}
+
+ 								if (arglen < (int)sizeof(argbuf) - 1)
+ 									argbuf[arglen++] = ' ';
+ 								continue;
+ 							}
  							else if (ch == '"' || ch == '\'')
  								quoteChar = ch;
  							else if (ch == '(' || ch == '{')
@@ -1546,19 +1588,19 @@ void Scanner::NextRawToken(void)
 			NextChar();
 			if (mTokenChar == '*')
 			{
-				bool	first = true;
-				while (first || mTokenChar != '/')
+				bool	star = false;
+				for (;;)
 				{
-					if (mTokenChar == '*')
-						first = false;
-					else
-						first = true;
 					if (!NextChar())
 					{
 						mToken = TK_ERROR;
 						Error("Multiline comment not closed");
 						return;
 					}
+
+					if (star && mTokenChar == '/')
+						break;
+					star = (mTokenChar == '*');
 				}
 				NextChar();
 				NextPreToken();

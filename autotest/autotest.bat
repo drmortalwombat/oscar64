@@ -3,6 +3,9 @@ rem @echo off
 @call :test ambiguousoverload.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test block_comment_test.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test array2dtest.c
 @if %errorlevel% neq 0 goto :error
 
