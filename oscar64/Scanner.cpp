@@ -1546,19 +1546,19 @@ void Scanner::NextRawToken(void)
 			NextChar();
 			if (mTokenChar == '*')
 			{
-				bool	first = true;
-				while (first || mTokenChar != '/')
+				bool	star = false;
+				for (;;)
 				{
-					if (mTokenChar == '*')
-						first = false;
-					else
-						first = true;
 					if (!NextChar())
 					{
 						mToken = TK_ERROR;
 						Error("Multiline comment not closed");
 						return;
 					}
+
+					if (star && mTokenChar == '/')
+						break;
+					star = (mTokenChar == '*');
 				}
 				NextChar();
 				NextPreToken();
