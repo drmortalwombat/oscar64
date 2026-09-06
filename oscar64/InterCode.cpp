@@ -15159,34 +15159,43 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						opmask = 3;
 
 					bool	flush = false;
-					for(int k=0; k<lins->mNumOperands; k++)
+					for(int opIdx=0; opIdx<lins->mNumOperands; opIdx++)
 					{
-						if ((1 << k) & opmask)
+						if ((1 << opIdx) & opmask)
 						{
-							InterOperand& op(lins->mSrc[k]);
+							InterOperand& op(lins->mSrc[opIdx]);
 
 							if (op.mTemp >= 0)
 							{
 								if (op.mMemoryBase == IM_GLOBAL)
-									flush = proc->ModifiesGlobal(op.mVarIndex);
+								{
+									if (proc->ModifiesGlobal(op.mVarIndex))
+										flush = true;
+								}
 								else if (op.mMemoryBase == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
-									flush = false;
+									;
 								else if ((op.mMemoryBase == IM_PARAM || op.mMemoryBase == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
-									flush = false;
-								else
-									flush = proc->mStoresIndirect;
+									;
+								else if (proc->mStoresIndirect)
+									flush = true;
 							}
 							else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
 								flush = true;
 							else if (op.mMemory == IM_GLOBAL)
-								flush = proc->ModifiesGlobal(op.mVarIndex);
+							{
+								if (proc->ModifiesGlobal(op.mVarIndex))
+									flush = true;
+							}
 							else if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
-								flush = false;
+								;
 							else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
-								flush = false;
+								;
 							else
 								flush = true;
 						}
+
+						if (flush)
+							break;
 					}
 
 					if (!flush)
