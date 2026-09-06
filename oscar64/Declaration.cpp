@@ -2813,7 +2813,9 @@ bool Declaration::IsSubType(const Declaration* dec) const
 		return true;
 	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM)
 	{
-		if (mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize))
+		// Matching structure tags remain compatible while either declaration is incomplete.
+		if (mScope == dec->mScope || (mIdent == dec->mIdent &&
+			(mSize == dec->mSize || (mIdent && mType == DT_TYPE_STRUCT && !(mFlags & dec->mFlags & DTF_DEFINED)))))
 			return true;
 
 		if (dec->mBase)
