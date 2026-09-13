@@ -2,11 +2,29 @@ SRCS=$(filter-out ambiguousoverload_trigger.c opp_part1.cpp opp_part2.cpp, $(wil
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES) diskimagefulltest diskimaged71test diskimaged81test
+all: $(EXES) diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
 
 DISK_FULL_RESOURCE=../samples/resources/blumba2.bin
 DISK_FULL_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18,-f=$(DISK_FULL_RESOURCE))
 DISK_D71_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17,-f=$(DISK_FULL_RESOURCE))
+DISK_D64_RESOURCE=diskimagefixture.dat
+
+.PHONY: diskimaged64test
+diskimaged64test:
+	@$(OSCAR64_CC) -d64=diskimaged64test.d64 -f=$(DISK_D64_RESOURCE)
+	@size="$$(wc -c < diskimaged64test.d64)"; \
+	header="$$(od -An -tx1 -j 91392 -N 4 diskimaged64test.d64 | tr -d ' \n')"; \
+	bam="$$(od -An -tx1 -j 91460 -N 4 diskimaged64test.d64 | tr -d ' \n')"; \
+	disk_info="$$(od -An -tx1 -j 91536 -N 27 diskimaged64test.d64 | tr -d ' \n')"; \
+	directory="$$(od -An -tx1 -j 91648 -N 32 diskimaged64test.d64 | tr -d ' \n')"; \
+	data_header="$$(od -An -tx1 -j 88576 -N 2 diskimaged64test.d64 | tr -d ' \n')"; \
+	payload=valid; \
+	dd if=diskimaged64test.d64 bs=1 skip=88578 count=43 2>/dev/null | cmp -n 43 - $(DISK_D64_RESOURCE) >/dev/null || payload=invalid; \
+	$(RM) diskimaged64test.d64; \
+	if [ "$$size" -ne 174848 ] || [ "$$header" != "12014100" ] || [ "$$bam" != "14fffb1f" ] || [ "$$disk_info" != "4449534b494d41474544363454455354a0a0434ea03241a0a0a0a0" ] || [ "$$directory" != "00ff82110a4449534b494d414745464958545552450000000000000000000100" ] || [ "$$data_header" != "002c" ] || [ "$$payload" != "valid" ]; then \
+		printf 'Invalid D64 layout: size=%s header=%s bam=%s disk_info=%s directory=%s data_header=%s payload=%s\n' "$$size" "$$header" "$$bam" "$$disk_info" "$$directory" "$$data_header" "$$payload"; \
+		exit 1; \
+	fi
 
 .PHONY: diskimagefulltest
 diskimagefulltest:

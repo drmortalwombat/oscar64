@@ -213,6 +213,9 @@ rem @echo off
 @call :testb bitshifttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testd64
+@if %errorlevel% neq 0 goto :error
+
 @call :testdiskfull
 @if %errorlevel% neq 0 goto :error
 
@@ -353,6 +356,17 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testd64
+..\bin\oscar64 -d64=diskimaged64test.d64 -f=diskimagefixture.dat
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged64test.d64 @exit /b 1
+@for %%I in (diskimaged64test.d64) do @if not "%%~zI"=="174848" (
+	@del diskimaged64test.d64
+	@exit /b 1
+)
+@del diskimaged64test.d64
+@exit /b 0
 
 :testd71
 ..\bin\oscar64 -d71=diskimaged71test.d71 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin
