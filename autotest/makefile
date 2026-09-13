@@ -18,10 +18,12 @@ diskimaged64test:
 	disk_info="$$(od -An -tx1 -j 91536 -N 27 diskimaged64test.d64 | tr -d ' \n')"; \
 	directory="$$(od -An -tx1 -j 91648 -N 32 diskimaged64test.d64 | tr -d ' \n')"; \
 	data_header="$$(od -An -tx1 -j 88576 -N 2 diskimaged64test.d64 | tr -d ' \n')"; \
+	resource_size="$$(wc -c < $(DISK_D64_RESOURCE))"; \
+	expected_data_header="$$(printf '00%02x' "$$((resource_size + 1))")"; \
 	payload=valid; \
-	dd if=diskimaged64test.d64 bs=1 skip=88578 count=43 2>/dev/null | cmp -n 43 - $(DISK_D64_RESOURCE) >/dev/null || payload=invalid; \
+	dd if=diskimaged64test.d64 bs=1 skip=88578 count="$$resource_size" 2>/dev/null | cmp - $(DISK_D64_RESOURCE) >/dev/null || payload=invalid; \
 	$(RM) diskimaged64test.d64; \
-	if [ "$$size" -ne 174848 ] || [ "$$header" != "12014100" ] || [ "$$bam" != "14fffb1f" ] || [ "$$disk_info" != "4449534b494d41474544363454455354a0a0434ea03241a0a0a0a0" ] || [ "$$directory" != "00ff82110a4449534b494d414745464958545552450000000000000000000100" ] || [ "$$data_header" != "002c" ] || [ "$$payload" != "valid" ]; then \
+	if [ "$$size" -ne 174848 ] || [ "$$header" != "12014100" ] || [ "$$bam" != "14fffb1f" ] || [ "$$disk_info" != "4449534b494d41474544363454455354a0a0434ea03241a0a0a0a0" ] || [ "$$directory" != "00ff82110a4449534b494d414745464958545552450000000000000000000100" ] || [ "$$data_header" != "$$expected_data_header" ] || [ "$$payload" != "valid" ]; then \
 		printf 'Invalid D64 layout: size=%s header=%s bam=%s disk_info=%s directory=%s data_header=%s payload=%s\n' "$$size" "$$header" "$$bam" "$$disk_info" "$$directory" "$$data_header" "$$payload"; \
 		exit 1; \
 	fi
