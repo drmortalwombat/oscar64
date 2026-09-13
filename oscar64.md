@@ -137,9 +137,10 @@ The compiler is command line driven, and creates an executable .prg file.
 * -tf : target format, may be prg, crt or bin
 * -tm : target machine
 * -d64 : create a d64 disk image
+* -d81 : create a d81 disk image for a Commodore 1581 drive
 * -f : add a binary file to the disk image
 * -fz : add a compressed binary file to the disk image
-* -fi : sector skip for data files on disk image
+* -fi : sector skip for data files on disk image (default: 10 for D64, 1 for D81)
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
 * -csub : cartridge sub type
@@ -318,11 +319,12 @@ Global variables have a name, a memory range and a typeid
 This file is generated when compiling with the -gp option and includes all source lines annotated with line number, start in memory and number of bytes of generated machine code.  This is a good place for part of your source that appear to use an unexpected amount of memory.
 
 
-### Creating a d64 disk file ".d64"
+### Creating a d64 or d81 disk file
 
-The compiler can create a .d64 disk file, that includes the compiled .prg file as the first file in the directory and a series of additional resource files.  The name of the disk file is provided with the -d64 command line options, additional files with the -f or -fz option.
+The compiler can create a .d64 disk file for a Commodore 1541 drive or a .d81 disk file for a Commodore 1581 drive. The image includes the compiled .prg file as the first file in the directory and a series of additional resource files. The name of the disk file is provided with the -d64 or -d81 command line option, and additional files with the -f or -fz option.
 
 	oscar64 charsetload.c -d64=charsetload.d64 -fz=../resources/charset.bin
+	oscar64 charsetload.c -d81=charsetload.d81 -fz=../resources/charset.bin
 	
 The compressed files can be loaded into memory and decompressed using the oscar_expand_lzo function from oscar.h or on the fly while reading from disk with the krnio_read_lzo function.
 
@@ -826,7 +828,7 @@ The __bankof operator returns the bank id of a function or constant placed into 
 
 ### Overlays
 
-The linker can generate overlay files that are stored as .prg in the .d64 when selected as target.
+The linker can generate overlay files that are stored as .prg in the .d64 or .d81 when selected as target.
 
 The mechanism uses the cartridge bank to denote up to 64 overlays.  Each bank can be associated with one overlay file, which will then contain the used content of this bank.
 
@@ -1140,7 +1142,7 @@ This sample will use the memory area starting from 0x0400 for the main code sect
 
 ### Dynamic overlays "overlay.c"
 
-When compiling for .d64 format, the linker will place code and data sections from virtual cartridge banks into overlay files.  These files can be loaded when needed and called using normal function calls.
+When compiling for .d64 or .d81 format, the linker will place code and data sections from virtual cartridge banks into overlay files. These files can be loaded when needed and called using normal function calls.
 
 
 ### Terminate stay resident "tsr.c"
@@ -1747,6 +1749,3 @@ The store is moved into the basic block that joins the two branches
 #### Peephole optimizations
 
 Various small and local optimizations are performed on the code on a per basic block level.
-
-
-

@@ -25,6 +25,7 @@ oscar64 \- optimizing C/C++ cross-compiler for 6502 systems
 .RB [ \-xz ]
 .RB [ \-rmp ]
 .RB [ \-d64= "\fIdiskname\fR" ]
+.RB [ \-d81= "\fIdiskname\fR" ]
 .RB [ \-f= "\fIfile\fR" ]
 .RB [ \-fz= "\fIfile\fR" ]
 .RB [ \-fi= "\fIn\fR" ]
@@ -265,6 +266,9 @@ Mega65 (0x2000..0xc000).
 .BI \-d64= diskname
 Create a .d64 disk image with the specified name.
 .TP
+.BI \-d81= diskname
+Create a .d81 disk image for a Commodore 1581 drive with the specified name.
+.TP
 .BI \-f= file.xxx
 Add a binary file to the disk image.
 .TP
@@ -272,7 +276,7 @@ Add a binary file to the disk image.
 Add a compressed binary file to the disk image.
 .TP
 .BI \-fi= n
-Set sector interleave for data files on disk image (default: 10).
+Set sector interleave for data files on disk image (default: 10 for D64, 1 for D81).
 
 .SS "Cartridge Options"
 .TP

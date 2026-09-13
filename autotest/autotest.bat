@@ -216,6 +216,9 @@ rem @echo off
 @call :testdiskfull
 @if %errorlevel% neq 0 goto :error
 
+@call :testd81
+@if %errorlevel% neq 0 goto :error
+
 @call :test arrparam.c
 @if %errorlevel% neq 0 goto :error
 
@@ -347,6 +350,17 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testd81
+..\bin\oscar64 -d81=diskimaged81test.d81 -f=..\samples\resources\blumba2.bin
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged81test.d81 @exit /b 1
+@for %%I in (diskimaged81test.d81) do @if not "%%~zI"=="819200" (
+	@del diskimaged81test.d81
+	@exit /b 1
+)
+@del diskimaged81test.d81
+@exit /b 0
 
 :testdiskfull
 ..\bin\oscar64 -d64=diskimagefulltest.d64 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin > diskimagefulltest.log 2>&1
