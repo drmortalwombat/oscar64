@@ -99,6 +99,7 @@ void writeHelp(void)
 	printf("-tf : target format, may be prg, crt or bin\n");
 	printf("-tm : target machine\n");
 	printf("-d64 : create a d64 disk image\n");
+	printf("-d71 : create a d71 disk image\n");
 	printf("-d81 : create a d81 disk image\n");
 	printf("-f  : add a binary file to the disk image\n");
 	printf("-fz : add a compressed binary file to the disk image\n");
@@ -259,6 +260,11 @@ int main2(int argc, const char** argv)
 				{
 					strcpy_s(diskPath, arg + 5);
 					diskFormat = DiskImage::Format::D64;
+				}
+				else if (arg[1] == 'd' && arg[2] == '7' && arg[3] == '1' && arg[4] == '=')
+				{
+					strcpy_s(diskPath, arg + 5);
+					diskFormat = DiskImage::Format::D71;
 				}
 				else if (arg[1] == 'd' && arg[2] == '8' && arg[3] == '1' && arg[4] == '=')
 				{
@@ -767,7 +773,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 [-h] {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname|-d81=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 [-h] {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname|-d71=diskname|-d81=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}

@@ -31,9 +31,9 @@ static char A2P(char ch)
 }
 
 DiskImage::DiskImage(const char* fname, Errors* errors, Format format)
-	: mErrors(errors), mDirEntry(nullptr), mTrack(0), mSector(0), mBytes(0)
+	: mErrors(errors), mFormat(format), mDirEntry(nullptr), mTrack(0), mSector(0), mBytes(0)
 {
-	mTracks = format == Format::D81 ? 80 : 35;
+	mTracks = format == Format::D81 ? 80 : format == Format::D71 ? 70 : 35;
 	mDirectoryTrack = format == Format::D81 ? 40 : 18;
 	mFirstDirectorySector = format == Format::D81 ? 3 : 1;
 	mInterleave = format == Format::D81 ? 1 : 10;
@@ -78,10 +78,11 @@ DiskImage::DiskImage(const char* fname, Errors* errors, Format format)
 
 		for (int track = 1; track <= 80; track++)
 		{
-			uint8* dp = BAMEntry(track);
-			dp[0] = 40;
-			for (int j = 1; j < 6; j++)
-				dp[j] = 0xff;
+			BAMFreeSectorCount(track) = 40;
+			uint8* map = BAMSectorMap(track);
+
+			for (int j = 0; j < 5; j++)
+				map[j] = 0xff;
 		}
 
 		MarkBAMSector(40, 0);
@@ -93,15 +94,32 @@ DiskImage::DiskImage(const char* fname, Errors* errors, Format format)
 	{
 		uint8* bam = mSectors[18][0];
 
-		bam[0] = 18; bam[1] = 1; bam[2] = 0x41; bam[3] = 0;
+		bam[0] = 18;
+		bam[1] = 1;
+		bam[2] = 0x41;
+		bam[3] = format == Format::D71 ? 0x80 : 0;
 		for (int track = 1; track <= 35; track++)
 		{
-			uint8* dp = BAMEntry(track);
-			dp[0] = D64SectorsPerTrack[track];
+			BAMFreeSectorCount(track) = D64SectorsPerTrack[track];
 			unsigned k = (1 << D64SectorsPerTrack[track]) - 1;
-			dp[3] = (k >> 16) & 255;
-			dp[2] = (k >> 8) & 255;
-			dp[1] = k & 255;
+			uint8* map = BAMSectorMap(track);
+			map[2] = (k >> 16) & 255;
+			map[1] = (k >> 8) & 255;
+			map[0] = k & 255;
+		}
+
+		if (format == Format::D71)
+		{
+			for (int track = 36; track <= 70; track++)
+			{
+				int sectors = SectorsOnTrack(track);
+				BAMFreeSectorCount(track) = sectors;
+				unsigned k = (1 << sectors) - 1;
+				uint8* map = BAMSectorMap(track);
+				map[2] = (k >> 16) & 255;
+				map[1] = (k >> 8) & 255;
+				map[0] = k & 255;
+			}
 		}
 
 		for (int j = 0x90; j < 0xab; j++)
@@ -124,6 +142,12 @@ DiskImage::DiskImage(const char* fname, Errors* errors, Format format)
 
 		MarkBAMSector(18, 0);
 		MarkBAMSector(18, 1);
+
+		if (format == Format::D71)
+		{
+			for (int sector = 0; sector < SectorsOnTrack(53); sector++)
+				MarkBAMSector(53, sector);
+		}
 	}
 
 	uint8* dir = mSectors[mDirectoryTrack][mFirstDirectorySector];
@@ -134,28 +158,43 @@ int DiskImage::SectorsOnTrack(int track) const
 {
 	if (track <= 0 || track > mTracks)
 		return 0;
-	return mTracks == 80 ? 40 : D64SectorsPerTrack[track];
+	return mFormat == Format::D81 ? 40 : D64SectorsPerTrack[(track - 1) % 35 + 1];
 }
 
-uint8* DiskImage::BAMEntry(int track)
+uint8& DiskImage::BAMFreeSectorCount(int track)
 {
-	if (mTracks == 80)
+	if (mFormat == Format::D81)
 	{
 		int bamSector = track <= 40 ? 1 : 2;
 		int bamTrack = (track - 1) % 40;
-		return mSectors[40][bamSector] + 16 + 6 * bamTrack;
+		return mSectors[40][bamSector][16 + 6 * bamTrack];
 	}
-	return mSectors[18][0] + 4 * track;
+	if (mFormat == Format::D71 && track > 35)
+		return mSectors[18][0][0xdd + track - 36];
+	return mSectors[18][0][4 * track];
+}
+
+uint8* DiskImage::BAMSectorMap(int track)
+{
+	if (mFormat == Format::D81)
+	{
+		int bamSector = track <= 40 ? 1 : 2;
+		int bamTrack = (track - 1) % 40;
+		return mSectors[40][bamSector] + 17 + 6 * bamTrack;
+	}
+	if (mFormat == Format::D71 && track > 35)
+		return mSectors[53][0] + 3 * (track - 36);
+	return mSectors[18][0] + 4 * track + 1;
 }
 
 void DiskImage::MarkBAMSector(int track, int sector)
 {
-	uint8* dp = BAMEntry(track);
+	uint8* map = BAMSectorMap(track);
 
-	if (dp[1 + (sector >> 3)] & (1 << (sector & 7)))
+	if (map[sector >> 3] & (1 << (sector & 7)))
 	{
-		dp[1 + (sector >> 3)] &= ~(1 << (sector & 7));
-		dp[0]--;
+		map[sector >> 3] &= ~(1 << (sector & 7));
+		BAMFreeSectorCount(track)--;
 	}
 }
 
@@ -166,16 +205,16 @@ int DiskImage::AllocBAMSector(int track, int sector)
 	if (sectors == 0)
 		return -1;
 
-	uint8* dp = BAMEntry(track);
+	uint8* map = BAMSectorMap(track);
 
-	if (dp[0] > 0)
+	if (BAMFreeSectorCount(track) > 0)
 	{
 		sector = (sector + mInterleave) % sectors;
 
 		if (sector < 0)
 			sector += sectors;
 
-		while (!(dp[1 + (sector >> 3)] & (1 << (sector & 7))))
+		while (!(map[sector >> 3] & (1 << (sector & 7))))
 		{
 			sector++;
 
@@ -195,7 +234,7 @@ int DiskImage::AllocBAMTrack(int track)
 {
 	if (track < mDirectoryTrack)
 	{
-		while (track > 0 && BAMEntry(track)[0] == 0)
+		while (track > 0 && BAMFreeSectorCount(track) == 0)
 			track--;
 		if (track != 0)
 			return track;
@@ -206,7 +245,7 @@ int DiskImage::AllocBAMTrack(int track)
 	if (track == mDirectoryTrack)
 		track++;
 
-	while (track <= mTracks && BAMEntry(track)[0] == 0)
+	while (track <= mTracks && BAMFreeSectorCount(track) == 0)
 		track++;
 	return track <= mTracks ? track : -1;
 }

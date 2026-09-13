@@ -2,10 +2,11 @@ SRCS=$(filter-out ambiguousoverload_trigger.c opp_part1.cpp opp_part2.cpp, $(wil
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES) diskimagefulltest diskimaged81test
+all: $(EXES) diskimagefulltest diskimaged71test diskimaged81test
 
 DISK_FULL_RESOURCE=../samples/resources/blumba2.bin
 DISK_FULL_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18,-f=$(DISK_FULL_RESOURCE))
+DISK_D71_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17,-f=$(DISK_FULL_RESOURCE))
 
 .PHONY: diskimagefulltest
 diskimagefulltest:
@@ -14,6 +15,20 @@ diskimagefulltest:
 	if [ $$status -ne 20 ] || ! printf '%s\n' "$$output" | grep -Fq "oscar64: error" || ! printf '%s\n' "$$output" | grep -Fq "Disk image capacity exceeded"; then \
 		printf '%s\n' "$$output"; \
 		printf 'Expected disk-capacity error and exit status 20, got %s\n' "$$status"; \
+		exit 1; \
+	fi
+
+.PHONY: diskimaged71test
+diskimaged71test:
+	@$(OSCAR64_CC) -d71=diskimaged71test.d71 $(DISK_D71_FILES)
+	@size="$$(wc -c < diskimaged71test.d71)"; \
+	header="$$(od -An -tx1 -j 91392 -N 4 diskimaged71test.d71 | tr -d ' \n')"; \
+	side_count="$$(od -An -tx1 -j 91613 -N 1 diskimaged71test.d71 | tr -d ' \n')"; \
+	side_bam="$$(od -An -tx1 -j 266240 -N 3 diskimaged71test.d71 | tr -d ' \n')"; \
+	directory="$$(od -An -tx1 -j 91648 -N 5 diskimaged71test.d71 | tr -d ' \n')"; \
+	$(RM) diskimaged71test.d71; \
+	if [ "$$size" -ne 349696 ] || [ "$$header" != "12014180" ] || [ "$$side_count" != "05" ] || [ "$$side_bam" != "071800" ] || [ "$$directory" != "120b82110a" ]; then \
+		printf 'Invalid D71 layout: size=%s header=%s side_count=%s side_bam=%s directory=%s\n' "$$size" "$$header" "$$side_count" "$$side_bam" "$$directory"; \
 		exit 1; \
 	fi
 
@@ -122,4 +137,4 @@ variadic-macros: variadic_macros.c
 	$(OSCAR64_CC) -eai -g -O3 -n $<
 
 clean:
-	@$(RM) *.asm *.bcs *.d64 *.d81 *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.bcs *.d64 *.d71 *.d81 *.int *.lbl *.map *.prg

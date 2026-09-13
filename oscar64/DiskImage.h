@@ -10,6 +10,7 @@ public:
 	enum class Format
 	{
 		D64,
+		D71,
 		D81
 	};
 
@@ -31,10 +32,12 @@ protected:
 	int AllocBAMSector(int track, int sector);
 	int AllocBAMTrack(int track);
 	bool CapacityExceeded(void);
-	uint8* BAMEntry(int track);
+	uint8& BAMFreeSectorCount(int track);
+	uint8* BAMSectorMap(int track);
 	int SectorsOnTrack(int track) const;
 
 	Errors*		mErrors;
+	Format		mFormat;
 	uint8	*	mDirEntry;
 	int			mTrack, mSector, mBytes, mInterleave;
 	int			mTracks, mDirectoryTrack, mFirstDirectorySector;

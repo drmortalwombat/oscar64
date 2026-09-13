@@ -344,6 +344,7 @@ make/oscar64
 *.bcs
 *.crt
 **/*.d64
+**/*.d71
 **/*.d81
 *.tlog
 *.res

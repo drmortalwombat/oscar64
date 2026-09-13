@@ -216,6 +216,9 @@ rem @echo off
 @call :testdiskfull
 @if %errorlevel% neq 0 goto :error
 
+@call :testd71
+@if %errorlevel% neq 0 goto :error
+
 @call :testd81
 @if %errorlevel% neq 0 goto :error
 
@@ -350,6 +353,17 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testd71
+..\bin\oscar64 -d71=diskimaged71test.d71 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged71test.d71 @exit /b 1
+@for %%I in (diskimaged71test.d71) do @if not "%%~zI"=="349696" (
+	@del diskimaged71test.d71
+	@exit /b 1
+)
+@del diskimaged71test.d71
+@exit /b 0
 
 :testd81
 ..\bin\oscar64 -d81=diskimaged81test.d81 -f=..\samples\resources\blumba2.bin
