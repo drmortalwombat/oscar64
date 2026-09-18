@@ -6,8 +6,8 @@
 #include <algorithm>
 
 #define DISASSEMBLE_OPT		0
-#define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"shipyard_navigate"
+#define DISASSEMBLE_FILE	"c:\\tmp\\cldiss.txt"
+#define CHECK_FUNC			"parallax_init"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -31292,12 +31292,11 @@ void InterCodeProcedure::ReduceTemporaries(bool final)
 				}
 			}
 
-			j = 0;
-			while (usedTemps[j])
-				j++;
+			j = usedTemps.FindFirstClear();
 
 			mRenameTable[i] = j;
 			if (j >= numRenamedTemps) numRenamedTemps = j + 1;
+
 		}
 	}
 

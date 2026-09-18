@@ -40,6 +40,8 @@ public:
 	bool RangeClear(int elem, int num) const;
 	bool RangeFilled(int elem, int num) const;
 
+	int FindFirstClear(void) const;
+
 	int Size(void) { return size; }
 };
 
@@ -62,7 +64,7 @@ inline NumberSet& NumberSet::operator-=(int elem)
 inline bool NumberSet::operator[](int elem) const
 {
 	assert(elem >= 0 && elem < size);
-	return (bits[elem >> 6] & (1ULL << (elem & 63))) != 0;
+	return ((bits[elem >> 6] >> (elem & 63)) & 1) != 0;
 }
 
 

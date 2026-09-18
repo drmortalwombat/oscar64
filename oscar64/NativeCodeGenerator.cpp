@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"check_mulli"
+#define CHECK_FUNC			"enemies_iterate"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -32626,7 +32626,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						}
 						else
 						{
-							mEntryBlocks[i]->mIns.Push(mIns[fi]);
+							NativeCodeInstruction	ins(mIns[fi]);
+							if (mEntryBlocks[i]->mExitRequiredRegs[CPU_REG_A])
+								ins.mLive |= LIVE_CPU_REG_A;
+							if (mEntryBlocks[i]->mExitRequiredRegs[CPU_REG_X])
+								ins.mLive |= LIVE_CPU_REG_X;
+
+							mEntryBlocks[i]->mIns.Push(ins);
+
 							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_Y;
 						}
 					}
@@ -32669,7 +32676,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						}
 						else
 						{
-							mEntryBlocks[i]->mIns.Push(mIns[fi]);
+							NativeCodeInstruction	ins(mIns[fi]);
+							if (mEntryBlocks[i]->mExitRequiredRegs[CPU_REG_A])
+								ins.mLive |= LIVE_CPU_REG_A;
+							if (mEntryBlocks[i]->mExitRequiredRegs[CPU_REG_Y])
+								ins.mLive |= LIVE_CPU_REG_Y;
+
+							mEntryBlocks[i]->mIns.Push(ins);
+
 							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_X;
 							mEntryBlocks[i]->mExitRequiredRegs -= CPU_REG_Z;
 						}
@@ -64848,10 +64862,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 		mIns[i + 3].mType == ASMIT_STY && 
 		mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & LIVE_CPU_REG_A))
 	{
-		mIns[i + 4] = mIns[i + 3]; mIns[i + 4].mType = ASMIT_STA; mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
-		mIns[i + 3] = mIns[i + 1]; mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+		int live = mIns[i + 4].mLive & LIVE_CPU_REG_Z;
+		mIns[i + 4] = mIns[i + 3]; mIns[i + 4].mType = ASMIT_STA; mIns[i + 4].mLive |= LIVE_CPU_REG_Y | live;
+		mIns[i + 3] = mIns[i + 1]; mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y | live;
 		mIns[i + 1] = mIns[i + 2]; mIns[i + 1].mType = ASMIT_LDA;
-		mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mType = ASMIT_LDY; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mType = ASMIT_LDY; mIns[i + 2].mLive |= LIVE_CPU_REG_Y | live;
 		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 		return true;
 	}
@@ -64863,10 +64878,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 		mIns[i + 3].mType == ASMIT_STX &&
 		mIns[i + 4].mType == ASMIT_TAX && !(mIns[i + 4].mLive & LIVE_CPU_REG_A))
 	{
-		mIns[i + 4] = mIns[i + 3]; mIns[i + 4].mType = ASMIT_STA; mIns[i + 4].mLive |= LIVE_CPU_REG_X;
-		mIns[i + 3] = mIns[i + 1]; mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+		int live = mIns[i + 4].mLive & LIVE_CPU_REG_Z;
+		mIns[i + 4] = mIns[i + 3]; mIns[i + 4].mType = ASMIT_STA; mIns[i + 4].mLive |= LIVE_CPU_REG_X | live;
+		mIns[i + 3] = mIns[i + 1]; mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_X | live;
 		mIns[i + 1] = mIns[i + 2]; mIns[i + 1].mType = ASMIT_LDA;
-		mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+		mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X | live;
 		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 		return true;
 	}

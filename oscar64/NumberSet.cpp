@@ -121,6 +121,29 @@ bool NumberSet::RangeFilled(int elem, int num) const
 	return true;
 }
 
+int NumberSet::FindFirstClear(void) const
+{
+	for (int i = 0; i < dwsize; i++)
+	{
+		if (bits[i] != ~0ull)
+		{
+			uint64	dw = bits[i];
+			i *= 64;
+			while (dw & 1)
+			{
+				i++;
+				dw >>= 1;
+			}
+
+			if (i < size)
+				return i;
+			else
+				return -1;
+		}
+	}
+	return -1;
+}
+
 void NumberSet::Fill(void)
 {
 	int i;
