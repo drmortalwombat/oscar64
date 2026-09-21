@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"theFunction"
+#define CHECK_FUNC			"sidfx_loop_2"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -21789,11 +21789,11 @@ bool NativeCodeBasicBlock::CompressSwitchCascade(int lower, int upper, int cmp, 
 				int pcmp = cmp;
 				cmp = mIns[sz - 1].mAddress;
 
-				if (!mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_Z] && mFalseJump)
+				if (!mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_Z] && mFalseJump && !ChangesCarry(0, sz - 1))
 				{
-					if (cmp != -1 && branch == ASMIT_BNE)
+					if (pcmp != -1 && branch == ASMIT_BNE)
 					{
-						if (cmp + 1 == upper && upper == mIns[sz - 1].mAddress)
+						if (pcmp + 1 == upper && upper == mIns[sz - 1].mAddress)
 						{
 							if (mBranch == ASMIT_BEQ)
 								mBranch = ASMIT_BCS;
@@ -21803,7 +21803,7 @@ bool NativeCodeBasicBlock::CompressSwitchCascade(int lower, int upper, int cmp, 
 							cmp = pcmp;
 							changed = true;
 						}
-						else if (lower + 1 == cmp && lower == mIns[sz - 1].mAddress)
+						else if (lower + 1 == pcmp && lower == mIns[sz - 1].mAddress)
 						{
 							if (mBranch == ASMIT_BEQ)
 								mBranch = ASMIT_BCC;
@@ -21833,6 +21833,10 @@ bool NativeCodeBasicBlock::CompressSwitchCascade(int lower, int upper, int cmp, 
 						}
 					}
 				}
+
+				if (cmp != pcmp)
+					branch = ASMIT_JMP;
+
 			}
 			else
 				cmp = -1;
@@ -22463,8 +22467,6 @@ bool NativeCodeBasicBlock::LoopRegisterWrapAround(void)
 					eblock->mIns[esz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, eblock->mIns[esz - 1].mMode) &&
 					!(eblock->mIns[esz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
 				{
-					printf("Doopsie\n");
-
 					bblock->mIns.Push(mIns[0]);
 					bblock->mExitRequiredRegs += CPU_REG_X;
 					mEntryRequiredRegs += CPU_REG_X;
