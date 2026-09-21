@@ -5567,6 +5567,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_VOID)
 			{
+				Dereference(proc, exp, block, inlineMapper, vr);
 			}
 			else if (exp->mDecType->IsReference() && exp->mDecType->mBase->IsConstSame(vr.mType))
 			{
@@ -6338,7 +6339,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
 		exp->Dump(0);
 #endif
 #if 0

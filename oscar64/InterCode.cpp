@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"theFunction"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
