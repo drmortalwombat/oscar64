@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"below"
+#define CHECK_FUNC			"park_all"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -55492,6 +55492,38 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 							switch (ins.mType)
 							{
 							case ASMIT_LDY:
+								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
+								{
+									if (ins.mLive & LIVE_CPU_REG_Z)
+									{
+										if (!(ins.mLive & LIVE_CPU_REG_A))
+										{
+											ins.mType = ASMIT_TYA;
+											ins.mMode = ASMIM_IMPLIED;
+										}
+										else if (j + 1 < block->mIns.Size() && block->mIns[j + 1].mType == ASMIT_STA && !(block->mIns[j + 1].mLive & LIVE_CPU_REG_A))
+										{
+											ins = block->mIns[j + 1];
+											ins.mLive |= LIVE_CPU_REG_Y;
+											block->mIns[j + 1].mType = ASMIT_TYA;
+											block->mIns[j + 1].mMode = ASMIM_IMPLIED;
+										}
+										else
+										{
+											ins.mType = ASMIT_CPY;
+											ins.mMode = ASMIM_IMMEDIATE;
+											ins.mAddress = 0;
+										}
+									}
+									else
+									{
+										ins.mType = ASMIT_NOP;
+										ins.mMode = ASMIM_IMPLIED;
+									}
+									yoffset = 0;
+									yskew = 0;
+								}
+								break;
 							case ASMIT_STY:
 								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
 								{
@@ -55510,6 +55542,13 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 										{
 											ins.mType = ASMIT_TXA;
 											ins.mMode = ASMIM_IMPLIED;
+										}
+										else if (j + 1 < block->mIns.Size() && block->mIns[j + 1].mType == ASMIT_STA && !(block->mIns[j + 1].mLive & LIVE_CPU_REG_A))
+										{
+											ins = block->mIns[j + 1];
+											ins.mLive |= LIVE_CPU_REG_X;
+											block->mIns[j + 1].mType = ASMIT_TXA;
+											block->mIns[j + 1].mMode = ASMIM_IMPLIED;
 										}
 										else
 										{
@@ -55622,11 +55661,11 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 								break;
 
 							case ASMIT_TXA:
-								if (areg == CPU_REG_X)
+								if (areg == CPU_REG_X && !(ins.mLive & LIVE_CPU_REG_Z))
 									ins.mType = ASMIT_NOP;
 								break;
 							case ASMIT_TYA:
-								if (areg == CPU_REG_Y)
+								if (areg == CPU_REG_Y && !(ins.mLive & LIVE_CPU_REG_Z))
 									ins.mType = ASMIT_NOP;
 								break;
 							}
