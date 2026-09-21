@@ -10176,6 +10176,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							vr.mMaxValue = mask;
 							vr.mMinValue = 0;
 						}
+						else if (mask & SignedTypeMin(ins->mSrc[1].mType))
+						{
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = SignedTypeMin(ins->mSrc[1].mType);
+						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -10193,6 +10198,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
 							vr.mMaxValue = mask;
 							vr.mMinValue = 0;
+						}
+						else if (mask & SignedTypeMin(ins->mSrc[0].mType))
+						{
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = SignedTypeMin(ins->mSrc[0].mType);
 						}
 					}
 					else

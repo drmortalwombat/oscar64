@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"sidfx_loop_2"
+#define CHECK_FUNC			"below"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -59703,6 +59703,12 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 		mIns[i + 1].mAddress++;
 		return true;
 	}
+	if (mIns[i].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_SBC && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+	{
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 1].mType = ASMIT_CMP;
+		return true;
+	}
 	if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
 	{
 		mIns[i + 1].mType = ASMIT_ROL;
@@ -59732,6 +59738,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 	{
 		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 		mIns[i + 1].mType = ASMIT_LDA;
+		return true;
+	}
+	if (mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
+		mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x01 && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+	{
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 1].mType = ASMIT_ASL; mIns[i + 1].mMode = ASMIM_IMPLIED;
 		return true;
 	}
 	if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED)
@@ -64435,6 +64448,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 		mIns[i + 1].mAddress = (mIns[i + 1].mAddress + mIns[i + 4].mAddress) & 255;
 
 		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+		mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
+	if (
+		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x00 &&
+		mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x00 &&
+		mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+		mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x00 &&
+		mIns[i + 4].mType == ASMIT_ROL && mIns[i + 4].mMode == ASMIM_IMPLIED &&
+		!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
+	{
+		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		mIns[i + 3].mType = ASMIT_AND; mIns[i + 3].mAddress = 0x01;
 		mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 		return true;
 	}
