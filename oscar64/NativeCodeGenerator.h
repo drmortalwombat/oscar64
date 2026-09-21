@@ -264,6 +264,8 @@ public:
 	bool LoadsZeroPage(int address) const;
 	bool ReferencesZeroPage(int address) const;
 
+	bool IsZeroPageRange(void) const;
+
 	bool SameLinkerObjectVariableRange(const NativeCodeInstruction& ins, bool sameXY = false) const;
 
 	bool IsPure(void) const;

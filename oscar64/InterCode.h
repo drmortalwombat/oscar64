@@ -309,6 +309,7 @@ public:
 	bool IsUnsigned(void) const;
 	bool IsPositive(void) const;
 	bool IsInRange(int lower, int upper) const;
+	bool IsZeroPageRange(void) const;
 
 	bool IsNotUByte(void) const;
 

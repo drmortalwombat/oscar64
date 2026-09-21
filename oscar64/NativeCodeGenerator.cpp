@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"park_all"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -5544,6 +5544,24 @@ void NativeCodeInstruction::CopyModeAndRange(const NativeCodeInstruction& ins)
 	mMaxVal = ins.mMaxVal;
 }
 
+bool NativeCodeInstruction::IsZeroPageRange(void) const
+{
+	if (mMode == ASMIM_ABSOLUTE || mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y)
+	{
+		if (mLinkerObject)
+			return (mLinkerObject->mFlags & LOBJF_ZEROPAGE) != 0;
+		else if (mMode == ASMIM_ABSOLUTE)
+			return mAddress < 256;
+		else if (mIns && IsLoad() && mIns->mCode == IC_LOAD)
+			return mIns->mSrc[0].IsZeroPageRange();
+		else if (mIns && IsStore() && mIns->mCode == IC_STORE)
+			return mIns->mSrc[1].IsZeroPageRange();
+		else
+			return mAddress == 0;
+	}
+	return false;
+}
+
 void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 {
 	bool	weak = true;
@@ -5638,17 +5656,11 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 
 		AsmInsMode	mode = mMode;
 
-		if (mode == ASMIM_ABSOLUTE && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE))
+		if (mode == ASMIM_ABSOLUTE && IsZeroPageRange() && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE))
 			mode = ASMIM_ZERO_PAGE;
-		else if (mode == ASMIM_ABSOLUTE_X && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_X))
+		else if (mode == ASMIM_ABSOLUTE_X && IsZeroPageRange() && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_X))
 			mode = ASMIM_ZERO_PAGE_X;
-		else if (mode == ASMIM_ABSOLUTE_Y && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_Y))
-			mode = ASMIM_ZERO_PAGE_Y;
-		else if (mode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE) && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE))
-			mode = ASMIM_ZERO_PAGE;
-		else if (mode == ASMIM_ABSOLUTE_X && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE) && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_X))
-			mode = ASMIM_ZERO_PAGE_X;
-		else if (mode == ASMIM_ABSOLUTE_Y && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE) && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_Y))
+		else if (mode == ASMIM_ABSOLUTE_Y && IsZeroPageRange() && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_Y))
 			mode = ASMIM_ZERO_PAGE_Y;
 
 		if (mode == ASMIM_IMMEDIATE_ADDRESS)

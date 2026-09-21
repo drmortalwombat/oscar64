@@ -4344,6 +4344,13 @@ bool InterOperand::IsNotUByte(void) const
 		mRange.mMaxState == IntegerValueRange::S_BOUND && mRange.mMaxValue >= 256;
 }
 
+bool InterOperand::IsZeroPageRange(void) const
+{
+	if (mMemoryBase == IM_ABSOLUTE && mRange.IsBound())
+		return mIntConst + mRange.mMinValue >= 0 && mIntConst + mRange.mMaxValue < 256;
+	return false;
+}
+
 bool InterOperand::IsUByte(void) const
 {
 	return IsValid() &&
