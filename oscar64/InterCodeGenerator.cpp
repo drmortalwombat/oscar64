@@ -6378,7 +6378,10 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	if (dec->mFlags & DTF_FUNC_INTRCALLED)
 		proc->mInterruptCalled = true;
-	
+
+	if (dec->mFlags & DTF_FUNC_VARIABLE)
+		proc->mFuncVariable = true;
+
 	if ((dec->mFlags & DTF_DYNSTACK) || (dec->mFlags & DTF_FUNC_RECURSIVE))
 		proc->mDynamicStack = true;
 

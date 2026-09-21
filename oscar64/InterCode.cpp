@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"place_square"
+#define CHECK_FUNC			"theFunction"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -27741,7 +27741,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
 	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), mNoInline(false),
 	mDeclaration(nullptr), mGlobalsChecked(false), mDispatchedCall(false),
-	mIntrinsicFunction(false),
+	mIntrinsicFunction(false), mFuncVariable(false),
 	mNumRestricted(1)
 {
 	mID = mModule->mProcedures.Size();

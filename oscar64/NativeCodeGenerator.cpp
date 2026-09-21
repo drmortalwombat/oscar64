@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"enemies_iterate"
+#define CHECK_FUNC			"theFunction"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -70689,7 +70689,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		mExitBlock->mIns.Push(NativeCodeInstruction(mExitBlock->mBranchIns, ASMIT_RTS, ASMIM_IMPLIED));
 
 
-	if (mExitBlock->mIns.Size() == 1 && rflags == NCIF_LOWER && !mExitBlock->mExitRegA && (mGenerator->mCompilerOptions & COPT_NATIVE))
+	if (mExitBlock->mIns.Size() == 1 && rflags == NCIF_LOWER && !mExitBlock->mExitRegA && (mGenerator->mCompilerOptions & COPT_NATIVE) && !proc->mFuncVariable)
 	{
 		if (mExitBlock->mEntryBlocks.Size() == 1)
 		{

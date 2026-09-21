@@ -790,7 +790,7 @@ public:
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase, mNumRestricted;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
-	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack, mAssembled;
+	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack, mAssembled, mFuncVariable;
 	bool								mDispatchedCall;
 	bool								mCheckUnreachable, mIntrinsicFunction;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
