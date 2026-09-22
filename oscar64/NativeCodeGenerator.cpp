@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"pair"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -44988,6 +44988,7 @@ bool NativeCodeBasicBlock::MoveSimpleADCToINCDECDown(int at)
 					AsmInsType	t = mIns[at].mType == ASMIT_LDX ? ASMIT_INX : ASMIT_INY;
 
 					mIns[at].mAddress = mIns[si + 1].mAddress;
+					mIns[at].mLive |= mIns[si + 1].mLive & LIVE_MEM;
 					for (int i = 0; i < mIns[si + 2].mAddress; i++)
 						mIns.Insert(at + 1, NativeCodeInstruction(mIns[si].mIns, t));
 

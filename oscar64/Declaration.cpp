@@ -3383,7 +3383,7 @@ bool Declaration::IsShortIntStruct(void) const
 
 bool Declaration::HasConstructor(void) const
 {
-	return mType == DT_TYPE_STRUCT && mScope && mScope->Lookup(mIdent->PreMangle("+"));
+	return mType == DT_TYPE_STRUCT && mIdent && mScope && mScope->Lookup(mIdent->PreMangle("+"));
 }
 
 bool Declaration::IsRefReturnStruct(void) const
