@@ -75,6 +75,7 @@ protected:
 	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl = nullptr);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, bool member, Declaration * pthis = nullptr, Declaration * ptempl = nullptr);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl = nullptr);
+	void AddAnonymousStructMembers(int offset, Declaration* pstruct, Declaration* panon);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
 	Expression* ParseConstInitExpression(Declaration* dtype, bool inner = false);
