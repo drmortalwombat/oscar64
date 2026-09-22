@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"clamp1"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -8846,6 +8846,8 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			{
 				bool	signedvalid = cins->mSrc[0].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[0].mType) && 
 									  cins->mSrc[1].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[1].mType);
+				bool	unsignedvalid = cins->mSrc[0].mRange.mMaxValue <= UnsignedTypeMax(cins->mSrc[0].mType) &&
+										cins->mSrc[1].mRange.mMaxValue <= UnsignedTypeMax(cins->mSrc[1].mType);
 
 				switch (cins->mOperator)
 				{
@@ -8895,7 +8897,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					{
 						constFalse = true;
 					}
-					else if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+					else if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
 							constTrue = true;
@@ -8913,7 +8915,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					}
 					break;
 				case IA_CMPLEU:
-					if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+					if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
 							constTrue = true;
@@ -8939,7 +8941,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					{
 						constFalse = true;
 					}
-					else if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+					else if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
@@ -8957,7 +8959,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					}
 					break;
 				case IA_CMPGEU:
-					if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+					if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
