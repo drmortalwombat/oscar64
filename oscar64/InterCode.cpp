@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"probe_fold"
+#define CHECK_FUNC			"oscar_expand_rle"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -15153,6 +15153,40 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						}
 						else
 							nins = ins;
+					}
+				}
+				else if (i + 1 < mInstructions.Size() &&
+					ins->mCode == IC_LEA && ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].IsUByte() &&
+					ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mMemoryBase == IM_NONE &&
+					(mInstructions[i + 1]->mCode == IC_STORE && mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal ||
+					 mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal))
+				{
+					int64 loffset = (mInstructions[i + 1]->mCode == IC_STORE ? mInstructions[i + 1]->mSrc[1].mIntConst : mInstructions[i + 1]->mSrc[0].mIntConst);
+					if (loffset != 0)
+					{
+						j = 0;
+						while (j < mLoadStoreInstructions.Size() && !(
+							mLoadStoreInstructions[j]->mCode == IC_LEA && 
+							mLoadStoreInstructions[j]->mSrc[1].mTemp == ins->mSrc[1].mTemp &&
+							mLoadStoreInstructions[j]->mSrc[0].mTemp < 0 && mLoadStoreInstructions[j]->mSrc[0].mIntConst == loffset))
+							j++;
+
+						if (j < mLoadStoreInstructions.Size())
+						{
+							ins->mSrc[1] = mLoadStoreInstructions[j]->mDst;
+							ins->mDst.mRange.AddConstValue(IT_INT16, loffset);
+
+							if (mInstructions[i + 1]->mCode == IC_STORE)
+							{
+								mInstructions[i + 1]->mSrc[1].mRange = ins->mDst.mRange;
+								mInstructions[i + 1]->mSrc[1].mIntConst = 0;
+							}
+							else
+							{
+								mInstructions[i + 1]->mSrc[0].mRange = ins->mDst.mRange;
+								mInstructions[i + 1]->mSrc[0].mIntConst = 0;
+							}
+						}
 					}
 				}
 				else
