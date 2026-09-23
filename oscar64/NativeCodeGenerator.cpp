@@ -39423,7 +39423,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 		mIns.Remove(to);
 		mIns.Insert(to, mIns[from - 1]);
 		mIns[to].mLive |= live;
-		mIns.Remove(from - 1);
+		mIns.Remove(from - 1, 2);
 
 		CheckLive();
 
