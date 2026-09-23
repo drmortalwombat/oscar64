@@ -216,7 +216,16 @@ rem @echo off
 @call :testb bitshifttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testd64
+@if %errorlevel% neq 0 goto :error
+
 @call :testdiskfull
+@if %errorlevel% neq 0 goto :error
+
+@call :testd71
+@if %errorlevel% neq 0 goto :error
+
+@call :testd81
 @if %errorlevel% neq 0 goto :error
 
 @call :test arrparam.c
@@ -353,6 +362,39 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testd64
+..\bin\oscar64 -d64=diskimaged64test.d64 -f=diskimagefixture.dat
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged64test.d64 @exit /b 1
+@for %%I in (diskimaged64test.d64) do @if not "%%~zI"=="174848" (
+	@del diskimaged64test.d64
+	@exit /b 1
+)
+@del diskimaged64test.d64
+@exit /b 0
+
+:testd71
+..\bin\oscar64 -d71=diskimaged71test.d71 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged71test.d71 @exit /b 1
+@for %%I in (diskimaged71test.d71) do @if not "%%~zI"=="349696" (
+	@del diskimaged71test.d71
+	@exit /b 1
+)
+@del diskimaged71test.d71
+@exit /b 0
+
+:testd81
+..\bin\oscar64 -d81=diskimaged81test.d81 -f=..\samples\resources\blumba2.bin
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged81test.d81 @exit /b 1
+@for %%I in (diskimaged81test.d81) do @if not "%%~zI"=="819200" (
+	@del diskimaged81test.d81
+	@exit /b 1
+)
+@del diskimaged81test.d81
+@exit /b 0
 
 :testdiskfull
 ..\bin\oscar64 -d64=diskimagefulltest.d64 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin > diskimagefulltest.log 2>&1

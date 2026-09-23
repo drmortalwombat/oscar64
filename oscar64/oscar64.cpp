@@ -99,6 +99,8 @@ void writeHelp(void)
 	printf("-tf : target format, may be prg, crt or bin\n");
 	printf("-tm : target machine\n");
 	printf("-d64 : create a d64 disk image\n");
+	printf("-d71 : create a d71 disk image\n");
+	printf("-d81 : create a d81 disk image\n");
 	printf("-f  : add a binary file to the disk image\n");
 	printf("-fz : add a compressed binary file to the disk image\n");
 	printf("-fi : sector skip for data files on disk image\n");
@@ -121,7 +123,8 @@ int main2(int argc, const char** argv)
 	{
 		char	basePath[200], crtPath[200], includePath[200], targetPath[200], diskPath[200];
 		char	strProductName[100], strProductVersion[200];
-		int		dataFileInterleave = 10;
+		int		dataFileInterleave = -1;
+		DiskImage::Format diskFormat = DiskImage::Format::D64;
 
 #ifdef _WIN32
 			GetProductAndVersion(strProductName, strProductVersion);
@@ -256,6 +259,17 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'd' && arg[2] == '6' && arg[3] == '4' && arg[4] == '=')
 				{
 					strcpy_s(diskPath, arg + 5);
+					diskFormat = DiskImage::Format::D64;
+				}
+				else if (arg[1] == 'd' && arg[2] == '7' && arg[3] == '1' && arg[4] == '=')
+				{
+					strcpy_s(diskPath, arg + 5);
+					diskFormat = DiskImage::Format::D71;
+				}
+				else if (arg[1] == 'd' && arg[2] == '8' && arg[3] == '1' && arg[4] == '=')
+				{
+					strcpy_s(diskPath, arg + 5);
+					diskFormat = DiskImage::Format::D81;
 				}
 				else if (arg[1] == 't' && arg[2] == 'f' && arg[3] == '=')
 				{
@@ -649,12 +663,12 @@ int main2(int argc, const char** argv)
 		{
 			printf("Starting %s %s\n", strProductName, strProductVersion);
 		}
-		DiskImage* d64;
+		DiskImage* diskImage;
 
 		if (diskPath[0] != '\0')
-			d64 = new DiskImage(diskPath, compiler->mErrors);
+			diskImage = new DiskImage(diskPath, compiler->mErrors, diskFormat);
 		else
-			d64 = nullptr;
+			diskImage = nullptr;
 
 		if (compiler->mErrors->mErrorCount == 0 && (customCRT || hasSources))
 		{
@@ -724,7 +738,7 @@ int main2(int argc, const char** argv)
 			}
 			else if (compiler->ParseSource() && compiler->GenerateCode())
 			{
-				compiler->WriteOutputFile(targetPath, d64);
+				compiler->WriteOutputFile(targetPath, diskImage);
 
 
 				if (emulate)
@@ -736,18 +750,18 @@ int main2(int argc, const char** argv)
 			}
 		}
 
-		if (compiler->mErrors->mErrorCount == 0 && d64 != nullptr)
+		if (compiler->mErrors->mErrorCount == 0 && diskImage != nullptr)
 		{
 			for (int i = 0; i < dataFiles.Size() && compiler->mErrors->mErrorCount == 0; i++)
 			{
-				if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
+				if (!diskImage->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
 				{
 					printf("Could not embed disk file %s\n", dataFiles[i]);
 					return 20;
 				}
 			}
 
-			if (compiler->mErrors->mErrorCount == 0 && !d64->WriteImage(diskPath))
+			if (compiler->mErrors->mErrorCount == 0 && !diskImage->WriteImage(diskPath))
 			{
 				printf("Could not write disk image %s\n", diskPath);
 				return 20;
@@ -759,7 +773,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 [-h] {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 [-h] {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname|-d71=diskname|-d81=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}
