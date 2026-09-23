@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"clamp1"
+#define CHECK_FUNC			"probe_fold"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -16037,9 +16037,15 @@ bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
 								k++;
 							if (k == pblocks.Size())
 							{
-								eblock->mInstructions[j]->mCode = IC_LOAD_TEMPORARY;
-								eblock->mInstructions[j]->mSrc[0] = ins->mDst;
-								eblock->mInstructions[j]->mNumOperands = 1;
+								InterInstruction* eins = eblock->mInstructions[j];
+
+								ins->mDst.mRange.Union(eins->mDst.mRange);
+								for (int l = 0; l < ins->mNumOperands; l++)
+									ins->mSrc[l].mRange.Union(eins->mSrc[l].mRange);
+
+								eins->mCode = IC_LOAD_TEMPORARY;
+								eins->mSrc[0] = ins->mDst;
+								eins->mNumOperands = 1;
 
 								mInstructions.Insert(mInstructions.Size() - 1, ins);
 								cblock->mInstructions.Remove(i);
