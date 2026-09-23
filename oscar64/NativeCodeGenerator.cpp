@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"pair"
+#define CHECK_FUNC			"set_and_read"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -31772,7 +31772,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 		if (mIns.Size() >= 1 && mTrueJump && !mFalseJump && mTrueJump->mIns.Size() > 0)
 		{
 			int sz = mIns.Size();
-			if (mIns[sz - 1].mType == ASMIT_STA && mTrueJump->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].SameEffectiveAddress(mTrueJump->mIns[0]))
+			if (mIns[sz - 1].mType == ASMIT_STA && mTrueJump->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].SameEffectiveAddress(mTrueJump->mIns[0]) && !(mIns[sz - 1].mFlags & NCIF_VOLATILE))
 			{
 				int i = 0;
 				while (i < mTrueJump->mEntryBlocks.Size() && !mTrueJump->mEntryBlocks[i]->mFalseJump)
