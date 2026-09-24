@@ -20673,6 +20673,8 @@ bool NativeCodeBasicBlock::MoveLoadStoreDown(int at)
 	{
 		if ((mIns[i].SameEffectiveAddress(mIns[at + 0]) || mIns[i].SameEffectiveAddress(mIns[at + 1])) && mIns[i].mType == ASMIT_LDA)
 		{
+			if (mIns[i].mFlags & NCIF_VOLATILE) return false;
+
 			if (usex)
 			{
 				for (int j = at; j <= i; j++)
