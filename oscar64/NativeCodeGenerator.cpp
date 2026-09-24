@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"set_and_read"
+#define CHECK_FUNC			"decay"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -60554,25 +60554,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 	{
 		int v = mIns[i + 0].mAddress;
 		mIns[i + 0].CopyMode(mIns[i + 1]);
+		mIns[i + 0].mLive |= mIns[i + 1].mLive & LIVE_MEM;
 		mIns[i + 0].mMinVal = mIns[i + 1].mMinVal;
 		mIns[i + 0].mMaxVal = mIns[i + 1].mMaxVal;
 		mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = v;
 		return true;
 	}
-		
 
-#if 0
-	else if (
-		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-		mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
-	{
-		int val = mIns[i + 0].mAddress;
-		mIns[i + 0].CopyMode(mIns[i + 1]);
-		mIns[i + 1].mMode = ASMIM_IMMEDIATE;
-		mIns[i + 1].mAddress = val;
-		progress = true;
-	}
-#endif
 	if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
 	{
 		const NativeCodeInstruction* ains, * iins;
@@ -65878,6 +65866,50 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 		}
 
 #endif
+#if 1
+		if (pass == 0 &&
+			mIns[i + 0].mType == ASMIT_CLC &&
+			mIns[i + 1].mType == ASMIT_LDA &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+			!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+		{
+			mProc->ResetPatched();
+			if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
+			{
+				//				mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+				mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+				mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+				mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+				mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+
+				mProc->ResetPatched();
+				if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, nullptr, mIns[i + 2].mAddress + (mIns[i + 5].mAddress + mIns[i + 4].mAddress) * 256))
+				{
+					CheckLive();
+					return true;
+				}
+			}
+			else if (mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 3].mAddress)
+			{
+				mProc->ResetPatched();
+				if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, i + 7, -1))
+				{
+					mProc->ResetPatched();
+					if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, i + 7, -1, nullptr, mIns[i + 2].mAddress + (mIns[i + 5].mAddress + mIns[i + 4].mAddress) * 256))
+					{
+						CheckLive();
+						return true;
+					}
+				}
+			}
+		}
+
+#endif
+
 #if 1
 		if (pass == 0 && i + 7 < mIns.Size() &&
 			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_LOWER) &&
