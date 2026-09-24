@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"oscar_expand_rle"
+#define CHECK_FUNC			"plain_store_read"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -3145,62 +3145,65 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 	switch (ins->mCode)
 	{
 	case IC_LOAD:
-		i = 0;
-		while (i < mNum &&
-			(mInstructions[i]->mCode != IC_LOAD ||
-				mInstructions[i]->mSrc[0].mTemp != ins->mSrc[0].mTemp ||
-				mInstructions[i]->mSrc[0].mOperandSize != ins->mSrc[0].mOperandSize))
-		{
-			i++;
-		}
-
-		if (i < mNum)
-		{
-			ins->mCode = IC_LOAD_TEMPORARY;
-			ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
-			ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
-			ins->mNumOperands = 1;
-			assert(ins->mSrc[0].mTemp >= 0);
-		}
-		else
+		if (!ins->mVolatile)
 		{
 			i = 0;
 			while (i < mNum &&
-				(mInstructions[i]->mCode != IC_STORE ||
-					mInstructions[i]->mSrc[1].mTemp != ins->mSrc[0].mTemp ||
-					mInstructions[i]->mSrc[1].mOperandSize != ins->mSrc[0].mOperandSize))
+				(mInstructions[i]->mCode != IC_LOAD ||
+					mInstructions[i]->mSrc[0].mTemp != ins->mSrc[0].mTemp ||
+					mInstructions[i]->mSrc[0].mOperandSize != ins->mSrc[0].mOperandSize))
 			{
 				i++;
 			}
 
 			if (i < mNum)
 			{
-				if (mInstructions[i]->mSrc[0].mTemp < 0)
-				{
-					ins->mCode = IC_CONSTANT;
-					ins->mSrc[0].mTemp = -1;
-					ins->mConst.mType = mInstructions[i]->mSrc[0].mType;
-					ins->mConst.mIntConst = LimitIntConstValue(mInstructions[i]->mDst.mType, mInstructions[i]->mSrc[0].mIntConst);
-					ins->mNumOperands = 0;
-				}
-				else
-				{
-					ins->mCode = IC_LOAD_TEMPORARY;
-					ins->mSrc[0].mTemp = mInstructions[i]->mSrc[0].mTemp;
-					ins->mSrc[0].mType = mInstructions[i]->mSrc[0].mType;
-					ins->mNumOperands = 1;
-					assert(ins->mSrc[0].mTemp >= 0);
-				}
-			}
-			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT && tvalue[ins->mSrc[0].mTemp]->mConst.mMemory == IM_GLOBAL && (tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject->mFlags & LOBJF_CONST))
-			{
-				block->LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp], staticVars, staticProcs);
-				InsertValue(ins);
+				ins->mCode = IC_LOAD_TEMPORARY;
+				ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
+				ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+				ins->mNumOperands = 1;
+				assert(ins->mSrc[0].mTemp >= 0);
 			}
 			else
 			{
-				if (!ins->mVolatile)
+				i = 0;
+				while (i < mNum &&
+					(mInstructions[i]->mCode != IC_STORE ||
+						mInstructions[i]->mSrc[1].mTemp != ins->mSrc[0].mTemp ||
+						mInstructions[i]->mSrc[1].mOperandSize != ins->mSrc[0].mOperandSize))
+				{
+					i++;
+				}
+
+				if (i < mNum)
+				{
+					if (mInstructions[i]->mSrc[0].mTemp < 0)
+					{
+						ins->mCode = IC_CONSTANT;
+						ins->mSrc[0].mTemp = -1;
+						ins->mConst.mType = mInstructions[i]->mSrc[0].mType;
+						ins->mConst.mIntConst = LimitIntConstValue(mInstructions[i]->mDst.mType, mInstructions[i]->mSrc[0].mIntConst);
+						ins->mNumOperands = 0;
+					}
+					else
+					{
+						ins->mCode = IC_LOAD_TEMPORARY;
+						ins->mSrc[0].mTemp = mInstructions[i]->mSrc[0].mTemp;
+						ins->mSrc[0].mType = mInstructions[i]->mSrc[0].mType;
+						ins->mNumOperands = 1;
+						assert(ins->mSrc[0].mTemp >= 0);
+					}
+				}
+				else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT && tvalue[ins->mSrc[0].mTemp]->mConst.mMemory == IM_GLOBAL && (tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject->mFlags & LOBJF_CONST))
+				{
+					block->LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp], staticVars, staticProcs);
 					InsertValue(ins);
+				}
+				else
+				{
+					if (!ins->mVolatile)
+						InsertValue(ins);
+				}
 			}
 		}
 
