@@ -1144,7 +1144,8 @@ void Scanner::NextPreToken(void)
  						char	quoteChar = 0;  // 0=not in quote, '"'=double-quote, '\''=single-quote
  						char	argbuf[4096];
  						int		arglen = 0;
- 						bool argEof = false;
+ 						bool	argEof = false;
+						bool	comment = false;
 
  						for (;;)
  						{
@@ -1163,11 +1164,14 @@ void Scanner::NextPreToken(void)
  							if (!ch)
  								break;
 
- 							bool isLastArg = def->mVariadic && i + 1 == def->mNumArguments;
- 							if (!quoteChar && level == 0 && (!isLastArg && ch == ','))
- 								break;
- 							if (!quoteChar && level == 0 && ch == ')')
- 								break;
+							if (!comment)
+							{
+								bool isLastArg = def->mVariadic && i + 1 == def->mNumArguments;
+								if (!quoteChar && level == 0 && (!isLastArg && ch == ','))
+									break;
+								if (!quoteChar && level == 0 && ch == ')')
+									break;
+							}
 
  							if (quoteChar)
  							{
@@ -1182,6 +1186,20 @@ void Scanner::NextPreToken(void)
  								else if (ch == quoteChar)
  									quoteChar = 0;
  							}
+							else if (comment)
+							{
+								if (ch == '*' && mLine[offset + 1] == '/')
+								{
+									comment = false;
+									offset++;
+									ch = ' ';
+								}
+								else
+								{
+									offset++;
+									continue;
+								}
+							}
  							else if (ch == '"' || ch == '\'')
  								quoteChar = ch;
  							else if (ch == '(' || ch == '{')
@@ -1193,6 +1211,20 @@ void Scanner::NextPreToken(void)
  								else
  									level--;
  							}
+							else if (ch == '/')
+							{
+								if (mLine[offset + 1] == '/')
+								{
+									ch = '\n';
+									while (mLine[offset + 1]) offset++;
+								}
+								else if (mLine[offset + 1] == '*')
+								{
+									comment = true;
+									offset += 2;
+									continue;
+								}
+							}
 
  							if (arglen >= (int)sizeof(argbuf) - 1)
  							{
@@ -1546,6 +1578,7 @@ void Scanner::NextRawToken(void)
 			NextChar();
 			if (mTokenChar == '*')
 			{
+				NextChar();
 				bool	first = true;
 				while (first || mTokenChar != '/')
 				{
@@ -1561,14 +1594,14 @@ void Scanner::NextRawToken(void)
 					}
 				}
 				NextChar();
-				NextPreToken();
+				NextRawToken();
 			}
 			else if (mTokenChar == '/')
 			{
 				NextChar();
 				while (!IsLineBreak(mTokenChar) && NextChar())
 					;
-				NextPreToken();
+				NextRawToken();
 			}
 			else if (mTokenChar == '=')
 			{
