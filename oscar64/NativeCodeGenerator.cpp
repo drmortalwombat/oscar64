@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"probe"
+#define CHECK_FUNC			"discard_carry"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -1142,6 +1142,12 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 				used = true;
 			break;
 		}
+	}
+
+	if (mFlags & NCIF_VOLATILE)
+	{
+		if (mMode != ASMIM_IMPLIED && mMode != ASMIM_IMMEDIATE_ADDRESS && mMode != ASMIM_IMMEDIATE && mMode != ASMIM_RELATIVE)
+			used = true;
 	}
 
 	if (used)
@@ -21110,6 +21116,8 @@ bool NativeCodeBasicBlock::MoveAccuTrainUp(int at, int end)
 				return false;
 			if (mIns[i].mType == ASMIT_JSR && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].ChangesAddress() && mIns[i].ReferencesZeroPage(mIns[j].mAddress))
 				return false;
+			if (mIns[i].mFlags & mIns[j].mFlags & NCIF_VOLATILE)
+				return false;
 		}
 	}
 
@@ -37824,7 +37832,7 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 1].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = nullptr;
 				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress; mIns[j + 1].mLinkerObject = nullptr;
@@ -37837,7 +37845,7 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 1].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = nullptr;
 				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress; mIns[j + 1].mLinkerObject = nullptr;
@@ -37851,7 +37859,7 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 				mIns[i + 1].mType == ASMIT_CLC &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].CopyMode(mIns[i + 0]);
 				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].CopyMode(mIns[i + 0]);
@@ -37864,7 +37872,7 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 				mIns[i + 0].mType == ASMIT_SEC &&
 				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].CopyMode(mIns[i + 0]);
 				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].CopyMode(mIns[i + 0]);
@@ -42028,6 +42036,8 @@ bool NativeCodeBasicBlock::MoveGenericLoadStoreUp(int at)
 
 bool NativeCodeBasicBlock::MoveAbsoluteLoadStoreUp(int at)
 {
+	bool	vol = (mIns[at].mFlags | mIns[at + 1].mFlags) & NCIF_VOLATILE;
+
 	int	j = at - 1;
 	while (j >= 0)
 	{
@@ -42061,6 +42071,8 @@ bool NativeCodeBasicBlock::MoveAbsoluteLoadStoreUp(int at)
 		if (mIns[j].ChangesZeroPage(mIns[at].mAddress))
 			return false;
 		if (mIns[j].MayBeSameAddress(mIns[at + 1], true))
+			return false;
+		if (vol && (mIns[j].mFlags & NCIF_VOLATILE))
 			return false;
 		if (mIns[at + 1].mMode == ASMIM_ABSOLUTE_X && mIns[j].ChangesXReg())
 			return false;
@@ -56929,7 +56941,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 1].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = nullptr;
 				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress; mIns[j + 1].mLinkerObject = nullptr;
@@ -56941,7 +56953,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 1].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = nullptr;
 				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress; mIns[j + 1].mLinkerObject = nullptr;
@@ -56953,8 +56965,8 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE &&
 				mIns[i + 1].mType == ASMIT_CLC &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) &&
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 1].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].CopyMode(mIns[i + 0]);
 				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].CopyMode(mIns[i + 0]);
@@ -56965,8 +56977,8 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE &&
 				mIns[i + 0].mType == ASMIT_SEC &&
 				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) &&
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !((mIns[i + 1].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 			{
 				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].CopyMode(mIns[i + 0]);
 				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].CopyMode(mIns[i + 0]);
@@ -60789,7 +60801,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 
 bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 {
-	if (mIns[i].mType == ASMIT_LDA && mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC))
+	if (mIns[i].mType == ASMIT_LDA && mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC) && !(mIns[i].mFlags & NCIF_VOLATILE))
 	{
 		mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
 		return true;
@@ -63585,7 +63597,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 	if (
 		mIns[i + 0].mType == ASMIT_LDX &&
 		mIns[i + 1].mType == ASMIT_INX && mIns[i + 2].mType == ASMIT_INX &&
-		mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
+		mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 	{
 		mIns[i + 0].mType = ASMIT_INC;
 		mIns[i + 3].mType = ASMIT_INC;
@@ -63597,7 +63609,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 	if (
 		mIns[i + 0].mType == ASMIT_LDX &&
 		mIns[i + 1].mType == ASMIT_DEX && mIns[i + 2].mType == ASMIT_DEX &&
-		mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
+		mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 	{
 		mIns[i + 0].mType = ASMIT_DEC;
 		mIns[i + 3].mType = ASMIT_DEC;
@@ -63610,7 +63622,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
 		mIns[i + 1].mType == ASMIT_CLC &&
 		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 	{
 		mIns[i + 0].mType = ASMIT_INC;
 		mIns[i + 3].mType = ASMIT_INC;
@@ -63623,7 +63635,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
 		mIns[i + 1].mType == ASMIT_SEC &&
 		mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) & NCIF_VOLATILE))
 	{
 		mIns[i + 0].mType = ASMIT_DEC;
 		mIns[i + 3].mType = ASMIT_DEC;
