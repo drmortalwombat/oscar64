@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"plain_store_read"
+#define CHECK_FUNC			"restcast"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -129,6 +129,8 @@ static int64 LimitIntConstValue(InterType type, int64 v)
 {
 	switch (type)
 	{
+	case IT_BOOL:
+		return v ? 1 : 0;
 	case IT_INT8:
 		if (v >= -128 && v < 256)
 			return v;
@@ -5078,6 +5080,8 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 				{
 					mSrc[i] = ains->mConst;
 					mSrc[i].mType = t;
+					if (IsIntegerType(t))
+						mSrc[i].mIntConst = LimitIntConstValue(mSrc[i].mType, mSrc[i].mIntConst);
 					changed = true;
 				}
 				else if (t == IT_POINTER && ains->mConst.mType == IT_INT16)
@@ -7565,7 +7569,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			case IT_POINTER:
 				break;
 			default:
-				ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+				ins->mSrc[0].mIntConst = LimitIntConstValue(ins->mSrc[0].mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				break;
 			}
@@ -9498,14 +9502,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 						if (ins->mCode == IC_LOAD_TEMPORARY)
 						{
 							ins->mCode = IC_CONSTANT;
-							ins->mConst.mType = ins->mSrc[0].mType;
-							ins->mConst.mIntConst = ins->mSrc[0].mRange.mMinValue;
+							ins->mConst.mType = ins->mDst.mType;
+							ins->mConst.mIntConst = LimitIntConstValue(ins->mDst.mType, ins->mSrc[0].mRange.mMinValue);
 							ins->mNumOperands = 0;
 						}
 						else
 						{
 							ins->mSrc[i].mTemp = -1;
-							ins->mSrc[i].mIntConst = ins->mSrc[i].mRange.mMinValue;
+							ins->mSrc[i].mIntConst = LimitIntConstValue(ins->mSrc[i].mType, ins->mSrc[i].mRange.mMinValue);
 						}
 					}
 #endif

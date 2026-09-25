@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test volatilebytecomparison.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test ambiguousoverload.c
 @if %errorlevel% neq 0 goto :error
 
