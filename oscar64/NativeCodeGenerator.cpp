@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"plain_store_read"
+#define CHECK_FUNC			"probe"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -63879,7 +63879,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
 		mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
-		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) | NCIF_VOLATILE))
 	{
 
 		mIns[i + 1].CopyMode(mIns[i + 0]);
@@ -63895,7 +63895,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
 		!mIns[i + 1].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 1]) &&
 		!mIns[i + 2].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 2]) &&
-		mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+		mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !((mIns[i + 0].mFlags | mIns[i + 3].mFlags) | NCIF_VOLATILE))
 	{
 		NativeCodeInstruction	ins = mIns[i + 0];
 		mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
@@ -63906,7 +63906,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		return true;
 	}
 	if (
-		mIns[i + 0].IsShift() && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+		mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM) &&
 		!mIns[i + 1].ChangesCarry() && !mIns[i + 2].ChangesCarry() &&
 		!mIns[i + 1].RequiresCarry() && !mIns[i + 2].RequiresCarry() &&
