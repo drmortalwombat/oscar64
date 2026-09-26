@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"restcast"
+#define CHECK_FUNC			"enemies_iterate"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -13434,7 +13434,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						{
 							InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADD || ains->mOperator == IA_SUB) && ains->mSrc[0].mTemp < 0)
+							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADD || ains->mOperator == IA_SUB) && ains->mSrc[0].mTemp < 0 && ains->mDst.IsUByte())
 							{
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
@@ -13687,7 +13687,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0)
+						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mDst.IsUByte())
 						{
 							if (ains->mSrc[1].mType == IT_INT16)
 							{
@@ -15919,7 +15919,13 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 					{
 						int j = 1, eji = -1;
 						while (j < mEntryBlocks.Size() && (eji = mEntryBlocks[j]->FindSameInstruction(ins)) >= 0 && mEntryBlocks[j]->CanMoveInstructionBehindBlock(eji))
+						{
+							if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp >= 0 && ins->mDst.mType == IT_INT8 && ins->mSrc[0].mMemoryBase == IM_GLOBAL &&
+								mEntryBlocks[j]->mInstructions[eji]->mSrc[0].mLinkerObject != ins->mSrc[0].mLinkerObject)
+								break;
+
 							j++;
+						}
 
 						if (j == mEntryBlocks.Size())
 						{

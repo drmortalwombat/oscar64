@@ -656,6 +656,29 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 					}
 				}
 			}
+			else if (!(type->mFlags & DTF_SIGNED))
+			{
+				InterInstruction* mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+				mins->mDst.mType = InterTypeOf(v.mType);
+				mins->mDst.mTemp = proc->AddTemporary(mins->mDst.mType);
+				mins->mConst.mType = mins->mDst.mType;
+				mins->mConst.mIntConst = (1 << (8 * type->mSize)) - 1;
+				block->Append(mins);
+
+				InterInstruction* xins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
+				xins->mOperator = IA_AND;
+				xins->mSrc[0].mType = mins->mDst.mType;
+				xins->mSrc[0].mTemp = stemp;
+				xins->mSrc[1].mType = mins->mDst.mType;
+				xins->mSrc[1].mTemp = mins->mDst.mTemp;
+
+				xins->mDst.mType = mins->mDst.mType;
+				xins->mDst.mTemp = proc->AddTemporary(xins->mDst.mType);
+				block->Append(xins);
+				stemp = xins->mDst.mTemp;
+
+				v.mTemp = stemp;
+			}
 		}
 		v.mType = type;
 	}
@@ -2936,9 +2959,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				ains->mSrc[0].mRange.LimitMin(0);
 				if (stride == 1)
-					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize / vl.mType->mBase->mSize);
+					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize / vl.mType->mBase->mSize - 1);
 				else
-					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize);
+					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize - 1);
 			}
 			ains->mSrc[1].mType = IT_POINTER;
 			ains->mSrc[1].mTemp = vl.mTemp;
