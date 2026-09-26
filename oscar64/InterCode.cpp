@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"enemies_iterate"
+#define CHECK_FUNC			"r_after"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -4321,6 +4321,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 	case IC_POP_FRAME:
 		FlushFrameAliases();
 		break;
+	case IC_ASSEMBLER:
 	case IC_CALL:
 	case IC_CALL_NATIVE:
 		FlushCallAliases(tvalue, aliasedLocals, aliasedParams);
@@ -12845,7 +12846,7 @@ bool InterCodeBasicBlock::RemoveUnusedIndirectStoreInstructions(void)
 					stores.Push(ins);
 				}
 			}
-			else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER)
 			{
 				stores.SetSize(0);
 			}
@@ -20496,7 +20497,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 						InterInstruction* ins = block->mInstructions[i];
 						ins->mInvariant = false;
 						ins->mExpensive = false;
-						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER)
 							hasCall = true;
 						else if (ins->mCode == IC_PUSH_FRAME)
 							hasFrame = true;
@@ -23288,6 +23289,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			{
 				InterInstruction* ins = mInstructions[i];
 				if ((ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE) && !ins->mConstExpr)
+					hasCall = true;
+				else if (ins->mCode == IC_ASSEMBLER)
 					hasCall = true;
 			}
 
