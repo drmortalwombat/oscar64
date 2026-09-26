@@ -5883,18 +5883,24 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	jins = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
 
 			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
-			InterCodeBasicBlock* lblock = cblock;
+			InterCodeBasicBlock* lblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* bblock = lblock;
 			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 			block->Append(jins);
-			block->Close(cblock, nullptr);
+			block->Close(lblock, nullptr);
 
 			DestructStack* idestack = destack;
 
-			vr = TranslateExpression(procType, proc, cblock, exp->mRight, destack, gotos, BranchTarget(eblock, odestack), BranchTarget(cblock, idestack), inlineMapper);
+			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, gotos, BranchTarget(eblock, odestack), BranchTarget(cblock, idestack), inlineMapper);
 
-			UnwindDestructStack(procType, proc, cblock, destack, idestack, inlineMapper);
+			UnwindDestructStack(procType, proc, bblock, destack, idestack, inlineMapper);
 			destack = idestack;
+
+			jins = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
+
+			bblock->Append(jins);
+			bblock->Close(cblock, nullptr);
 
 			TranslateLogic(procType, proc, cblock, lblock, eblock, exp->mLeft, destack, gotos, inlineMapper);
 
