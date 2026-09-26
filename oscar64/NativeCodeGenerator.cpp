@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"hand_over"
+#define CHECK_FUNC			"array_increment"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -44322,6 +44322,7 @@ bool NativeCodeBasicBlock::MoveLoadXUp(int at)
 			mIns[i].mLive |= LIVE_MEM;
 			mIns[at].mType = ASMIT_INX;
 			mIns[at].mMode = ASMIM_IMPLIED;
+			mIns[at].mIns = mIns[i].mIns;
 			while (i < at)
 			{
 				mIns[i].mLive |= LIVE_CPU_REG_X;
