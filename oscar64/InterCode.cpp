@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"r_after"
+#define CHECK_FUNC			"hand_over"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -4694,7 +4694,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH || mCode == IC_FILL)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_ASSEMBLER || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH || mCode == IC_FILL)
 	{
 		requiredVars.OrNot(providedVars);
 	}

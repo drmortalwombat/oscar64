@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"testmuldiv16u"
+#define CHECK_FUNC			"hand_over"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -19352,13 +19352,13 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(bool zpage, const NativeCod
 					if (mXLSIns.mMode == ASMIM_ABSOLUTE_Y)
 						mXLSIns.mType = ASMIT_INV;
 				}
-				if (ins.ChangesAddress())
+				if (ins.ChangesAddress() || ins.mType == ASMIT_JSR)
 				{
-					if (mALSIns.mType != ASMIT_INV && mALSIns.MayBeSameAddress(ins))
+					if (mALSIns.mType != ASMIT_INV && mALSIns.MayBeChangedOnAddress(ins))
 						mALSIns.mType = ASMIT_INV;
-					if (mXLSIns.mType != ASMIT_INV && mXLSIns.MayBeSameAddress(ins))
+					if (mXLSIns.mType != ASMIT_INV && mXLSIns.MayBeChangedOnAddress(ins))
 						mXLSIns.mType = ASMIT_INV;
-					if (mYLSIns.mType != ASMIT_INV && mYLSIns.MayBeSameAddress(ins))
+					if (mYLSIns.mType != ASMIT_INV && mYLSIns.MayBeChangedOnAddress(ins))
 						mYLSIns.mType = ASMIT_INV;
 				}
 			}
