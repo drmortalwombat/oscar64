@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"array_increment"
+#define CHECK_FUNC			"mul"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -49907,6 +49907,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		if (!prevBlock)
 			return OptimizeSimpleLoopInvariant(proc, full);
 
+		mIns[sz - 1].mLive |= LIVE_CPU_REG_A;
+
 		prevBlock->mIns.Push(mIns[0]);
 		mIns.Remove(0);
 
@@ -49924,6 +49926,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	{
 		if (!prevBlock)
 			return OptimizeSimpleLoopInvariant(proc, full);
+
+		mIns[sz - 1].mLive |= LIVE_CPU_REG_A;
 
 		prevBlock->mIns.Push(mIns[0]);
 		mIns.Remove(0);
