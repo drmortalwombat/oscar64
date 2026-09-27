@@ -338,9 +338,9 @@ int main2(int argc, const char** argv)
 						if (arg[i] == 'p')
 							profile = true;
 						else if (arg[i] == 't')
-							trace = 2;
+							trace |= 2;
 						else if (arg[i] == 'b')
-							trace = 1;
+							trace |= 1;
 						else if (arg[i] == 'a')
 							asserts = true;
 						else if (arg[i] == 'i')

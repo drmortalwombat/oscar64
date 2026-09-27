@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"hand_over"
+#define CHECK_FUNC			"reuse"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -1375,6 +1375,10 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME || ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE || ins0->mCode == IC_BREAKPOINT)
 			return false;
 
+		InterCodeProcedure* proc = nullptr;
+		if (ins1->mSrc[0].mMemory == IM_PROCEDURE && ins1->mSrc[0].mLinkerObject)
+			proc = ins1->mSrc[0].mLinkerObject->mProc;
+
 		if (ins0->mCode == IC_LOAD)
 		{
 			if (ins0->mSrc[0].mTemp >= 0 || ins0->mVolatile)
@@ -1384,6 +1388,8 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 				if (mProc->mParamAliasedSet[ins0->mSrc[0].mVarIndex])
 					return false;
 			}
+			else if (proc && ins0->mSrc[0].mMemory == IM_GLOBAL && ins0->mSrc[0].mVarIndex >= 0 && proc->ModifiesGlobal(ins0->mSrc[0].mVarIndex))
+				return false;
 			else if (!ins1->mNoSideEffects)
 				return false;
 		}
@@ -1401,20 +1407,42 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE || ins1->mCode == IC_BREAKPOINT)
 			return false;
 
-		if (ins0->mSrc[0].mMemory == IM_PROCEDURE && ins0->mSrc[0].mLinkerObject && ins0->mSrc[0].mLinkerObject->mProc && 
-			ins0->mSrc[0].mLinkerObject->mProc->mLeafProcedure &&
-			ins0->mSrc[0].mLinkerObject->mProc->mParamVars.Size() == 0)
+		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
 		{
-			if (ins1->mCode == IC_STORE)
+			InterCodeProcedure* proc = nullptr;
+			if (ins0->mSrc[0].mMemory == IM_PROCEDURE && ins0->mSrc[0].mLinkerObject)
+				proc = ins0->mSrc[0].mLinkerObject->mProc;
+
+			if (ins1->mVolatile)
+				return false;
+			if (proc)
 			{
-				if (ins1->mSrc[1].mMemory != IM_FRAME && ins1->mSrc[1].mMemory != IM_FFRAME)
+				if (ins1->mCode == IC_STORE && ins1->mSrc[1].mMemory == IM_GLOBAL && ins1->mSrc[1].mVarIndex >= 0)
+				{
+					if (proc->ReferencesGlobal(ins1->mSrc[1].mVarIndex))
+						return false;
+				}
+				else if (ins1->mCode == IC_LOAD && ins1->mSrc[0].mMemory == IM_GLOBAL && ins1->mSrc[0].mVarIndex >= 0)
+				{
+					if (proc->ModifiesGlobal(ins1->mSrc[0].mVarIndex))
+						return false;
+				}
+				else if (proc->mLeafProcedure && proc->mParamVars.Size() == 0)
+				{
+					if (ins1->mCode == IC_STORE)
+					{
+						if (ins1->mSrc[1].mMemory != IM_FRAME && ins1->mSrc[1].mMemory != IM_FFRAME)
+							return false;
+					}
+					else
+						return false;
+				}
+				else
 					return false;
 			}
-			else if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
+			else
 				return false;
 		}
-		else if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
-			return false;
 	}
 
 	if (ins0->mCode == IC_BREAKPOINT && ins1->mCode == IC_STORE)
@@ -12714,9 +12742,11 @@ bool InterCodeBasicBlock::RemoveUnusedRestricted(const NumberSet& restrictSet)
 			case IC_MALLOC:
 				if (ins->mDst.mRestricted && restrictSet[ins->mDst.mRestricted])
 				{
-					ins->mCode = IC_NONE;
-					ins->mDst.mTemp = -1;
+					ins->mCode = IC_CONSTANT;
 					ins->mNumOperands = 0;
+					ins->mConst.mType = IT_POINTER;
+					ins->mConst.mMemory = IM_ABSOLUTE;
+					ins->mConst.mIntConst = 0xf000 + ins->mDst.mRestricted;
 					changed = true;
 				}
 				break;
@@ -21536,7 +21566,12 @@ void InterCodeBasicBlock::RemoveUnusedMallocs(void)
 
 				if (j < mInstructions.Size() && !used)
 				{
-					mins->mCode = IC_NONE; mins->mNumOperands = 0;
+					mins->mCode = IC_CONSTANT;
+					mins->mNumOperands = 0;
+					mins->mConst.mType = IT_POINTER;
+					mins->mConst.mMemory = IM_ABSOLUTE;
+					mins->mConst.mIntConst = 0xf000 + mins->mDst.mRestricted;
+
 					for (int k = i + 1; k <= j; k++)
 					{
 						InterInstruction* lins = mInstructions[k];

@@ -738,7 +738,7 @@ int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange)
 		int			addr = 0, taddr;
 		int			ip = mIP;
 		
-		if (ip == 0x0862)
+		if (ip == 0x0852)
 			iip = mMemory[BC_REG_IP] + 256 * mMemory[BC_REG_IP + 1] + mRegY;
 
 		bool		cross = false, indexed = false;

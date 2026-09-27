@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"mul"
+#define CHECK_FUNC			"foo"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -39355,7 +39355,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 
 			for (int i = from + 1; i < to; i++)
 			{
-				if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[start].mAddress && mIns[i].ChangesAddress())
+				if (mIns[start].MayBeChangedOnAddress(mIns[i]))
 					return false;
 			}
 
@@ -42075,7 +42075,7 @@ bool NativeCodeBasicBlock::MoveGenericLoadStoreUp(int at)
 		}
 		if (mIns[at].MayBeChangedOnAddress(mIns[j]))
 			return false;
-		if (mIns[j].MayBeSameAddress(mIns[at + 1], true))
+		if (mIns[j].MayReference(mIns[at + 1], true))
 			return false;
 		if ((mIns[at + 0].mMode == ASMIM_ABSOLUTE_X || mIns[at + 1].mMode == ASMIM_ABSOLUTE_X) && mIns[j].ChangesXReg())
 			return false;
@@ -42084,9 +42084,6 @@ bool NativeCodeBasicBlock::MoveGenericLoadStoreUp(int at)
 		if (mIns[at + 0].mMode == ASMIM_INDIRECT_Y && (mIns[j].ChangesYReg() || mIns[j].ChangesZeroPage(mIns[at].mAddress) || mIns[j].ChangesZeroPage(mIns[at].mAddress + 1)))
 			return false;
 		if (mIns[at + 1].mMode == ASMIM_INDIRECT_Y && (mIns[j].ChangesYReg() || mIns[j].ChangesZeroPage(mIns[at + 1].mAddress) || mIns[j].ChangesZeroPage(mIns[at + 1].mAddress + 1)))
-			return false;
-
-		if (mIns[j].mType == ASMIT_JSR)
 			return false;
 
 		j--;
@@ -44398,7 +44395,7 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 				if (mIns[at - 1].ReferencesZeroPage(reg))
 					return done;
 			}
-			else if (mIns[at - 1].MayBeSameAddress(mIns[at + n], true))
+			if (mIns[at - 1].MayReference(mIns[at + n], true))
 				return done;
 
 			if (mIns[at - 1].mMode == ASMIM_ABSOLUTE_X && inc)
@@ -44502,7 +44499,7 @@ bool NativeCodeBasicBlock::MoveStoreYUp(int at)
 			if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress + 1 == mIns[at].mAddress)
 				return done;
 		}
-		else if (mIns[at - 1].MayBeSameAddress(mIns[at], true))
+		if (mIns[at - 1].MayReference(mIns[at], true))
 			return done;
 
 		mIns[at].mLive |= mIns[at - 1].mLive;
@@ -73008,7 +73005,12 @@ void NativeCodeProcedure::Optimize(void)
 	}
 
 	ResetVisited();
-	mEntryBlock->MoveCallingParamsDown();
+	if (mEntryBlock->MoveCallingParamsDown())
+	{
+		BuildDataFlowSets();
+		ResetVisited();
+		mEntryBlock->RemoveUnusedResultInstructions();
+	}
 
 	ResetVisited();
 	if (mEntryBlock->FinalCheckedSizeReduction())
