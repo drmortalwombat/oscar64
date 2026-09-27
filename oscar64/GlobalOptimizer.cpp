@@ -1183,6 +1183,9 @@ void GlobalOptimizer::AnalyzeGlobalVariable(Declaration* dec)
 			}
 		}
 
+		if (dec->mFlags & DTF_VOLATILE)
+			dec->mOptFlags |= OPTF_VAR_ADDRESS;
+
 		mGlobalVariables.Push(dec);
 
 		if (dec->mValue)

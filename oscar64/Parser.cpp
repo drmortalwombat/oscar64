@@ -153,6 +153,32 @@ Declaration * Parser::AddMemberFunction(Declaration* dec, Declaration* mdec)
 	return mdec;
 }
 
+void Parser::AddAnonymousStructMembers(int offset, Declaration* pstruct, Declaration* panon)
+{
+	Declaration* mdec = panon->mParams;
+	while (mdec)
+	{
+		if (mdec->mFlags & DTF_INLINE)
+		{
+			AddAnonymousStructMembers(offset + mdec->mOffset, pstruct, mdec->mBase);
+		}
+		else
+		{
+			Declaration* edec = mdec->Clone();
+			edec->mOffset += offset;
+
+			Declaration* odec = pstruct->mScope->Insert(edec->mIdent, edec);
+			if (odec)
+			{
+				mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", edec->mIdent);
+				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+			}
+		}
+
+		mdec = mdec->mNext;
+	}
+}
+
 Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl)
 {
 	const Ident* structName = nullptr;
@@ -160,6 +186,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 	Declaration	*	dec = new Declaration(mScanner->mLocation, dt);
 
 	bool	needVTable = false;
+	int		anons = 0;
 
 	mScanner->NextToken();
 	if (mScanner->mToken == TK_IDENT)
@@ -363,6 +390,17 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						}
 						else
 						{
+							if (mdec->mType == DT_ANON && (mdec->mBase->mType == DT_TYPE_STRUCT || mdec->mBase->mType == DT_TYPE_UNION) && !mdec->mBase->mIdent)
+							{
+								AddAnonymousStructMembers(dt == DT_TYPE_UNION ? 0 : dec->mSize, dec, mdec->mBase);
+
+								mdec->mBase->mIdent = Ident::Unique("__anon", anons);
+								mdec->mType = DT_VARIABLE;
+								mdec->mFlags |= DTF_INLINE;
+								mdec->mIdent = Ident::Unique("__anon", anons);
+								anons++;
+							}
+
 							while (mdec)
 							{
 								mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
@@ -373,7 +411,6 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 								if (mdec->mType != DT_VARIABLE)
 								{
 									mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
-									break;
 								}
 
 								if (mdec->mFlags & DTF_STATIC)
@@ -405,7 +442,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 										}
 									}
 
-									Declaration * pdec = mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec);
+									Declaration* pdec = mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec);
 
 									if (pdec)
 										mdec = pdec;
@@ -528,7 +565,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 												mdec->mOffset--;
 												mdec->mShift = 8 - bitsleft;
 												bitsleft = bitsleft + 24 - mdec->mBits;
-												offset+=3;
+												offset += 3;
 											}
 											else
 											{
@@ -2032,8 +2069,11 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 		if (ds > dtype->mSize + 1)
 			mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
 	}
-	else if ((dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION) && ConsumeTokenIf(TK_OPEN_BRACE))
+	else if ((dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION) && (inner && !dtype->HasConstructor() || ConsumeTokenIf(TK_OPEN_BRACE)))
 	{
+		if (inner && ConsumeTokenIf(TK_OPEN_BRACE))
+			inner = false;
+
 		NumberSet	fset(dtype->mSize * 8);
 
 		bool	isconst = true;
@@ -2076,7 +2116,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			qexp->mDecValue = edec;
 			qexp->mDecType = edec->mBase;
 
-			Expression* nexp = ParseVarInitExpression(qexp);
+			Expression* nexp = ParseVarInitExpression(qexp, edec->mFlags & DTF_INLINE);
 			if (nexp->mType != EX_INITIALIZATION || nexp->mRight->mType != EX_CONSTANT)
 				isconst = false;
 
@@ -2089,10 +2129,14 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 				edec = edec->mNext;
 			} while (edec && edec->mType != DT_ELEMENT);
 
+			if (inner && !edec)
+				break;
+
 			if (!ConsumeTokenIf(TK_COMMA))
 				break;
 		}
-		ConsumeToken(TK_CLOSE_BRACE);
+		if (!inner)
+			ConsumeToken(TK_CLOSE_BRACE);
 
 		if (isconst)
 		{

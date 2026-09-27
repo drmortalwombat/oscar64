@@ -248,6 +248,8 @@ public:
 	bool RequiresCarry(void) const;
 	bool RequiresAccu(void) const;
 	
+	bool IsWrapping(void) const;
+
 	bool RequiresYReg(void) const;
 	bool RequiresXReg(void) const;
 
@@ -263,6 +265,8 @@ public:
 	bool UsesZeroPage(int address) const;
 	bool LoadsZeroPage(int address) const;
 	bool ReferencesZeroPage(int address) const;
+
+	bool IsZeroPageRange(void) const;
 
 	bool SameLinkerObjectVariableRange(const NativeCodeInstruction& ins, bool sameXY = false) const;
 
@@ -927,7 +931,7 @@ public:
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
 
 	bool MoveAccuTrainUp(int at, int end);
-	bool MoveAccuTrainsUp(void);
+	bool MoveAccuTrainsUp(int azero);
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
 

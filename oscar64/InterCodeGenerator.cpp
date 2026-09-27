@@ -656,6 +656,29 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 					}
 				}
 			}
+			else if (!(type->mFlags & DTF_SIGNED))
+			{
+				InterInstruction* mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+				mins->mDst.mType = InterTypeOf(v.mType);
+				mins->mDst.mTemp = proc->AddTemporary(mins->mDst.mType);
+				mins->mConst.mType = mins->mDst.mType;
+				mins->mConst.mIntConst = (1 << (8 * type->mSize)) - 1;
+				block->Append(mins);
+
+				InterInstruction* xins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
+				xins->mOperator = IA_AND;
+				xins->mSrc[0].mType = mins->mDst.mType;
+				xins->mSrc[0].mTemp = stemp;
+				xins->mSrc[1].mType = mins->mDst.mType;
+				xins->mSrc[1].mTemp = mins->mDst.mTemp;
+
+				xins->mDst.mType = mins->mDst.mType;
+				xins->mDst.mTemp = proc->AddTemporary(xins->mDst.mType);
+				block->Append(xins);
+				stemp = xins->mDst.mTemp;
+
+				v.mTemp = stemp;
+			}
 		}
 		v.mType = type;
 	}
@@ -2936,9 +2959,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				ains->mSrc[0].mRange.LimitMin(0);
 				if (stride == 1)
-					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize / vl.mType->mBase->mSize);
+					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize / vl.mType->mBase->mSize - 1);
 				else
-					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize);
+					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize - 1);
 			}
 			ains->mSrc[1].mType = IT_POINTER;
 			ains->mSrc[1].mTemp = vl.mTemp;
@@ -5567,6 +5590,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_VOID)
 			{
+				Dereference(proc, exp, block, inlineMapper, vr);
 			}
 			else if (exp->mDecType->IsReference() && exp->mDecType->mBase->IsConstSame(vr.mType))
 			{
@@ -5859,18 +5883,24 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	jins = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
 
 			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
-			InterCodeBasicBlock* lblock = cblock;
+			InterCodeBasicBlock* lblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* bblock = lblock;
 			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 			block->Append(jins);
-			block->Close(cblock, nullptr);
+			block->Close(lblock, nullptr);
 
 			DestructStack* idestack = destack;
 
-			vr = TranslateExpression(procType, proc, cblock, exp->mRight, destack, gotos, BranchTarget(eblock, odestack), BranchTarget(cblock, idestack), inlineMapper);
+			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, gotos, BranchTarget(eblock, odestack), BranchTarget(cblock, idestack), inlineMapper);
 
-			UnwindDestructStack(procType, proc, cblock, destack, idestack, inlineMapper);
+			UnwindDestructStack(procType, proc, bblock, destack, idestack, inlineMapper);
 			destack = idestack;
+
+			jins = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
+
+			bblock->Append(jins);
+			bblock->Close(cblock, nullptr);
 
 			TranslateLogic(procType, proc, cblock, lblock, eblock, exp->mLeft, destack, gotos, inlineMapper);
 
@@ -6338,7 +6368,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
 		exp->Dump(0);
 #endif
 #if 0
@@ -6378,7 +6408,10 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	if (dec->mFlags & DTF_FUNC_INTRCALLED)
 		proc->mInterruptCalled = true;
-	
+
+	if (dec->mFlags & DTF_FUNC_VARIABLE)
+		proc->mFuncVariable = true;
+
 	if ((dec->mFlags & DTF_DYNSTACK) || (dec->mFlags & DTF_FUNC_RECURSIVE))
 		proc->mDynamicStack = true;
 

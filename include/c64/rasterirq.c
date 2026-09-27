@@ -382,8 +382,8 @@ void rirq_build(RIRQCode * ic, byte size)
 	{
 		asm_ab(ic->code + 12, ASM_STX, 0x0000);
 
-		byte p = 15;
-		for(byte i=2; i<size; i++)
+		int p = 15;
+		for(int i=2; i<size; i++)
 		{
 			p += asm_im(ic->code + p, ASM_LDA, 0x00);
 			p += asm_ab(ic->code + p, ASM_STA, 0x0000);
