@@ -366,6 +366,9 @@ rem @echo off
 @call :testn bitfieldstructinittest.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :test globalstructsnapshottest.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error
