@@ -1390,7 +1390,7 @@ bool Compiler::WriteErrorFile(const char* targetPath)
 	return true;
 }
 
-bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
+bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * diskImage)
 {
 	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200], cszPath[200];
 	char	basePath[200];
@@ -1469,18 +1469,19 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	}
 
 
-	if (d64)
+	if (diskImage != nullptr)
 	{
 		ptrdiff_t	i = strlen(prgPath);
+
 		while (i > 0 && prgPath[i - 1] != '.')
 			i--;
+
 		if (i > 0)
 			prgPath[i - 1] = 0;
 
 		while (i > 0 && prgPath[i - 1] != '/' && prgPath[i - 1] != '\\')
 			i--;
-
-		mLinker->WritePrgFile(d64, prgPath + i);
+		mLinker->WritePrgFile(diskImage, prgPath + i);
 	}
 
 	if (mCompilerOptions & COPT_VERBOSE)

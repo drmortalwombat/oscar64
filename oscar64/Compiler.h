@@ -48,7 +48,7 @@ public:
 	bool BuildLZO(const char* targetPath);
 	bool ParseSource(void);
 	bool GenerateCode(void);
-	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
+	bool WriteOutputFile(const char* targetPath, DiskImage * diskImage);
 	bool WriteErrorFile(const char* targetPath);
 	bool RemoveErrorFile(const char* targetPath);
 	int ExecuteCode(bool profile, int trace, bool asserts, bool iorange);
