@@ -15230,7 +15230,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				else
 					nins = ins;
 			}
-			else if (ins->mCode == IC_CALL_NATIVE && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc && ins->mSrc[0].mLinkerObject->mProc->mGlobalsChecked)
+			else if (ins->mCode == IC_CALL_NATIVE && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc)
 			{
 				InterCodeProcedure* proc = ins->mSrc[0].mLinkerObject->mProc;
 
@@ -15263,12 +15263,15 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 									if (proc->ModifiesGlobal(op.mVarIndex))
 										flush = true;
 								}
-								else if (op.mMemoryBase == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
-									;
-								else if ((op.mMemoryBase == IM_PARAM || op.mMemoryBase == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
-									;
-								else if (proc->mStoresIndirect)
-									flush = true;
+								else if (proc->ModifiesIndirect())
+								{
+									if (op.mMemoryBase == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
+										;
+									else if ((op.mMemoryBase == IM_PARAM || op.mMemoryBase == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
+										;
+									else
+										flush = true;
+								}
 							}
 							else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
 								flush = true;
@@ -15277,12 +15280,15 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 								if (proc->ModifiesGlobal(op.mVarIndex))
 									flush = true;
 							}
-							else if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
-								;
-							else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
-								;
-							else
-								flush = true;
+							else if (proc->ModifiesIndirect())
+							{
+								if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
+									;
+								else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
+									;
+								else
+									flush = true;
+							}
 						}
 
 						if (flush)
@@ -31110,7 +31116,17 @@ void InterCodeProcedure::MergeBasicBlocks(FastNumberSet& activeSet)
 
 }
 
-bool InterCodeProcedure::ReferencesGlobal(int varindex)
+bool InterCodeProcedure::ModifiesIndirect(void) const
+{
+	return !mGlobalsChecked || mStoresIndirect;
+}
+
+bool InterCodeProcedure::ReferencesIndirect(void) const
+{
+	return !mGlobalsChecked || mStoresIndirect || mLoadsIndirect;
+}
+
+bool InterCodeProcedure::ReferencesGlobal(int varindex) const
 {
 	if (mGlobalsChecked)
 	{
@@ -31130,7 +31146,7 @@ bool InterCodeProcedure::ReferencesGlobal(int varindex)
 		return true;
 }
 
-bool InterCodeProcedure::ModifiesGlobal(int varindex)
+bool InterCodeProcedure::ModifiesGlobal(int varindex) const
 {
 	if (mGlobalsChecked)
 	{

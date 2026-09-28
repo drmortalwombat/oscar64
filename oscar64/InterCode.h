@@ -834,8 +834,11 @@ public:
 
 	void MapCallerSavedTemps(void);
 
-	bool ReferencesGlobal(int varindex);
-	bool ModifiesGlobal(int varindex);
+	bool ReferencesGlobal(int varindex) const;
+	bool ModifiesGlobal(int varindex) const;
+
+	bool ReferencesIndirect(void) const;
+	bool ModifiesIndirect(void) const;
 
 	void MapVariables(void);
 	void ReduceTemporaries(bool final = false);
