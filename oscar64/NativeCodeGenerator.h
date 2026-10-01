@@ -648,7 +648,13 @@ public:
 	bool EliminateDoubleStore(int at);
 
 	bool FindAccuExitValue(int& at);
+	bool FindXRegExitValue(int& at);
+	bool FindYRegExitValue(int& at);
 	bool MoveLoadXAbsUpCrossBlock(int at);
+
+	bool FindAccuOrigin(int& at);
+	bool FindXRegOrigin(int& at);
+	bool FindYRegOrigin(int& at);
 
 	bool MoveSimpleADCToINCDECDown(int at);
 	bool MoveTAXADCSTADown(int at);
@@ -934,6 +940,7 @@ public:
 	bool MoveAccuTrainsUp(int azero);
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
+	bool MoveAbsAccuTrainsDown(void);
 
 	bool MoveImmediateStoreUp(int at);
 	bool MoveImmediateStoreDown(int at);
@@ -942,7 +949,8 @@ public:
 	bool RecycleLoadStore(void);
 
 	void BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed, uint32 & flags);
-	bool CanExchangeSegments(int start, int mid, int end);
+	bool CanExchangeSegments(int start, int mid, int end, bool mem = false);
+	bool ExchangeSegments(int start, int mid, int end);
 	bool CanSwapInstructions(int at);
 
 	bool CrossBlockXYPreservation(void);

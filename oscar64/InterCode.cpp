@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"reuse"
+#define CHECK_FUNC			"enemies_iterate"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -13391,7 +13391,7 @@ bool InterCodeBasicBlock::ForwardShortLoadStoreOffsets(void)
 	return changed;
 }
 
-bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps)
+bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps, bool loops)
 {
 	bool	changed = false;
 
@@ -13401,7 +13401,6 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 		if (mLoopHead)
 		{
-#if 1
 			if ((mTrueJump == this || mFalseJump == this) && mEntryBlocks.Size() == 2)
 			{
 				for (int i = 0; i < mInstructions.Size(); i++)
@@ -13420,8 +13419,38 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					}
 				}
 			}
-			else
+#if 1
+			else if (loops)
+			{
+				ExpandingArray<InterCodeBasicBlock*> lblocks;
+
+				if (CollectSingleEntryGenericLoop(lblocks))
+				{
+					for (int k = 0; k < lblocks.Size(); k++)
+					{
+						InterCodeBasicBlock* b = lblocks[k];
+						for (int i = 0; i < b->mInstructions.Size(); i++)
+						{
+							InterInstruction* ins = b->mInstructions[i];
+
+							int dtemp = ins->mDst.mTemp;
+							if (dtemp >= 0)
+							{
+								ltvalue[dtemp] = nullptr;
+								for (int j = 0; j < ltvalue.Size(); j++)
+								{
+									if (ltvalue[j] && ltvalue[j]->ReferencesTemp(dtemp))
+										ltvalue[j] = nullptr;
+								}
+							}
+						}
+					}
+				}
+				else
+					ltvalue.Clear();
+			}
 #endif
+			else
 				ltvalue.Clear();
 		}
 		else if (mNumEntries > 0)
@@ -13993,10 +14022,10 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 		}
 #endif
 
-		if (mTrueJump && mTrueJump->SimplifyIntegerNumeric(ltvalue, spareTemps))
+		if (mTrueJump && mTrueJump->SimplifyIntegerNumeric(ltvalue, spareTemps, loops))
 			changed = true;
 
-		if (mFalseJump && mFalseJump->SimplifyIntegerNumeric(ltvalue, spareTemps))
+		if (mFalseJump && mFalseJump->SimplifyIntegerNumeric(ltvalue, spareTemps, loops))
 			changed = true;
 	}
 
@@ -29050,7 +29079,7 @@ void InterCodeProcedure::SingleBlockLoopIndexReduction(FastNumberSet& activeSet)
 
 }
 
-void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
+void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet, bool loops)
 {
 	GrowingInstructionPtrArray	silvalues(nullptr);
 	int							silvused = mTemporaries.Size();
@@ -29087,7 +29116,7 @@ void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
 
 		ResetVisited();
 
-	} while (mEntryBlock->SimplifyIntegerNumeric(silvalues, silvused));
+	} while (mEntryBlock->SimplifyIntegerNumeric(silvalues, silvused, loops));
 
 	assert(silvused == mTemporaries.Size());
 
@@ -29684,7 +29713,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Rebuilt traces");
 
 #if 1
-	SimplifyIntegerNumeric(activeSet);
+	SimplifyIntegerNumeric(activeSet, false);
 
 #endif
 
@@ -30181,7 +30210,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
-	SimplifyIntegerNumeric(activeSet);
+	SimplifyIntegerNumeric(activeSet, false);
 
 #endif
 
@@ -30266,6 +30295,9 @@ void InterCodeProcedure::Close(void)
 //	CollapseDispatch();
 //	DisassembleDebug("CollapseDispatch");
 
+	SimplifyIntegerNumeric(activeSet, true);
+
+	BuildDataFlowSets();
 
 #if 1
 	for (int i = 0; i < 8; i++)

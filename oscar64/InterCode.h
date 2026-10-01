@@ -565,7 +565,7 @@ public:
 	bool EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue);
 
 	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
-	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
+	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps, bool loops);
 	bool SimplifyPointerOffsets(void);
 	bool EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue);
 
@@ -865,7 +865,7 @@ protected:
 	void PushSinglePathResultInstructions(void);
 	void CollectVariables(InterMemory paramMemory);
 	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
-	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
+	void SimplifyIntegerNumeric(FastNumberSet& activeSet, bool loops);
 	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerToByte(FastNumberSet& activeSet);
 	void SingleBlockLoopSinking(FastNumberSet& activeSet);
