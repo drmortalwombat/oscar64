@@ -438,6 +438,9 @@ public:
 	TempForwardingTable				mMergeForwardingTable;
 	NumberSet						mMergeTemps;
 
+	int								mMergeSrc, mMergeDst;
+	int64							mMergeOffset;
+
 	InterCodeBasicBlock(InterCodeProcedure * proc);
 	~InterCodeBasicBlock(void);
 
@@ -561,6 +564,9 @@ public:
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet& fsingle);
 	bool EliminateDeadBranches(void);
+
+	bool PerformSingleTempPointerForwarding(int at, int src, int dst, int64 offset);
+	bool PerformTempPointerForwarding(void);
 
 	bool EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue);
 
@@ -782,6 +788,7 @@ protected:
 
 	void ResetVisited(void);
 	void ResetPatched(void);
+	void ResetEntered(void);
 	void ResetEntryBlocks(void);
 public:
 	InterCodeBasicBlock				*	mEntryBlock;

@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"enemies_iterate"
+#define CHECK_FUNC			"sidfx_loop_2"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -12987,6 +12987,126 @@ bool InterCodeBasicBlock::EliminateAliasValues(const GrowingInstructionPtrArray&
 	}
 
 	return changed;
+}
+
+bool InterCodeBasicBlock::PerformSingleTempPointerForwarding(int at, int src, int dst, int64 offset)
+{
+	if (at == 0)
+	{
+		if (mNumEntries != 1)
+		{
+			if (mNumEntered == 0)
+			{
+				mMergeSrc = src;
+				mMergeDst = dst;
+				mMergeOffset = offset;
+				mNumEntered++;
+				return false;
+			}
+			else if (mMergeSrc != src || mMergeDst != dst || mMergeOffset != offset)
+			{
+				mMergeDst = -1;
+				return false;
+			}
+			else
+			{
+				mNumEntered++;
+				if (mNumEntered != mNumEntries)
+					return false;
+			}
+		}
+	}
+
+	bool	changed = false;
+
+	for (int i = at; i < mInstructions.Size(); i++)
+	{
+		InterInstruction* ins(mInstructions[i]);
+		if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp == dst)
+		{
+			if (ins->mSrc[0].mIntConst >= offset)
+			{
+				ins->mSrc[0].mTemp = src;
+				ins->mSrc[0].mIntConst -= offset;
+				ins->mSrc[0].mFinal = false;
+				changed = true;
+			}
+
+			if (ins->mDst.mTemp == src || ins->mDst.mTemp == dst)
+				return changed;
+		}
+		else if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp == dst)
+		{
+			if (ins->mSrc[1].mIntConst >= offset)
+			{
+				ins->mSrc[1].mTemp = src;
+				ins->mSrc[1].mIntConst -= offset;
+				ins->mSrc[1].mFinal = false;
+				changed = true;
+			}
+		}
+		else if (ins->mCode == IC_LEA && ins->mDst.mTemp == src && ins->mSrc[1].mTemp == src && ins->mSrc[0].mTemp < 0)
+		{
+			offset += ins->mSrc[0].mIntConst + ins->mSrc[1].mIntConst;
+		}
+		else if (ins->mDst.mTemp == src || ins->mDst.mTemp == dst)
+			return changed;
+		else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp == src && ins->mSrc[0].mTemp < 0)
+		{
+			if (ins->mSrc[0].mIntConst >= offset)
+			{
+				ins->mSrc[1].mTemp = src;
+				ins->mSrc[1].mFinal = false;
+				ins->mSrc[0].mIntConst -= offset;
+				changed = true;
+			}
+		}
+	}
+
+	if (mTrueJump && mTrueJump->PerformSingleTempPointerForwarding(0, src, dst, offset)) changed = true;
+	if (mFalseJump && mFalseJump->PerformSingleTempPointerForwarding(0, src, dst, offset)) changed = true;
+
+	return changed;
+}
+
+bool InterCodeBasicBlock::PerformTempPointerForwarding(void)
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+
+			if (ins->mCode == IC_LOAD_TEMPORARY && ins->mDst.mType == IT_POINTER && !ins->mSrc[0].mFinal)
+			{
+				mProc->ResetEntered();
+				if (PerformSingleTempPointerForwarding(i + 1, ins->mSrc[0].mTemp, ins->mDst.mTemp, 0))
+					changed = true;
+			}
+			else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp != ins->mDst.mTemp)
+			{
+				int j = i + 1;
+				while (j < mInstructions.Size() &&
+					!(mInstructions[j]->mCode == IC_LOAD_TEMPORARY && mInstructions[j]->mDst.mTemp == ins->mSrc[1].mTemp && mInstructions[j]->mSrc[0].mTemp == ins->mDst.mTemp))
+					j++;
+				if (j < mInstructions.Size())
+				{
+					mProc->ResetEntered();
+					if (PerformSingleTempPointerForwarding(i + 1, ins->mDst.mTemp, ins->mSrc[1].mTemp, ins->mSrc[0].mIntConst))
+						changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PerformTempPointerForwarding()) changed = true;
+		if (mFalseJump && mFalseJump->PerformTempPointerForwarding()) changed = true;
+	}
+
+	return changed;
+
 }
 
 bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue)
@@ -27915,6 +28035,15 @@ void InterCodeProcedure::ResetEntryBlocks(void)
 		mBlocks[i]->mEntryBlocks.SetSize(0);
 }
 
+void InterCodeProcedure::ResetEntered(void)
+{
+	for (int i = 0; i < mBlocks.Size(); i++)
+	{
+		mBlocks[i]->mNumEntered = false;
+		mBlocks[i]->mPatched = false;
+	}
+}
+
 void InterCodeProcedure::ResetPatched(void)
 {
 	for (int i = 0; i < mBlocks.Size(); i++)
@@ -30223,6 +30352,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->ForwardShortLoadStoreOffsets();
 	DisassembleDebug("ForwardShortLoadStoreOffsets");
 
+
 	PeepholeOptimization();
 
 	ConstSingleLoopOptimization();
@@ -30298,6 +30428,12 @@ void InterCodeProcedure::Close(void)
 	SimplifyIntegerNumeric(activeSet, true);
 
 	BuildDataFlowSets();
+
+	ResetVisited();
+	if (mEntryBlock->PerformTempPointerForwarding())
+		BuildDataFlowSets();
+	DisassembleDebug("PerformTempPointerForwarding");
+
 
 #if 1
 	for (int i = 0; i < 8; i++)
