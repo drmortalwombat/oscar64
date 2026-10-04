@@ -1091,6 +1091,8 @@ public:
 
 	int SimpleLoopNumIterations(void);
 
+	bool ExpandCommonLoopTails(void);
+
 	bool FindSelfModSource(NativeCodeBasicBlock * block, int reg, NativeCodeBasicBlock*& sblock, int & sat);
 	bool CollectSelfModTargets(void);
 
