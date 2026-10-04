@@ -12,6 +12,9 @@ rem @echo off
 @call :test anonymousstructtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test structvoidcasttest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test array2dtest.c
 @if %errorlevel% neq 0 goto :error
 
