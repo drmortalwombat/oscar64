@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"masked"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -6229,6 +6229,14 @@ bool InterInstruction::ConstantFolding(void)
 				mConst.mIntConst = mSrc[0].mIntConst;
 				mConst.mLinkerObject = nullptr;
 				mConst.mOperandSize = 2;
+				mNumOperands = 0;
+				return true;
+			}
+			else if (IsIntegerType(mDst.mType) && IsIntegerType(mSrc[0].mType))
+			{
+				mCode = IC_CONSTANT;
+				mConst.mType = mDst.mType;
+				mConst.mIntConst = mSrc[0].mIntConst & UnsignedTypeMax(mDst.mType);
 				mNumOperands = 0;
 				return true;
 			}
