@@ -8052,10 +8052,10 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 			if (ram == ASMIM_INDIRECT_Y)
 			{
 				mIns.Push(NativeCodeInstruction(oins, ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i * rstride));
-				mIns.Push(NativeCodeInstruction(oins, at, ram, rareg));
+				mIns.Push(NativeCodeInstruction(oins, at, ram, rareg, nullptr, rflags));
 			}
 			else
-				mIns.Push(NativeCodeInstruction(oins, at, ram, rareg + i));
+				mIns.Push(NativeCodeInstruction(oins, at, ram, rareg + i, nullptr, rflags));
 		}
 		else
 		{
@@ -8065,10 +8065,10 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 			if (ram == ASMIM_INDIRECT_Y)
 			{
 				mIns.Push(NativeCodeInstruction(rins, ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i * rstride));
-				mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ram, rareg, nullptr, NCIF_LOWER | NCIF_UPPER, 0, 0, maxrv));
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ram, rareg, nullptr, rflags, 0, 0, maxrv));
 			}
 			else
-				mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ram, rareg + i, nullptr, NCIF_LOWER | NCIF_UPPER, 0, 0, maxrv));
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ram, rareg + i, nullptr, rflags, 0, 0, maxrv));
 
 			if (am == ASMIM_IMPLIED)
 				mIns.Push(NativeCodeInstruction(oins, at, ASMIM_IMPLIED));
@@ -8086,10 +8086,10 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 		{
 			if (ram != ASMIM_INDIRECT_Y || rindex != windex)
 				mIns.Push(NativeCodeInstruction(wins, ASMIT_LDY, ASMIM_IMMEDIATE, windex + i * wstride));
-			mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, wam, wareg));
+			mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, wam, wareg, nullptr, wflags));
 		}
 		else
-			mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, wam, wareg + i));
+			mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, wam, wareg + i, nullptr, wflags));
 	}
 
 	return true;
@@ -39611,6 +39611,8 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 		}
 		else if (mIns[start].mType == ASMIT_LDA && mIns[start].mMode == ASMIM_ABSOLUTE_X && mIns[start + 1].ChangesAccu() && !mIns[start + 1].ChangesAddress() && !mIns[start + 1].RequiresYReg())
 		{
+			int vol = mIns[start].mFlags & NCIF_VOLATILE;
+
 			for (int i = from + 1; i < to; i++)
 			{
 				if (mIns[start].MayBeChangedOnAddress(mIns[i]) || mIns[start + 1].MayBeChangedOnAddress(mIns[i]))
@@ -39618,6 +39620,8 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 				if (mIns[start + 1].RequiresCarry() && mIns[i].ChangesCarry())
 					return false;
 				if ((mIns[start + 1].mLive & LIVE_CPU_REG_C) && mIns[i].RequiresCarry())
+					return false;
+				if (mIns[i].mFlags & vol)
 					return false;
 			}
 
@@ -39716,9 +39720,13 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 
 	if (from > 0 && mIns[from - 1].mType == ASMIT_LDA && mIns[from - 1].mMode == ASMIM_ABSOLUTE_X)
 	{
+		int vol = mIns[from -1].mFlags & NCIF_VOLATILE;
+
 		for (int i = from + 1; i < to; i++)
 		{
 			if (mIns[from - 1].MayBeChangedOnAddress(mIns[i]))
+				return false;
+			if (mIns[i].mFlags & vol)
 				return false;
 		}
 
@@ -39783,8 +39791,10 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 
 	if (!(mIns[from].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && to + 1 < mIns.Size() && mIns[to + 1].IsLogic() && !(mIns[to + 1].mLive & LIVE_CPU_REG_Z))
 	{
+		int vol = mIns[to + 1].mFlags & NCIF_VOLATILE;
+
 		int k = from + 1;
-		while (k < to && !mIns[to + 1].MayBeChangedOnAddress(mIns[k]))
+		while (k < to && !mIns[to + 1].MayBeChangedOnAddress(mIns[k]) && !(mIns[k].mFlags & vol))
 			k++;
 		if (k == to)
 		{
