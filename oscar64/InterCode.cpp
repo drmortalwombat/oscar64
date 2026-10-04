@@ -31300,9 +31300,11 @@ bool InterCodeProcedure::ReferencesGlobal(int varindex) const
 	{
 		if (varindex >= 0)
 		{
-			if (mModule->mGlobalVars[varindex]->mAliased)
-				return mLoadsIndirect || mStoresIndirect;
-			else if (varindex < mReferencedGlobals.Size())
+			if (mModule->mGlobalVars[varindex]->mAliased && (mLoadsIndirect || mStoresIndirect))
+				return true;
+
+			// Known global accesses remain references even when the address is taken.
+			if (varindex < mReferencedGlobals.Size())
 				return mReferencedGlobals[varindex];
 			else
 				return false;
