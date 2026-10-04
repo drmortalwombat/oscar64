@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"sidfx_loop_2"
+#define CHECK_FUNC			"masked"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -8869,171 +8869,172 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 
 #if 1
 		int sz = mInstructions.Size();
-		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
-			mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp &&
-			IsScalarType(mInstructions[sz - 2]->mSrc[0].mType) && IsScalarType(mInstructions[sz - 2]->mSrc[1].mType))
+		for (int i = 0; i < sz; i++)
 		{
-			InterInstruction* cins = mInstructions[sz - 2];
+			InterInstruction* cins = mInstructions[i];
 
-			bool	constFalse = false, constTrue = false;
-
-			if ((cins->mSrc[1].mTemp < 0 || (cins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && cins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)) &&
-				(cins->mSrc[0].mTemp < 0 || (cins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && cins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)))
+			if (cins->mCode == IC_RELATIONAL_OPERATOR && IsScalarType(cins->mSrc[0].mType) && IsScalarType(cins->mSrc[1].mType))
 			{
-				bool	signedvalid = cins->mSrc[0].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[0].mType) && 
-									  cins->mSrc[1].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[1].mType);
-				bool	unsignedvalid = cins->mSrc[0].mRange.mMaxValue <= UnsignedTypeMax(cins->mSrc[0].mType) &&
-										cins->mSrc[1].mRange.mMaxValue <= UnsignedTypeMax(cins->mSrc[1].mType);
+				bool	constFalse = false, constTrue = false;
 
-				switch (cins->mOperator)
+				if ((cins->mSrc[1].mTemp < 0 || (cins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && cins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)) &&
+					(cins->mSrc[0].mTemp < 0 || (cins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && cins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)))
 				{
-				case IA_CMPEQ:
-					if (cins->mSrc[0].mType == IT_INT8 && cins->mSrc[1].mType == IT_INT8 &&
-						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 256 + cins->mSrc[0].mRange.mMinValue ||
- 						 cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 256 + cins->mSrc[1].mRange.mMinValue))
-						;
-					else if (cins->mSrc[0].mType == IT_INT16 && cins->mSrc[1].mType == IT_INT16 &&
-						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 65536 + cins->mSrc[0].mRange.mMinValue ||
-						 cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 65536 + cins->mSrc[1].mRange.mMinValue))
-						;
-					else if (cins->mSrc[0].mType == IT_INT32 && cins->mSrc[1].mType == IT_INT32 &&
-						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[0].mRange.mMinValue ||
-						 cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[1].mRange.mMinValue))
-						;
-					else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
-						constFalse = true;
-					break;
-				case IA_CMPNE:
-					if (cins->mSrc[0].mType == IT_INT8 && cins->mSrc[1].mType == IT_INT8 &&
-						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 256 + cins->mSrc[0].mRange.mMinValue ||
-						 cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 256 + cins->mSrc[1].mRange.mMinValue))
-						;
-					else if (cins->mSrc[0].mType == IT_INT16 && cins->mSrc[1].mType == IT_INT16 &&
-						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 65536 + cins->mSrc[0].mRange.mMinValue ||
-						 cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 65536 + cins->mSrc[1].mRange.mMinValue))
-						;
-					else if (cins->mSrc[0].mType == IT_INT32 && cins->mSrc[1].mType == IT_INT32 &&
-						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[0].mRange.mMinValue ||
-						 cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[1].mRange.mMinValue))
-						;
-					else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
-						constTrue = true;
-					break;
-				case IA_CMPLS:
-					if (signedvalid)
+					bool	signedvalid = cins->mSrc[0].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[0].mType) &&
+						cins->mSrc[1].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[1].mType);
+					bool	unsignedvalid = cins->mSrc[0].mRange.mMaxValue <= UnsignedTypeMax(cins->mSrc[0].mType) &&
+						cins->mSrc[1].mRange.mMaxValue <= UnsignedTypeMax(cins->mSrc[1].mType);
+
+					switch (cins->mOperator)
 					{
-						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+					case IA_CMPEQ:
+						if (cins->mSrc[0].mType == IT_INT8 && cins->mSrc[1].mType == IT_INT8 &&
+							(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 256 + cins->mSrc[0].mRange.mMinValue ||
+								cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 256 + cins->mSrc[1].mRange.mMinValue))
+							;
+						else if (cins->mSrc[0].mType == IT_INT16 && cins->mSrc[1].mType == IT_INT16 &&
+							(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 65536 + cins->mSrc[0].mRange.mMinValue ||
+								cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 65536 + cins->mSrc[1].mRange.mMinValue))
+							;
+						else if (cins->mSrc[0].mType == IT_INT32 && cins->mSrc[1].mType == IT_INT32 &&
+							(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[0].mRange.mMinValue ||
+								cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[1].mRange.mMinValue))
+							;
+						else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 							constFalse = true;
-					}
-					break;
-				case IA_CMPLU:
-					if (cins->mSrc[0].mTemp < 0 && cins->mSrc[0].mIntConst == 0)
-					{
-						constFalse = true;
-					}
-					else if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
-					{
-						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+						break;
+					case IA_CMPNE:
+						if (cins->mSrc[0].mType == IT_INT8 && cins->mSrc[1].mType == IT_INT8 &&
+							(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 256 + cins->mSrc[0].mRange.mMinValue ||
+								cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 256 + cins->mSrc[1].mRange.mMinValue))
+							;
+						else if (cins->mSrc[0].mType == IT_INT16 && cins->mSrc[1].mType == IT_INT16 &&
+							(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 65536 + cins->mSrc[0].mRange.mMinValue ||
+								cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 65536 + cins->mSrc[1].mRange.mMinValue))
+							;
+						else if (cins->mSrc[0].mType == IT_INT32 && cins->mSrc[1].mType == IT_INT32 &&
+							(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[0].mRange.mMinValue ||
+								cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 0x100000000ll + cins->mSrc[1].mRange.mMinValue))
+							;
+						else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+						break;
+					case IA_CMPLS:
+						if (signedvalid)
+						{
+							if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPLU:
+						if (cins->mSrc[0].mTemp < 0 && cins->mSrc[0].mIntConst == 0)
+						{
 							constFalse = true;
-					}
-					break;
-				case IA_CMPLES:
-					if (signedvalid)
-					{
-						if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+						}
+						else if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+						{
+							if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPLES:
+						if (signedvalid)
+						{
+							if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPLEU:
+						if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+						{
+							if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPGS:
+						if (signedvalid)
+						{
+							if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPGU:
+						if (cins->mSrc[1].mTemp < 0 && cins->mSrc[1].mIntConst == 0)
+						{
 							constFalse = true;
-					}
-					break;
-				case IA_CMPLEU:
-					if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
-					{
-						if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+						}
+						else if (cins->mSrc[1].IsPositive() && cins->mSrc[1].mRange.mMaxValue == 0)
+						{
 							constFalse = true;
+						}
+						else if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+						{
+							if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPGES:
+						if (signedvalid)
+						{
+							if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+						}
+						break;
+					case IA_CMPGEU:
+						if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
+						{
+							if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+						}
+						break;
 					}
-					break;
-				case IA_CMPGS:
-					if (signedvalid)
-					{
-						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
-							constFalse = true;
-					}
-					break;
-				case IA_CMPGU:
-					if (cins->mSrc[1].mTemp < 0 && cins->mSrc[1].mIntConst == 0)
-					{
-						constFalse = true;
-					}
-					else if (cins->mSrc[1].IsPositive() && cins->mSrc[1].mRange.mMaxValue == 0)
-					{
-						constFalse = true;
-					}
-					else if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
-					{
-						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
-							constFalse = true;
-					}
-					break;
-				case IA_CMPGES:
-					if (signedvalid)
-					{
-						if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
-							constFalse = true;
-					}
-					break;
-				case IA_CMPGEU:
-					if (unsignedvalid && cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
-					{
-						if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
-							constTrue = true;
-						else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
-							constFalse = true;
-					}
-					break;
 				}
-			}
 
 
-			if (constTrue || constFalse)
-			{
-				cins->mCode = IC_CONSTANT;
-				cins->mConst.mType = IT_BOOL;
-				cins->mConst.mIntConst = constTrue ? 1 : 0;
-				cins->mNumOperands = 0;
-			}
-			else
-			{
-				switch (cins->mOperator)
+				if (constTrue || constFalse)
 				{
-				case IA_CMPLS:
-					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
-						cins->mOperator = IA_CMPLU;
-					break;
-				case IA_CMPLES:
-					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
-						cins->mOperator = IA_CMPLEU;
-					break;
-				case IA_CMPGS:
-					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
-						cins->mOperator = IA_CMPGU;
-					break;
-				case IA_CMPGES:
-					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
-						cins->mOperator = IA_CMPGEU;
-					break;
+					cins->mCode = IC_CONSTANT;
+					cins->mConst.mType = IT_BOOL;
+					cins->mConst.mIntConst = constTrue ? 1 : 0;
+					cins->mNumOperands = 0;
+				}
+				else
+				{
+					switch (cins->mOperator)
+					{
+					case IA_CMPLS:
+						if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
+							cins->mOperator = IA_CMPLU;
+						break;
+					case IA_CMPLES:
+						if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
+							cins->mOperator = IA_CMPLEU;
+						break;
+					case IA_CMPGS:
+						if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
+							cins->mOperator = IA_CMPGU;
+						break;
+					case IA_CMPGES:
+						if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
+							cins->mOperator = IA_CMPGEU;
+						break;
+					}
 				}
 			}
 		}
@@ -25043,7 +25044,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
 				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
-				!((mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) & 0xff))
+				!((mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) & 0xff) &&
+				(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 0x10000)
 			{
 				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
@@ -25817,7 +25819,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR &&
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mSrc[0].mTemp < 0)
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				(mInstructions[i + 2]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
 			{
 				mInstructions[i + 0]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 1]->mSrc[0].mIntConst) - 1);
 				mInstructions[i + 2]->mSrc[0].mIntConst <<= mInstructions[i + 1]->mSrc[0].mIntConst;
@@ -25833,7 +25836,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0)
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 && 
+				(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 1]->mSrc[0].mType))
 			{
 				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
 
