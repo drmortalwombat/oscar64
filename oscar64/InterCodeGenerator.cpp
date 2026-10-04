@@ -5590,7 +5590,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_VOID)
 			{
-				Dereference(proc, exp, block, inlineMapper, vr);
+				// The operand is already evaluated; aggregates need no scalar load.
+				if ( ! vr.mType->IsStructOrUnion())
+					Dereference(proc, exp, block, inlineMapper, vr);
 			}
 			else if (exp->mDecType->IsReference() && exp->mDecType->mBase->IsConstSame(vr.mType))
 			{
