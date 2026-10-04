@@ -7446,7 +7446,10 @@ Expression* Parser::ParseLambdaExpression(void)
 						iexp->mDecValue = mvdec;
 					}
 					else
+					{
 						mErrors->Error(mdec->mLocation, EERR_INVALID_CAPTURE, "Invalid variable capture", mdec->mIdent);
+						mdec->mBase = TheVoidTypeDeclaration;
+					}
 				}
 				
 				if (iexp)

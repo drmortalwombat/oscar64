@@ -4987,6 +4987,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 
 					ExValue	rvr(procType->mBase, ains->mDst.mTemp, 1);
+					if (inlineMapper && inlineMapper->mResultExp)
+						rvr.mType = inlineMapper->mResultExp->mType;
 
 					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper, &rvr);
 
