@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"p36_taxa_absx"
+#define CHECK_FUNC			"probe"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -70042,13 +70042,20 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::SplitAt(int at)
 	mIns.SetSize(at);
 	eblock->mNumEntries = 1;
 	eblock->mEntryBlocks.Push(this);
-	eblock->mTrueJump->mEntryBlocks.RemoveAll(this);
-	eblock->mTrueJump->mEntryBlocks.Push(eblock);
+	if (eblock->mTrueJump)
+	{
+		eblock->mTrueJump->mEntryBlocks.RemoveAll(this);
+		eblock->mTrueJump->mEntryBlocks.Push(eblock);
+	}
 	if (eblock->mFalseJump)
 	{
 		eblock->mFalseJump->mEntryBlocks.RemoveAll(this);
 		eblock->mFalseJump->mEntryBlocks.Push(eblock);
 	}
+
+	if (this == mProc->mExitBlock)
+		mProc->mExitBlock = eblock;
+
 	return eblock;
 }
 
