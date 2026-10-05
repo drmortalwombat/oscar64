@@ -6841,7 +6841,7 @@ void InterCodeBasicBlock::AppendBeforeBranch(InterInstruction* code, bool loopin
 	int ti = mInstructions.Size() - 1;
 	if (mInstructions[ti]->mCode == IC_BRANCH)
 	{
-		if (ti > 0 && mInstructions[ti - 1]->mDst.mTemp == mInstructions[ti]->mSrc[0].mTemp && loopindex || CanBypassUp(code, mInstructions[ti - 1]))
+		if (ti > 0 && (mInstructions[ti - 1]->mDst.mTemp == mInstructions[ti]->mSrc[0].mTemp && loopindex || CanBypassUp(code, mInstructions[ti - 1])))
 		{
 			ti--;
 			if (ti > 0 && mInstructions[ti]->UsesTemp(mInstructions[ti - 1]->mDst.mTemp) && CanBypassUp(code, mInstructions[ti - 1]))

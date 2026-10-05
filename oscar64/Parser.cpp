@@ -13889,6 +13889,9 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 						exp->mDecValue = ldec;
 					}
 				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid object for dot qualification");
+
 				mScanner->NextToken();
 			}
 			else

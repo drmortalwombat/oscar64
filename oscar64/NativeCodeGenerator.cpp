@@ -3279,7 +3279,7 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		opmask = data[mAddress].mMask;
 		opvalue = data[mAddress].mValue;
 	}
-	else if (mMode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mReferences.Size() == 0 && mType != ASMIT_JSR)
+	else if (mMode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mReferences.Size() == 0 && mType != ASMIT_JSR && mAddress < mLinkerObject->mSize)
 	{
 		opmask = 0xff;
 		opvalue = mLinkerObject->mData[mAddress];
