@@ -2781,7 +2781,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vr = CoerceType(proc, exp, block, inlineMapper, vr, TheSignedIntTypeDeclaration);
 
 						InterInstruction	*	mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-						mins->mOperator = IA_MUL;
+						mins->mOperator = IA_MULS;
 						mins->mSrc[0].mType = IT_INT16;
 						mins->mSrc[0].mTemp = vr.mTemp;
 						mins->mSrc[1].mType = IT_INT16;
@@ -2840,13 +2840,22 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						switch (exp->mToken)
 						{
 						case TK_ASSIGN_ADD:
-							oins->mOperator = IA_ADD;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins->mOperator = IA_ADDS;
+							else
+								oins->mOperator = IA_ADDU;
 							break;
 						case TK_ASSIGN_SUB:
-							oins->mOperator = IA_SUB;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins->mOperator = IA_SUBS;
+							else
+								oins->mOperator = IA_SUBU;
 							break;
 						case TK_ASSIGN_MUL:
-							oins->mOperator = IA_MUL;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins->mOperator = IA_MULS;
+							else
+								oins->mOperator = IA_MULU;
 							break;
 						case TK_ASSIGN_DIV:
 							if (vll.mType->mFlags & DTF_SIGNED)
@@ -2943,7 +2952,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(cins);
 
 			InterInstruction	*	mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-			mins->mOperator = IA_MUL;
+			mins->mOperator = IA_MULS;
 			mins->mSrc[0].mType = IT_INT16;
 			mins->mSrc[0].mTemp = vr.mTemp;
 			mins->mSrc[1].mType = IT_INT16;
@@ -3073,7 +3082,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					InterInstruction	*	mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
 					mins->mCode = IC_BINARY_OPERATOR;
-					mins->mOperator = IA_MUL;
+					mins->mOperator = IA_MULS;
 					mins->mSrc[0].mType = IT_INT16;
 					mins->mSrc[0].mTemp = vr.mTemp;
 					mins->mSrc[1].mType = IT_INT16;
@@ -3130,7 +3139,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						block->Append(cins);
 
 						InterInstruction	*	sins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR), *	dins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-						sins->mOperator = IA_SUB;
+						sins->mOperator = IA_SUBS;
 						sins->mSrc[0].mType = IT_INT16;
 						sins->mSrc[0].mTemp = crins->mDst.mTemp;
 						sins->mSrc[1].mType = IT_INT16;
@@ -3191,7 +3200,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
 
 					InterInstruction* mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-					mins->mOperator = IA_MUL;
+					mins->mOperator = IA_MULS;
 					mins->mSrc[0].mType = IT_INT16;
 					mins->mSrc[0].mTemp = vl.mTemp;
 					mins->mSrc[1].mType = IT_INT16;
@@ -3298,13 +3307,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				switch (exp->mToken)
 				{
 				case TK_ADD:
-					ins->mOperator = IA_ADD;
+					ins->mOperator = signedOP ? IA_ADDS : IA_ADDU;
 					break;
 				case TK_SUB:
-					ins->mOperator = IA_SUB;
+					ins->mOperator = signedOP ? IA_SUBS : IA_SUBU;
 					break;
 				case TK_MUL:
-					ins->mOperator = IA_MUL;
+					ins->mOperator = signedOP ? IA_MULS : IA_MULU;
 					break;
 				case TK_DIV:
 					ins->mOperator = signedOP ? IA_DIVS : IA_DIVU;
@@ -3389,7 +3398,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else
 			{
 				ains->mCode = IC_BINARY_OPERATOR;
-				ains->mOperator = IA_ADD;
+				ains->mOperator = IA_ADDS;
 			}
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
@@ -3458,7 +3467,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else
 			{
 				ains->mCode = IC_BINARY_OPERATOR;
-				ains->mOperator = IA_ADD;
+				ains->mOperator = IA_ADDS;
 			}
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;

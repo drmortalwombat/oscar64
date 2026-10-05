@@ -3646,11 +3646,14 @@ static ByteCode ByteCodeBinRegOperator(const InterInstruction * ins)
 	{
 		switch (ins->mOperator)
 		{
-		case IA_ADD: return BC_BINOP_ADD_F32;
-		case IA_SUB: return BC_BINOP_SUB_F32;
-		case IA_MUL: return BC_BINOP_MUL_F32;
-		case IA_DIVU: return BC_BINOP_DIV_F32;
-		case IA_DIVS: return BC_BINOP_DIV_F32;
+		case IA_ADDU: 
+		case IA_ADDS:	return BC_BINOP_ADD_F32;
+		case IA_SUBU:
+		case IA_SUBS:	return BC_BINOP_SUB_F32;
+		case IA_MULU:
+		case IA_MULS:	return BC_BINOP_MUL_F32;
+		case IA_DIVU:
+		case IA_DIVS:	return BC_BINOP_DIV_F32;
 
 		default:
 			return BC_EXIT;
@@ -3660,13 +3663,18 @@ static ByteCode ByteCodeBinRegOperator(const InterInstruction * ins)
 	{
 		switch (ins->mOperator)
 		{
-		case IA_ADD: return BC_BINOP_ADD_L32;
-		case IA_SUB: return BC_BINOP_SUB_L32;
-		case IA_MUL: return BC_BINOP_MUL_L32;
+		case IA_ADDU: 
+		case IA_ADDS:	return BC_BINOP_ADD_L32;
+		case IA_SUBU:
+		case IA_SUBS:	return BC_BINOP_SUB_L32;
+		case IA_MULU:	
+		case IA_MULS:	return BC_BINOP_MUL_L32;
+
 		case IA_DIVU: return BC_BINOP_DIV_U32;
 		case IA_MODU: return BC_BINOP_MOD_U32;
 		case IA_DIVS: return BC_BINOP_DIV_I32;
 		case IA_MODS: return BC_BINOP_MOD_I32;
+
 		case IA_AND: return BC_BINOP_AND_L32;
 		case IA_OR: return BC_BINOP_OR_L32;
 		case IA_XOR: return BC_BINOP_XOR_L32;
@@ -3683,13 +3691,18 @@ static ByteCode ByteCodeBinRegOperator(const InterInstruction * ins)
 	{
 		switch (ins->mOperator)
 		{
-		case IA_ADD: return BC_BINOP_ADDR_16;
-		case IA_SUB: return BC_BINOP_SUBR_16;
-		case IA_MUL: return BC_BINOP_MULR_16;
+		case IA_ADDU: 
+		case IA_ADDS:	return BC_BINOP_ADDR_16;
+		case IA_SUBU:
+		case IA_SUBS:	return BC_BINOP_SUBR_16;
+		case IA_MULU:
+		case IA_MULS:	return BC_BINOP_MULR_16;
+
 		case IA_DIVU: return BC_BINOP_DIVR_U16;
 		case IA_MODU: return BC_BINOP_MODR_U16;
 		case IA_DIVS: return BC_BINOP_DIVR_I16;
 		case IA_MODS: return BC_BINOP_MODR_I16;
+
 		case IA_AND: return BC_BINOP_ANDR_16;
 		case IA_OR: return BC_BINOP_ORR_16;
 		case IA_XOR: return BC_BINOP_XORR_16;
@@ -3708,14 +3721,18 @@ static ByteCode ByteCodeBinImmOperator(const InterInstruction * ins)
 {
 	switch (ins->mOperator)
 	{
-	case IA_ADD: return BC_BINOP_ADDI_16;
-	case IA_SUB: return BC_BINOP_SUBI_16;
+	case IA_ADDU:
+	case IA_ADDS:	return BC_BINOP_ADDI_16;
+	case IA_SUBU: 
+	case IA_SUBS:	return BC_BINOP_SUBI_16;
+	case IA_MULU: 
+	case IA_MULS:	return BC_BINOP_MULI8_16;
+
 	case IA_AND: return BC_BINOP_ANDI_16;
 	case IA_OR:  return BC_BINOP_ORI_16;
 	case IA_SHL: return BC_BINOP_SHLI_16;
 	case IA_SHR: return BC_BINOP_SHRI_U16;
 	case IA_SAR: return BC_BINOP_SHRI_I16;
-	case IA_MUL: return BC_BINOP_MULI8_16;
 
 	default:
 		return BC_EXIT;
@@ -3726,14 +3743,18 @@ static ByteCode ByteCodeBinSizeImmOperator(const InterInstruction* ins)
 {
 	switch (ins->mOperator)
 	{
-	case IA_ADD: return InterTypeSize[ins->mDst.mType] == 1 ? BC_BINOP_ADDI_8 : BC_BINOP_ADDI_16;
-	case IA_SUB: return BC_BINOP_SUBI_16;
+	case IA_ADDU: 
+	case IA_ADDS:	return InterTypeSize[ins->mDst.mType] == 1 ? BC_BINOP_ADDI_8 : BC_BINOP_ADDI_16;
+	case IA_SUBU:
+	case IA_SUBS:	return BC_BINOP_SUBI_16;
+	case IA_MULU:
+	case IA_MULS:	return BC_BINOP_MULI8_16;
+
 	case IA_AND: return InterTypeSize[ins->mDst.mType] == 1 ? BC_BINOP_ANDI_8 : BC_BINOP_ANDI_16;
 	case IA_OR:  return InterTypeSize[ins->mDst.mType] == 1 ? BC_BINOP_ORI_8 : BC_BINOP_ORI_16;
 	case IA_SHL: return BC_BINOP_SHLI_16;
 	case IA_SHR: return BC_BINOP_SHRI_U16;
 	case IA_SAR: return BC_BINOP_SHRI_I16;
-	case IA_MUL: return BC_BINOP_MULI8_16;
 
 	default:
 		return BC_EXIT;
@@ -4152,7 +4173,8 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 	{
 		switch (ins->mOperator)
 		{
-		case IA_ADD:
+		case IA_ADDU:
+		case IA_ADDS:
 		case IA_OR:
 		case IA_AND:
 		{
@@ -4216,7 +4238,8 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 		}
 			break;
-		case IA_SUB:
+		case IA_SUBU:
+		case IA_SUBS:
 			if (ins->mSrc[1].mTemp < 0)
 			{
 				if (ins->mSrc[0].mTemp == ins->mDst.mTemp)
@@ -4270,7 +4293,8 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 				mIns.Push(bins);
 			}
 			break;
-		case IA_MUL:
+		case IA_MULU:
+		case IA_MULS:
 		{
 			ByteCode	bc = ByteCodeBinRegOperator(ins);
 			ByteCode	bci = ByteCodeBinImmOperator(ins);

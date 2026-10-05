@@ -7676,7 +7676,8 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 
 		switch (oins->mOperator)
 		{
-		case IA_ADD:
+		case IA_ADDS:
+		case IA_ADDU:
 			mIns.Push(NativeCodeInstruction(oins, ASMIT_CLC));
 			break;
 		default:
@@ -7723,7 +7724,8 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 
 			switch (oins->mOperator)
 			{
-			case IA_ADD:
+			case IA_ADDS:
+			case IA_ADDU:
 				mIns.Push(NativeCodeInstruction(oins, ASMIT_CLC));
 				aop = ASMIT_ADC;
 				break;
@@ -7915,10 +7917,12 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 
 	switch (oins->mOperator)
 	{
-	case IA_ADD:
+	case IA_ADDS:
+	case IA_ADDU:
 		at = an = ASMIT_ADC;
 		break;
-	case IA_SUB:
+	case IA_SUBS:
+	case IA_SUBU:
 		at = an = ASMIT_SBC;
 		if (oindex == 1)
 			reverse = true;
@@ -8030,10 +8034,12 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 
 	switch (oins->mOperator)
 	{
-	case IA_ADD:
+	case IA_ADDS:
+	case IA_ADDU:
 		mIns.Push(NativeCodeInstruction(oins, ASMIT_CLC));
 		break;
-	case IA_SUB:
+	case IA_SUBS:
+	case IA_SUBU:
 		mIns.Push(NativeCodeInstruction(oins, ASMIT_SEC));
 		break;
 	}
@@ -10063,7 +10069,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDX, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[index].mTemp]));
 		}
 
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MUL, mul, int(ins->mSrc[index].mRange.mMaxValue) + 1, false)));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MULS, mul, int(ins->mSrc[index].mRange.mMaxValue) + 1, false)));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg));
 		if (ins->mDst.IsUByte())
 		{
@@ -10072,7 +10078,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		}
 		else
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MUL, mul, int(ins->mSrc[index].mRange.mMaxValue) + 1, true)));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MULS, mul, int(ins->mSrc[index].mRange.mMaxValue) + 1, true)));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
 
@@ -10449,7 +10455,7 @@ void NativeCodeBasicBlock::AddAsrSignedByte(InterCodeProcedure* proc, const Inte
 void NativeCodeBasicBlock::BinaryShlAddConstPair(InterCodeProcedure* proc, const InterInstruction* sins, const InterInstruction* ains)
 {
 	int64	aconst = ains->mSrc[0].mIntConst;
-	if (ains->mOperator == IA_SUB)
+	if (ains->mOperator == IA_SUBU || ains->mOperator == IA_SUBS)
 		aconst = -aconst;
 
 	int di = BC_REG_TMP + proc->mTempOffset[ains->mDst.mTemp];
@@ -10801,7 +10807,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		bool	flipop = false;
 		bool	changedSign = false;
 
-		if (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_SUB)
+		if (ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS || ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS)
 		{
 			if (!sins0 && ins->mSrc[sop0].mTemp >= 0 && CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop0].mTemp]))
 			{
@@ -10845,7 +10851,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			{
 				union { float f; unsigned int v; } cc;
 
-				if (ins->mOperator == IA_SUB && flipop)
+				if ((ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && flipop)
 				{
 					changedSign = true;
 					cc.f = float(-ins->mSrc[sop1].mFloatConst);
@@ -10892,7 +10898,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			{
 				union { float f; unsigned int v; } cc;
 
-				if (ins->mOperator == IA_SUB && !flipop)
+				if ((ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && !flipop)
 				{
 					changedSign = true;
 					cc.f = float(-ins->mSrc[sop0].mFloatConst);
@@ -10928,12 +10934,14 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 		switch (ins->mOperator)
 		{
-		case IA_ADD:
+		case IA_ADDU:
+		case IA_ADDS:
 		{
 			NativeCodeGenerator::Runtime& art(nproc->mGenerator->ResolveRuntime(Ident::Unique("fadd")));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, art.mOffset, art.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
 		}	break;
-		case IA_SUB:
+		case IA_SUBU:
+		case IA_SUBS:
 		{
 			bool	add = false;
 			if (changedSign)
@@ -10949,7 +10957,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			NativeCodeGenerator::Runtime& art(nproc->mGenerator->ResolveRuntime(Ident::Unique(add ? "fadd" : "fsub")));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, art.mOffset, art.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
 		}	break;
-		case IA_MUL:
+		case IA_MULU:
+		case IA_MULS:
 		{
 			NativeCodeGenerator::Runtime& art(nproc->mGenerator->ResolveRuntime(Ident::Unique("fmul")));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, art.mOffset, art.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
@@ -10975,8 +10984,10 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 	{
 		switch (ins->mOperator)
 		{
-		case IA_ADD:
-		case IA_SUB:
+		case IA_ADDU:
+		case IA_ADDS:
+		case IA_SUBU:
+		case IA_SUBS:
 		case IA_OR:
 		case IA_AND:
 		case IA_XOR:
@@ -10995,11 +11006,13 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			AsmInsType	atype;
 			switch (ins->mOperator)
 			{
-			case IA_ADD:
+			case IA_ADDU:
+			case IA_ADDS:
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 				atype = ASMIT_ADC;
 				break;
-			case IA_SUB:
+			case IA_SUBU:
+			case IA_SUBS:
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_SEC, ASMIM_IMPLIED));
 				atype = ASMIT_SBC;
 				break;
@@ -11028,7 +11041,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 		} break;
 
-		case IA_MUL:
+		case IA_MULU:
+		case IA_MULS:
 		case IA_DIVS:
 		case IA_MODS:
 		case IA_DIVU:
@@ -11036,7 +11050,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		{
 			int	reg = BC_REG_ACCU;
 
-			if (ins->mOperator == IA_MUL && ins->mSrc[0].IsUByte())
+			if ((ins->mOperator == IA_MULS || ins->mOperator == IA_MULU) && ins->mSrc[0].IsUByte())
 			{
 				if (sins1)
 					LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
@@ -11077,7 +11091,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_CPU_REG_A));
 				reg = BC_REG_WORK + 4;
 			}
-			else if (ins->mOperator == IA_MUL && ins->mSrc[1].IsUByte())
+			else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && ins->mSrc[1].IsUByte())
 			{
 				if (sins0)
 					LoadValueToReg(proc, sins0, BC_REG_ACCU, nullptr, nullptr);
@@ -11172,7 +11186,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 				switch (ins->mOperator)
 				{
-				case IA_MUL:
+				case IA_MULU:
+				case IA_MULS:
 				{
 					NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul32")));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
@@ -11914,12 +11929,13 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 	{
 		switch (ins->mOperator)
 		{
-		case IA_ADD:
+		case IA_ADDS:
+		case IA_ADDU:
 		case IA_OR:
 		case IA_AND:
 		case IA_XOR:
 		{
-			if (ins->mOperator == IA_ADD && InterTypeSize[ins->mDst.mType] == 1 && (
+			if ((ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && InterTypeSize[ins->mDst.mType] == 1 && (
 				ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 1 && !sins1 && ins->mSrc[1].mTemp == ins->mDst.mTemp ||
 				ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == 1 && !sins0 && ins->mSrc[0].mTemp == ins->mDst.mTemp))
 			{
@@ -11948,7 +11964,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					}
 				}
 			}
-			else if (ins->mOperator == IA_ADD && InterTypeSize[ins->mDst.mType] == 1 && (
+			else if ((ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && InterTypeSize[ins->mDst.mType] == 1 && (
 				ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == -1 && !sins1 && ins->mSrc[1].mTemp == ins->mDst.mTemp ||
 				ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == -1 && !sins0 && ins->mSrc[0].mTemp == ins->mDst.mTemp))
 			{
@@ -11961,7 +11977,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				AsmInsType	atype;
 				switch (ins->mOperator)
 				{
-				case IA_ADD:
+				case IA_ADDU:
+				case IA_ADDS:
 					atype = ASMIT_ADC;
 					break;
 				case IA_OR:
@@ -11996,7 +12013,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					}
 					else
 					{
-						if (ins->mOperator == IA_ADD)
+						if (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU)
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 						if (treg == BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] &&
 							((ins->mOperator == IA_AND && (ins->mSrc[1].mIntConst & 0xff) == 0xff) ||
@@ -12048,7 +12065,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					}
 					else
 					{
-						if (ins->mOperator == IA_ADD)
+						if (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU)
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 						if (treg == BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] &&
 							((ins->mOperator == IA_AND && (ins->mSrc[0].mIntConst & 0xff) == 0xff) ||
@@ -12086,7 +12103,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 							sins0->mSrc[0].mIntConst + (InterTypeSize[ins->mDst.mType] - 1) * sins0->mSrc[0].mStride < 255 && 
 							sins1->mSrc[0].mIntConst + (InterTypeSize[ins->mDst.mType] - 1) * sins1->mSrc[0].mStride < 255)
 						{
-							if (ins->mOperator == IA_ADD)
+							if (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU)
 								mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, sins0->mSrc[0].mIntConst + 0));
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[sins0->mSrc[0].mTemp]));
@@ -12145,7 +12162,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					}
 					else
 					{
-						if (ins->mOperator == IA_ADD)
+						if (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU)
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
 						mIns.Push(NativeCodeInstruction(ins, atype, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -12159,7 +12176,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 								mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
 							}
 #if 1
-							else if (ins->mOperator == IA_ADD && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsSByte() && ins->mDst.mTemp != ins->mSrc[1].mTemp && ins->mSrc[1].mFinal)
+							else if ((ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsSByte() && ins->mDst.mTemp != ins->mSrc[1].mTemp && ins->mSrc[1].mFinal)
 							{
 //								printf("ADD0 %s:%d, %d+%d->%d\n", mProc->mIdent->mString, mIndex, ins->mSrc[0].mTemp, ins->mSrc[1].mTemp, treg);
 								mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
@@ -12169,7 +12186,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 								mIns.Push(NativeCodeInstruction(ins, ASMIT_SBC, ASMIM_IMMEDIATE, 0x00));
 								mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
 							}
-							else if (ins->mOperator == IA_ADD && ins->mSrc[1].IsUByte() && ins->mSrc[0].IsSByte() && ins->mDst.mTemp != ins->mSrc[0].mTemp && ins->mSrc[0].mFinal)
+							else if ((ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[1].IsUByte() && ins->mSrc[0].IsSByte() && ins->mDst.mTemp != ins->mSrc[0].mTemp && ins->mSrc[0].mFinal)
 							{
 //								printf("ADD1 %s:%d, %d+%d->%d\n", mProc->mIdent->mString, mIndex, ins->mSrc[0].mTemp, ins->mSrc[1].mTemp, treg);
 								mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -12199,7 +12216,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 			}
 		} break;
-		case IA_SUB:
+		case IA_SUBS:
+		case IA_SUBU:
 		{
 			NativeCodeInstruction	insl, insh;
 
@@ -12353,7 +12371,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 			}
 		} break;
-		case IA_MUL:
+		case IA_MULS:
+		case IA_MULU:
 		case IA_DIVS:
 		case IA_MODS:
 		case IA_DIVU:
@@ -12361,15 +12380,15 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		{
 			int	reg = BC_REG_ACCU;
 
-			if (ins->mOperator == IA_MUL && ins->mSrc[1].mTemp < 0)
+			if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && ins->mSrc[1].mTemp < 0)
 			{
 				reg = ShortMultiply(proc, nproc, ins, sins0, 0, int(ins->mSrc[1].mIntConst));
 			}
-			else if (ins->mOperator == IA_MUL && ins->mSrc[0].mTemp < 0)
+			else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && ins->mSrc[0].mTemp < 0)
 			{
 				reg = ShortMultiply(proc, nproc, ins, sins1, 1, int(ins->mSrc[0].mIntConst));
 			}
-			else if (ins->mOperator == IA_MUL && ins->mSrc[0].IsUByte())
+			else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && ins->mSrc[0].IsUByte())
 			{
 				if (!sins0 && !sins1 && ins->mSrc[1].IsUByte() && CheckIsInAccu(BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]))
 				{
@@ -12404,7 +12423,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_CPU_REG_A));
 				reg = BC_REG_ACCU;
 			}
-			else if (ins->mOperator == IA_MUL && ins->mSrc[1].IsUByte())
+			else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && ins->mSrc[1].IsUByte())
 			{
 				if (sins0)
 					LoadValueToReg(proc, sins0, BC_REG_ACCU, nullptr, nullptr);
@@ -12538,7 +12557,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 				switch (ins->mOperator)
 				{
-				case IA_MUL:
+				case IA_MULS:
+				case IA_MULU:
 				{
 					NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16")));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
@@ -13646,7 +13666,7 @@ void NativeCodeBasicBlock::BinaryFloatOperatorLookup(InterCodeProcedure* proc, c
 	else
 	{
 		fconst = ins->mSrc[1].mFloatConst;
-		if (ins->mOperator == IA_SUB || ins->mOperator == IA_DIVS)
+		if (ins->mOperator == IA_SUBS || ins->mOperator == IA_DIVS)
 			reverse = true;
 	}
 
@@ -73767,7 +73787,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 					iblock->mInstructions[3]->mSrc[1].mTemp == iblock->mInstructions[1]->mSrc[1].mTemp &&
 					iblock->mInstructions[3]->mDst.mTemp == iblock->mInstructions[3]->mSrc[1].mTemp &&
 					iblock->mInstructions[3]->mSrc[0].mTemp < 0 && iblock->mInstructions[3]->mSrc[0].mIntConst == InterTypeSize[iblock->mInstructions[0]->mDst.mType] &&
-				iblock->mInstructions[4]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[4]->mOperator == IA_SUB &&
+				iblock->mInstructions[4]->mCode == IC_BINARY_OPERATOR && (iblock->mInstructions[4]->mOperator == IA_SUBS || iblock->mInstructions[4]->mOperator == IA_SUBU)&&
 					iblock->mInstructions[4]->mDst.mTemp == iblock->mInstructions[4]->mSrc[1].mTemp &&
 					iblock->mInstructions[4]->mSrc[0].mTemp < 0 && iblock->mInstructions[4]->mSrc[0].mIntConst == 1 &&
 				iblock->mInstructions[5]->mCode == IC_RELATIONAL_OPERATOR && iblock->mInstructions[5]->mOperator == IA_CMPGU &&
@@ -74010,7 +74030,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		}	break;
 		case IC_BINARY_OPERATOR:
 			if (i + 2 < iblock->mInstructions.Size() &&
-				ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mDst.mType == IT_INT8 && 
+				ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mDst.mType == IT_INT8 && 
 				ins->mSrc[1].mTemp == ins->mDst.mTemp && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 1 &&
 				ins->mDst.IsUByte() && ins->mDst.mRange.mMinValue >= 1 &&
 				iblock->mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_CMPLEU &&
@@ -74024,7 +74044,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			}
 
 			if (i + 1 < iblock->mInstructions.Size() &&
-				ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mSrc[1].IsSByte() && ins->mSrc[0].mTemp < 0 &&
+				ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[1].IsSByte() && ins->mSrc[0].mTemp < 0 &&
 				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_SAR &&
 				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
 				iblock->mInstructions[i + 1]->mSrc[0].mTemp < 0 && iblock->mInstructions[i + 1]->mSrc[0].mIntConst <= 4 &&
@@ -74077,7 +74097,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				ins->mDst.mType == IT_INT16 &&
 				ins->mOperator == IA_AND &&
 				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				iblock->mInstructions[i + 1]->mOperator == IA_MUL &&
+				(iblock->mInstructions[i + 1]->mOperator == IA_MULS || iblock->mInstructions[i + 1]->mOperator == IA_MULU) &&
 				ins->mSrc[0].mTemp < 0 &&
 				ins->mDst.mTemp == iblock->mInstructions[i + 1]->mSrc[1].mTemp &&
 				ins->mDst.IsUByte() &&
@@ -74090,16 +74110,17 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			}
 			else if (i + 1 < iblock->mInstructions.Size() &&
 				ins->mDst.mType == IT_INT16 && ins->mOperator == IA_SHL && ins->mSrc[1].IsUByte() && ins->mSrc[0].mTemp < 0 &&
-				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (iblock->mInstructions[i + 1]->mOperator == IA_ADD || iblock->mInstructions[i + 1]->mOperator == IA_SUB) &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && 
+				(iblock->mInstructions[i + 1]->mOperator == IA_ADDS || iblock->mInstructions[i + 1]->mOperator == IA_ADDU || iblock->mInstructions[i + 1]->mOperator == IA_SUBS || iblock->mInstructions[i + 1]->mOperator == IA_SUBU) &&
 				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal && iblock->mInstructions[i + 1]->mSrc[0].mTemp < 0)
 			{
 				block->BinaryShlAddConstPair(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
 			}
 			else if (i + 1 < iblock->mInstructions.Size() &&
-				ins->mDst.mType == IT_INT16 && ins->mOperator == IA_ADD && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() &&
+				ins->mDst.mType == IT_INT16 && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() &&
 
-				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_ADD &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (iblock->mInstructions[i + 1]->mOperator == IA_ADDS || iblock->mInstructions[i + 1]->mOperator == IA_ADDU) &&
 				iblock->mInstructions[i + 1]->mSrc[0].mRange.IsRange(0, 1) && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
 				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
 			{
@@ -74107,9 +74128,9 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				i++;
 			}
 			else if (i + 1 < iblock->mInstructions.Size() &&
-				ins->mDst.mType == IT_INT16 && ins->mOperator == IA_ADD && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() &&
+				ins->mDst.mType == IT_INT16 && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() &&
 
-				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_ADD &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (iblock->mInstructions[i + 1]->mOperator == IA_ADDS || iblock->mInstructions[i + 1]->mOperator == IA_ADDU) &&
 				iblock->mInstructions[i + 1]->mSrc[1].mRange.IsRange(0, 1) && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
 				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
 			{
@@ -74138,7 +74159,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		case IC_CONVERSION_OPERATOR:
 			if (i + 1 < iblock->mInstructions.Size() &&
 				ins->mOperator == IA_EXT8TO16S &&
-				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_ADD &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (iblock->mInstructions[i + 1]->mOperator == IA_ADDS || iblock->mInstructions[i + 1]->mOperator == IA_ADDU) &&
 				(iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal && iblock->mInstructions[i + 1]->mSrc[1].mTemp < 0 ||
 					iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal && iblock->mInstructions[i + 1]->mSrc[0].mTemp < 0))
 			{
@@ -74533,7 +74554,8 @@ void NativeCodeGenerator::PopulateShortMulTables(void)
 				int val = m.mFactor;
 				switch (m.mOperator)
 				{
-				case IA_MUL:
+				case IA_MULS:
+				case IA_MULU:
 					val *= j;
 					break;
 				case IA_SHL:
@@ -74571,13 +74593,16 @@ void NativeCodeGenerator::PopulateShortMulTables(void)
 
 			switch (f.mOperator)
 			{
-			case IA_MUL:
+			case IA_MULS:
+			case IA_MULU:
 				fu.f = f.mConst * float(j);
 				break;
-			case IA_ADD:
+			case IA_ADDS:
+			case IA_ADDU:
 				fu.f = f.mConst * float(j);
 				break;
-			case IA_SUB:
+			case IA_SUBS:
+			case IA_SUBU:
 				if (f.mReverse)
 					fu.f = f.mConst - float(j);
 				else
@@ -74617,13 +74642,16 @@ LinkerObject* NativeCodeGenerator::AllocateFloatTable(InterOperator op, bool rev
 
 		switch (op)
 		{
-		case IA_MUL:
+		case IA_MULS:
+		case IA_MULU:
 			base = "fmul";
 			break;
-		case IA_ADD:
+		case IA_ADDS:
+		case IA_ADDU:
 			base = "fadd";
 			break;
-		case IA_SUB:
+		case IA_SUBS:
+		case IA_SUBU:
 			if (reverse)
 				base = "frsub";
 			else
@@ -74667,6 +74695,8 @@ LinkerObject* NativeCodeGenerator::AllocateShortMulTable(InterOperator op, int f
 {
 	assert(size > 0);
 
+	if (op == IA_MULU) op = IA_MULS;
+
 	int	i = 0;
 	while (i < mMulTables.Size() && (mMulTables[i].mFactor != factor || mMulTables[i].mOperator != op))
 		i++;
@@ -74681,7 +74711,8 @@ LinkerObject* NativeCodeGenerator::AllocateShortMulTable(InterOperator op, int f
 
 		switch (op)
 		{
-		case IA_MUL:
+		case IA_MULS:
+		case IA_MULU:
 			base = "mul";
 			break;
 		case IA_SHL:

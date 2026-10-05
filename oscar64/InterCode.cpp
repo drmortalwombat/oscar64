@@ -24,7 +24,7 @@ int InterTypeSize[] = {
 
 static bool IsCommutative(InterOperator op)
 {
-	return op == IA_ADD || op == IA_MUL || op == IA_AND || op == IA_OR || op == IA_XOR;
+	return op == IA_ADDU || op == IA_ADDS || op == IA_MULU || op == IA_MULS || op == IA_AND || op == IA_OR || op == IA_XOR;
 }
 
 static bool IsIntegerType(InterType type)
@@ -1570,17 +1570,22 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 {
 	switch (oper)
 	{
-	case IA_ADD:
+	case IA_ADDU:
+		return (val1 + val2) & UnsignedTypeMax(type);
+		break;
+	case IA_ADDS:
 		return val1 + val2;
 		break;
-	case IA_SUB:
+	case IA_SUBU:
+		return (val1 - val2) & UnsignedTypeMax(type);;
+		break;
+	case IA_SUBS:
 		return val1 - val2;
 		break;
-	case IA_MUL:
-		if (type == IT_INT32 && val1 >= 0 && val2 >= 0)
-			return val1 * val2 & 0xffffffff;
-		else
-			return val1 * val2;
+	case IA_MULU:
+		return val1 * val2 & UnsignedTypeMax(type);
+	case IA_MULS:
+		return val1 * val2;
 
 	case IA_DIVU:
 		if (val2)
@@ -1743,13 +1748,16 @@ static double ConstantFolding(InterOperator oper, double val1, double val2 = 0.0
 {
 	switch (oper)
 	{
-	case IA_ADD:
+	case IA_ADDU:
+	case IA_ADDS:
 		return val1 + val2;
 		break;
-	case IA_SUB:
+	case IA_SUBU:
+	case IA_SUBS:
 		return val1 - val2;
 		break;
-	case IA_MUL:
+	case IA_MULU:
+	case IA_MULS:
 		return val1 * val2;
 		break;
 	case IA_DIVU:
@@ -2109,26 +2117,47 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 		dop.mType = IT_BOOL;
 		break;
 
-	case IA_ADD:
+	case IA_ADDS:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst + op2.mFloatConst;
 		else
 			dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst + op2.mIntConst);
 		break;
-	case IA_SUB:
+	case IA_ADDU:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst + op2.mFloatConst;
+		else
+			dop.mIntConst = (op1.mIntConst + op2.mIntConst) & UnsignedTypeMax(dop.mType);
+		break;
+	case IA_SUBS:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst - op2.mFloatConst;
 		else
 			dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst - op2.mIntConst);
 		break;
-	case IA_MUL:
+	case IA_SUBU:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst - op2.mFloatConst;
+		else
+			dop.mIntConst = (op1.mIntConst - op2.mIntConst) & UnsignedTypeMax(dop.mType);
+		break;
+	case IA_MULS:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst * op2.mFloatConst;
 		else
 			dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst * op2.mIntConst);
+		break;
+	case IA_MULU:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst * op2.mFloatConst;
+		else
+			dop.mIntConst = (op1.mIntConst * op2.mIntConst) & UnsignedTypeMax(dop.mType);
 		break;
 	case IA_DIVU:
 		dop.mType = op1.mType;
@@ -3436,10 +3465,11 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 
 			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
-				if ((ins->mOperator == IA_ADD || ins->mOperator == IA_SUB ||
+				if ((ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS ||
+					ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS ||
 					ins->mOperator == IA_OR || ins->mOperator == IA_XOR ||
 					ins->mOperator == IA_SHL || ins->mOperator == IA_SHR || ins->mOperator == IA_SAR) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == 0 ||
-					(ins->mOperator == IA_MUL || ins->mOperator == IA_DIVU || ins->mOperator == IA_DIVS) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == 1 ||
+					(ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_DIVU || ins->mOperator == IA_DIVS) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == 1 ||
 					(ins->mOperator == IA_AND) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == -1)
 				{
 					ins->mCode = IC_LOAD_TEMPORARY;
@@ -3453,7 +3483,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 
 					return;
 				}
-				else if ((ins->mOperator == IA_MUL || ins->mOperator == IA_AND) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == 0)
+				else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_AND) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == 0)
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mIntConst = 0;
@@ -3466,7 +3496,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 
 					return;
 				}
-				else if (ins->mOperator == IA_MUL && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == -1)
+				else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == -1)
 				{
 					ins->mCode = IC_UNARY_OPERATOR;
 					ins->mOperator = IA_NEG;
@@ -3482,8 +3512,8 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 			}
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT)
 			{
-				if ((ins->mOperator == IA_ADD || ins->mOperator == IA_OR || ins->mOperator == IA_XOR) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 0 ||
-					(ins->mOperator == IA_MUL) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 1 ||
+				if ((ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS || ins->mOperator == IA_OR || ins->mOperator == IA_XOR) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 0 ||
+					(ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 1 ||
 					(ins->mOperator == IA_AND) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == -1)
 				{
 					ins->mCode = IC_LOAD_TEMPORARY;
@@ -3495,7 +3525,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 
 					return;
 				}
-				else if ((ins->mOperator == IA_MUL || ins->mOperator == IA_AND ||
+				else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_AND ||
 					ins->mOperator == IA_SHL || ins->mOperator == IA_SHR || ins->mOperator == IA_SAR) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 0)
 				{
 					ins->mCode = IC_CONSTANT;
@@ -3509,7 +3539,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 
 					return;
 				}
-				else if (ins->mOperator == IA_MUL && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == -1)
+				else if ((ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == -1)
 				{
 					ins->mCode = IC_UNARY_OPERATOR;
 					ins->mOperator = IA_NEG;
@@ -3521,7 +3551,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 
 					return;
 				}
-				else if (ins->mOperator == IA_SUB && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 0)
+				else if ((ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS) && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == 0)
 				{
 					ins->mCode = IC_UNARY_OPERATOR;
 					ins->mOperator = IA_NEG;
@@ -3535,7 +3565,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 			}
 			else if (ins->mSrc[0].mTemp == ins->mSrc[1].mTemp)
 			{
-				if (ins->mOperator == IA_SUB || ins->mOperator == IA_XOR)
+				if (ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS || ins->mOperator == IA_XOR)
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mIntConst = 0;
@@ -5803,7 +5833,7 @@ bool InterInstruction::IsExpensive(void) const
 	case IC_UNARY_OPERATOR:
 		if (mDst.mType == IT_INT32 || mDst.mType == IT_FLOAT)
 			return true;
-		if (mOperator == IA_MODS || mOperator == IA_MODU || mOperator == IA_DIVS || mOperator == IA_DIVU || mOperator == IA_MUL)
+		if (mOperator == IA_MODS || mOperator == IA_MODU || mOperator == IA_DIVS || mOperator == IA_DIVU || mOperator == IA_MULU || mOperator == IA_MULS)
 			return true;
 		if (mOperator == IA_SHL || mOperator == IA_SAR || mOperator == IA_SHR)
 		{
@@ -6140,8 +6170,8 @@ bool InterInstruction::ConstantFolding(void)
 			}
 			else if (IsIntegerType(mDst.mType))
 			{
-				if ((mOperator == IA_ADD || mOperator == IA_SUB || mOperator == IA_OR || mOperator == IA_XOR || mOperator == IA_SHL || mOperator == IA_SHR || mOperator == IA_SAR) && mSrc[0].mIntConst == 0 ||
-					(mOperator == IA_MUL || mOperator == IA_DIVS || mOperator == IA_DIVU) && mSrc[0].mIntConst == 1)
+				if ((mOperator == IA_ADDU || mOperator == IA_ADDS || mOperator == IA_SUBU || mOperator == IA_SUBS || mOperator == IA_OR || mOperator == IA_XOR || mOperator == IA_SHL || mOperator == IA_SHR || mOperator == IA_SAR) && mSrc[0].mIntConst == 0 ||
+					(mOperator == IA_MULU || mOperator == IA_MULS || mOperator == IA_DIVS || mOperator == IA_DIVU) && mSrc[0].mIntConst == 1)
 				{
 					mCode = IC_LOAD_TEMPORARY;
 					mSrc[0] = mSrc[1];
@@ -6178,7 +6208,7 @@ bool InterInstruction::ConstantFolding(void)
 			}
 			else if (IsIntegerType(mDst.mType))
 			{
-				if ((mOperator == IA_ADD || mOperator == IA_OR || mOperator == IA_XOR) && mSrc[1].mIntConst == 0 || (mOperator == IA_MUL) && mSrc[1].mIntConst == 1)
+				if ((mOperator == IA_ADDU || mOperator == IA_ADDS || mOperator == IA_OR || mOperator == IA_XOR) && mSrc[1].mIntConst == 0 || (mOperator == IA_MULU || mOperator == IA_MULS) && mSrc[1].mIntConst == 1)
 				{
 					mCode = IC_LOAD_TEMPORARY;
 					mSrc[1].mTemp = -1;
@@ -6186,7 +6216,7 @@ bool InterInstruction::ConstantFolding(void)
 					assert(mSrc[0].mTemp >= 0);
 					return true;
 				}
-				else if ((mOperator == IA_AND || mOperator == IA_MUL || mOperator == IA_SHL || mOperator == IA_SHR || mOperator == IA_SAR) && mSrc[1].mIntConst == 0)
+				else if ((mOperator == IA_AND || mOperator == IA_MULU || mOperator == IA_MULS || mOperator == IA_SHL || mOperator == IA_SHR || mOperator == IA_SAR) && mSrc[1].mIntConst == 0)
 				{
 					mCode = IC_CONSTANT;
 					mConst.mIntConst = 0;
@@ -6328,6 +6358,57 @@ bool InterInstruction::ConstantFolding(void)
 	return false;
 }
 
+
+static const char* const InterOperatorNames[] = {
+	"NONE",
+	"ADDU",
+	"ADDS",
+	"SUBU",
+	"SUBS",
+	"MULU",
+	"MULS",
+	"DIVU",
+	"DIVS",
+	"MODU",
+	"MODS",
+	"OR",
+	"AND",
+	"XOR",
+	"NEG",
+	"ABS",
+	"FLOOR",
+	"CEIL",
+	"NOT",
+	"SHL",
+	"SHR",
+	"SAR",
+	"EQ",
+	"NE",
+	"GES",
+	"LES",
+	"GS",
+	"LS",
+	"GEU",
+	"LEU",
+	"GU",
+	"LU",
+
+	"F2I",
+	"I2F",
+	"F2U",
+	"U2F",
+	"F2LI",
+	"LI2F",
+	"F2LU",
+	"LU2F",
+	
+	"UB2I",
+	"UB2L",
+	"U2L",
+	"SB2I",
+	"SB2L",
+	"I2L"
+};
 
 void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 {
@@ -6536,19 +6617,19 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			break;
 		case IC_BINARY_OPERATOR:
 			assert(mNumOperands == 2);
-			fprintf(file, "BINOP%d", mOperator);
+			fprintf(file, "B_%s", InterOperatorNames[mOperator]);
 			break;
 		case IC_UNARY_OPERATOR:
 			assert(mNumOperands == 1);
-			fprintf(file, "UNOP%d", mOperator);
+			fprintf(file, "U_%s", InterOperatorNames[mOperator]);
 			break;
 		case IC_RELATIONAL_OPERATOR:
 			assert(mNumOperands == 2);
-			fprintf(file, "RELOP%d", mOperator);
+			fprintf(file, "R_%s", InterOperatorNames[mOperator]);
 			break;
 		case IC_CONVERSION_OPERATOR:
 			assert(mNumOperands == 1);
-			fprintf(file, "CONV%d", mOperator);
+			fprintf(file, "C_%s", InterOperatorNames[mOperator]);
 			break;
 		case IC_STORE:
 			assert(mNumOperands == 2);
@@ -7304,13 +7385,13 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 			ins->mSrc[offset].mFinal = false;
 			ains->mSrc[1].mFinal = false;
 		}
-		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp] && ains->mSrc[0].mIntConst >= 0)
+		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADDS && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp] && ains->mSrc[0].mIntConst >= 0)
 		{
 			assert(false);
 			ins->mSrc[offset].mIntConst = ains->mSrc[0].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[1].mTemp;
 		}
-		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[1].mTemp < 0 && ains->mSrc[0].mTemp >= 0 && tvalue[ains->mSrc[0].mTemp] && ains->mSrc[1].mIntConst >= 0)
+		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADDS && ains->mSrc[1].mTemp < 0 && ains->mSrc[0].mTemp >= 0 && tvalue[ains->mSrc[0].mTemp] && ains->mSrc[1].mIntConst >= 0)
 		{
 			assert(false);
 			ins->mSrc[offset].mIntConst = ains->mSrc[1].mIntConst;
@@ -7507,7 +7588,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			while (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_BINARY_OPERATOR)
 			{
 				InterInstruction* iins = tvalue[ins->mSrc[0].mTemp];
-				if (iins->mOperator == IA_ADD)
+				if (iins->mOperator == IA_ADDS || iins->mOperator == IA_ADDU)
 				{
 					if (iins->mSrc[0].mTemp >= 0 && iins->mSrc[1].mTemp < 0)
 					{
@@ -7524,7 +7605,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					else
 						break;
 				}
-				else if (iins->mOperator == IA_SUB)
+				else if (iins->mOperator == IA_SUBS || iins->mOperator == IA_SUBU)
 				{
 					if (iins->mSrc[0].mTemp < 0 && iins->mSrc[1].mTemp >= 0)
 					{
@@ -7632,13 +7713,13 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mSrc[1].mFloatConst = tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst;
 					ins->mSrc[1].mTemp = -1;
 
-					if (ins->mOperator == IA_ADD && ins->mSrc[1].mFloatConst == 0)
+					if ((ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[1].mFloatConst == 0)
 					{
 						ins->mCode = IC_LOAD_TEMPORARY;
 						ins->mNumOperands = 1;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
-					else if (ins->mOperator == IA_MUL)
+					else if (ins->mOperator == IA_MULS || ins->mOperator == IA_MULU)
 					{
 						if (ins->mSrc[1].mFloatConst == 1.0)
 						{
@@ -7657,7 +7738,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						}
 						else if (ins->mSrc[1].mFloatConst == 2.0)
 						{
-							ins->mOperator = IA_ADD;
+							ins->mOperator = ins->mOperator == IA_MULS ? IA_ADDS : IA_ADDU;
 							ins->mSrc[1].mTemp = ins->mSrc[0].mTemp;
 							assert(ins->mSrc[0].mTemp >= 0);
 						}
@@ -7669,7 +7750,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSrc[0].mFloatConst = tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst;
 				ins->mSrc[0].mTemp = -1;
 
-				if (ins->mOperator == IA_ADD && ins->mSrc[0].mFloatConst == 0)
+				if ((ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS) && ins->mSrc[0].mFloatConst == 0)
 				{
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
@@ -7677,7 +7758,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
-				else if (ins->mOperator == IA_MUL)
+				else if (ins->mOperator == IA_MULS || ins->mOperator == IA_MULU)
 				{
 					if (ins->mSrc[0].mFloatConst == 1.0)
 					{
@@ -7698,7 +7779,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					}
 					else if (ins->mSrc[0].mFloatConst == 2.0)
 					{
-						ins->mOperator = IA_ADD;
+						ins->mOperator = ins->mOperator == IA_MULS ? IA_ADDS : IA_ADDU;
 						ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
@@ -7724,13 +7805,13 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mSrc[1].mIntConst = LimitIntConstValue(ins->mSrc[1].mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst);
 					ins->mSrc[1].mTemp = -1;
 #if 1
-					if (ins->mOperator == IA_ADD && ins->mSrc[1].mIntConst == 0)
+					if ((ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS) && ins->mSrc[1].mIntConst == 0)
 					{
 						ins->mCode = IC_LOAD_TEMPORARY;
 						ins->mNumOperands = 1;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
-					else if (ins->mOperator == IA_MUL)
+					else if (ins->mOperator == IA_MULU || ins->mOperator == IA_MULS)
 					{
 						if (ins->mSrc[1].mIntConst == 1)
 						{
@@ -7786,7 +7867,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSrc[0].mIntConst = LimitIntConstValue(ins->mSrc[0].mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 
-				if (ins->mOperator == IA_ADD && ins->mSrc[0].mIntConst == 0)
+				if ((ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS) && ins->mSrc[0].mIntConst == 0)
 				{
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
@@ -7794,7 +7875,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
-				else if (ins->mOperator == IA_MUL)
+				else if (ins->mOperator == IA_MULU || ins->mOperator == IA_MULS)
 				{
 					if (ins->mSrc[0].mIntConst == 1)
 					{
@@ -7840,13 +7921,13 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 
 			if (ins->mSrc[0].mTemp > 0 && ins->mSrc[1].mTemp > 0 && ins->mSrc[0].mTemp == ins->mSrc[1].mTemp)
 			{
-				if (ins->mOperator == IA_ADD)
+				if (ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS)
 				{
 					ins->mOperator = IA_SHL;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[0].mIntConst = 1;
 				}
-				else if (ins->mOperator == IA_SUB)
+				else if (ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS)
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mType = ins->mDst.mType;
@@ -7858,7 +7939,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_BINARY_OPERATOR)
 			{
 				InterInstruction* pins = tvalue[ins->mSrc[0].mTemp];
-				if (ins->mOperator == pins->mOperator && (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_AND || ins->mOperator == IA_OR))
+				if (ins->mOperator == pins->mOperator && (ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS || ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_AND || ins->mOperator == IA_OR))
 				{
 					if (pins->mSrc[1].mTemp < 0)
 					{
@@ -7875,7 +7956,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			else if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_BINARY_OPERATOR)
 			{
 				InterInstruction* pins = tvalue[ins->mSrc[1].mTemp];
-				if (ins->mOperator == pins->mOperator && (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_AND || ins->mOperator == IA_OR))
+				if (ins->mOperator == pins->mOperator && (ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS || ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_AND || ins->mOperator == IA_OR))
 				{
 					if (pins->mSrc[1].mTemp < 0)
 					{
@@ -7888,23 +7969,39 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
 					}
 				}
-				else if (ins->mOperator == IA_SUB && pins->mOperator == IA_SUB)
+				else if (ins->mOperator == IA_SUBS && pins->mOperator == IA_SUBS)
 				{
 					if (pins->mSrc[0].mTemp < 0)
 					{
-						ins->mSrc[0].mIntConst = ConstantFolding(IA_ADD, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[0].mIntConst = ConstantFolding(IA_ADDS, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
 						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
 					}
 				}
-				else if (ins->mOperator == IA_ADD && pins->mOperator == IA_SUB)
+				else if ((ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && (pins->mOperator == IA_SUBS || pins->mOperator == IA_SUBU))
 				{
 					if (pins->mSrc[0].mTemp < 0)
 					{
-						ins->mSrc[0].mIntConst = ConstantFolding(IA_SUB, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[0].mIntConst = ConstantFolding(IA_ADDU, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
 						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
 					}
 				}
-				else if (ins->mOperator == IA_SUB && pins->mOperator == IA_ADD)
+				else if (ins->mOperator == IA_ADDS && pins->mOperator == IA_SUBS)
+				{
+					if (pins->mSrc[0].mTemp < 0)
+					{
+						ins->mSrc[0].mIntConst = ConstantFolding(IA_SUBS, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
+					}
+				}
+				else if ((ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && (pins->mOperator == IA_SUBS || pins->mOperator == IA_SUBU))
+				{
+					if (pins->mSrc[0].mTemp < 0)
+					{
+						ins->mSrc[0].mIntConst = ConstantFolding(IA_SUBU, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
+					}
+				}
+				else if ((ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS) && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS))
 				{
 					if (pins->mSrc[1].mTemp < 0)
 					{
@@ -9159,7 +9256,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 256)
 				{
 					mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-					mInstructions[i + 0]->mOperator = IA_ADD;
+					mInstructions[i + 0]->mOperator = IA_ADDS;
 
 					mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 					mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
@@ -9488,10 +9585,12 @@ void InterCodeBasicBlock::MarkIntegerRangeBoundUp(int temp, int64 value, Growing
 			{
 				switch (ins->mOperator)
 				{
-				case IA_ADD:
+				case IA_ADDS:
+				case IA_ADDU:
 					value -= ins->mSrc[0].mIntConst;
 					break;
-				case IA_SUB:
+				case IA_SUBS:
+				case IA_SUBU:
 					value += ins->mSrc[0].mIntConst;
 					break;
 				default:
@@ -9797,7 +9896,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 			case IC_BINARY_OPERATOR:
 				switch (ins->mOperator)
 				{
-				case IA_ADD:
+				case IA_ADDU:
+				case IA_ADDS:
 					if (ins->mSrc[0].mTemp < 0)
 					{
 #if 0
@@ -9884,7 +9984,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					}
 #endif
 					break;
-				case IA_SUB:
+				case IA_SUBU:
+				case IA_SUBS:
 					if (ins->mSrc[0].mTemp < 0)
 					{
 						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
@@ -9944,7 +10045,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					}
 
 					break;
-				case IA_MUL:
+				case IA_MULS:
+				case IA_MULU:
 					if (ins->mSrc[0].mTemp < 0)
 					{
 						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
@@ -10486,9 +10588,9 @@ bool InterCodeBasicBlock::UpdateLinearCombinations(void)
 
 			bool	checked = false;
 
-			if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MUL || ins->mOperator == IA_SHL) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mRange.IsBound())
+			if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_SHL) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mRange.IsBound())
 			{
-				int step = ins->mOperator == IA_MUL ? int(ins->mSrc[0].mIntConst) : 1 << int(ins->mSrc[0].mIntConst);
+				int step = ins->mOperator == IA_SHL ? 1 << int(ins->mSrc[0].mIntConst) : int(ins->mSrc[0].mIntConst);
 
 				combos[ins->mDst.mTemp] = LinearCombo {
 					int(ins->mSrc[1].mRange.mMinValue * step),
@@ -10702,7 +10804,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(void)
 						}
 					}
 					break;
-				case IA_SUB:
+				case IA_SUBS:
+				case IA_SUBU:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
 					{
 						if (vr.mMinState == IntegerValueRange::S_BOUND)
@@ -10713,7 +10816,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(void)
 						mProc->mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
 					}
 					break;
-				case IA_ADD:
+				case IA_ADDS:
+				case IA_ADDU:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
 					{
 						if (ins->mDst.mType == IT_INT8)
@@ -10762,7 +10866,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(void)
 						mProc->mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
 					}
 					break;
-				case IA_MUL:
+				case IA_MULS:
+				case IA_MULU:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mIntConst > 0)
 					{
 						if (vr.mMinState == IntegerValueRange::S_BOUND)
@@ -10896,7 +11001,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					if (ins->mSrc[j].mTemp >= 0)
 						tempChain[ins->mSrc[j].mTemp].mReadIns = i;
 				}
-				if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) &&
 					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && 
 					tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
 				{
@@ -10904,7 +11009,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset + ins->mSrc[0].mIntConst;
 					tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[1].mTemp].mConstant;
 				}
-				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) &&
 					ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp < 0 && 
 					tempChain[ins->mSrc[0].mTemp].mBaseTemp >= 0)
 				{
@@ -10912,7 +11017,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[0].mTemp].mOffset + ins->mSrc[1].mIntConst;
 					tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[0].mTemp].mConstant;
 				}
-				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB &&
+				else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) &&
 					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && 
 					tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
 				{
@@ -10920,7 +11025,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset - ins->mSrc[0].mIntConst;
 					tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[1].mTemp].mConstant;
 				}
-				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) &&
 					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.IsBound() && ins->mSrc[0].IsUnsigned() &&
 					tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
 				{
@@ -10928,7 +11033,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset + ins->mSrc[0].mRange.mMaxValue;
 					tempChain[ins->mDst.mTemp].mConstant = false;
 				}
-				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) &&
 					ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0 && ins->mSrc[1].mRange.IsBound() && ins->mSrc[1].IsUnsigned() &&
 					tempChain[ins->mSrc[0].mTemp].mBaseTemp >= 0)
 				{
@@ -10971,7 +11076,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 						IntegerValueRange& r(pblock->mTrueValueRange[i]);
 						if (r.IsConstant())
 						{
-							if (rins->mOperator == IA_ADD && wins->mOperator == IA_SHR && wins->mSrc[0].mTemp < 0 && wins->mSrc[0].mIntConst == 8 && r.IsRange(0, 1))
+							if ((rins->mOperator == IA_ADDU || rins->mOperator == IA_ADDS) && wins->mOperator == IA_SHR && wins->mSrc[0].mTemp < 0 && wins->mSrc[0].mIntConst == 8 && r.IsRange(0, 1))
 							{
 								if (rins->mSrc[0].mTemp == i && rins->mSrc[1].mRange.IsRange(0, 510) ||
 									rins->mSrc[1].mTemp == i && rins->mSrc[0].mRange.IsRange(0, 510))
@@ -13160,7 +13265,7 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 
 			if (ins->mCode == IC_BINARY_OPERATOR &&
 				IsIntegerType(ins->mDst.mType) &&
-				ins->mOperator == IA_ADD &&
+				(ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS) &&
 				ins->mSrc[0].mTemp < 0 &&
 				ins->mSrc[1].mTemp >= 0)
 			{
@@ -13170,7 +13275,7 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 				{
 					InterInstruction* sins = ltvalue[stemp];
 					int64 diff = ins->mSrc[0].mIntConst;
-					if (sins->mOperator == IA_ADD) 
+					if (sins->mOperator == IA_ADDU || sins->mOperator == IA_ADDS) 
 						diff -= sins->mSrc[0].mIntConst;
 					else
 						diff += sins->mSrc[0].mIntConst;
@@ -13189,7 +13294,7 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 			}
 			else if (ins->mCode == IC_BINARY_OPERATOR &&
 				IsIntegerType(ins->mDst.mType) &&
-				ins->mOperator == IA_SUB &&
+				(ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS) &&
 				ins->mSrc[0].mTemp < 0 &&
 				ins->mSrc[1].mTemp >= 0)
 			{
@@ -13199,7 +13304,7 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 				{
 					InterInstruction* sins = ltvalue[stemp];
 					int64 diff = ins->mSrc[0].mIntConst;
-					if (sins->mOperator == IA_SUB)
+					if ((sins->mOperator == IA_SUBU || sins->mOperator == IA_SUBS))
 						diff -= sins->mSrc[0].mIntConst;
 					else
 						diff += sins->mSrc[0].mIntConst;
@@ -13623,7 +13728,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						{
 							InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADD || ains->mOperator == IA_SUB) && ains->mSrc[0].mTemp < 0 && ains->mDst.IsUByte())
+							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADDU || ains->mOperator == IA_ADDS || ains->mOperator == IA_SUBU || ains->mOperator == IA_SUBS) && ains->mSrc[0].mTemp < 0 && ains->mDst.IsUByte())
 							{
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
@@ -13675,7 +13780,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						{
 							InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-							if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].IsUByte())
+							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADDU || ains->mOperator == IA_ADDS) && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].IsUByte())
 							{
 								ins->mSrc[0] = ains->mSrc[1];
 								ins->mSrc[1].mIntConst <<= ains->mSrc[0].mIntConst;
@@ -13688,12 +13793,13 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 #endif
 					break;
 #if 1
-				case IA_ADD:
+				case IA_ADDS:
+				case IA_ADDU:
 					if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0 && ltvalue[ins->mSrc[0].mTemp] && ins->mSrc[0].mFinal)
 					{
 						InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
 
-						if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD)
+						if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS))
 						{
 							if (pins->mSrc[0].mTemp < 0)
 							{
@@ -13715,7 +13821,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
 
-						if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD)
+						if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS))
 						{
 							if (pins->mSrc[0].mTemp < 0)
 							{
@@ -13738,14 +13844,14 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						ins->mSrc[0].mFinal && ins->mSrc[1].mFinal)
 					{
 						InterInstruction* ai0 = ltvalue[ins->mSrc[0].mTemp], * ai1 = ltvalue[ins->mSrc[1].mTemp];
-						if (ai0->mCode == IC_BINARY_OPERATOR && ai0->mOperator == IA_SUB && ai0->mSrc[0].mTemp < 0 && ai0->mSrc[1].mFinal &&
-							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == IA_SUB && ai1->mSrc[0].mTemp < 0 && ai1->mSrc[1].mFinal)
+						if (ai0->mCode == IC_BINARY_OPERATOR && (ai0->mOperator == IA_SUBU || ai0->mOperator == IA_SUBS) && ai0->mSrc[0].mTemp < 0 && ai0->mSrc[1].mFinal &&
+							ai1->mCode == IC_BINARY_OPERATOR && (ai1->mOperator == IA_SUBU || ai1->mOperator == IA_SUBS) && ai1->mSrc[0].mTemp < 0 && ai1->mSrc[1].mFinal)
 						{
 							if (spareTemps + 2 >= ltvalue.Size())
 								return true;
 
 							InterInstruction* sins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							sins->mOperator = IA_SUB;
+							sins->mOperator = IA_SUBS;
 							sins->mDst = ins->mDst;
 							sins->mSrc[1].mType = IT_INT16;
 							sins->mSrc[1].mTemp = spareTemps++;
@@ -13778,16 +13884,17 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					break;
 #endif
 #if 1
-				case IA_SUB:
+				case IA_SUBU:
+				case IA_SUBS:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && ltvalue[ins->mSrc[1].mTemp] && ins->mSrc[1].mFinal)
 					{
 						InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
 
-						if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD)
+						if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS))
 						{
 							if (pins->mSrc[0].mTemp < 0)
 							{
-								ins->mOperator = IA_ADD;
+								ins->mOperator = pins->mOperator;
 								ins->mSrc[1].Forward(pins->mSrc[1]);
 								pins->mSrc[1].mFinal = false;
 								ins->mSrc[0].mIntConst = pins->mSrc[0].mIntConst - ins->mSrc[0].mIntConst;
@@ -13795,7 +13902,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							}
 							else if (pins->mSrc[1].mTemp < 0)
 							{
-								ins->mOperator = IA_ADD;
+								ins->mOperator = pins->mOperator;
 								ins->mSrc[1].Forward(pins->mSrc[0]);
 								pins->mSrc[0].mFinal = false;
 								ins->mSrc[0].mIntConst = pins->mSrc[1].mIntConst - ins->mSrc[0].mIntConst;
@@ -13816,7 +13923,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
 
-						if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD)
+						if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS))
 						{
 							if (pins->mSrc[0].mTemp < 0)
 							{
@@ -13855,7 +13962,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 				{
 					InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
 
-					if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD && pins->mSrc[0].mTemp < 0 && pins->mDst.mType == IT_INT16)
+					if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS) && pins->mSrc[0].mTemp < 0 && pins->mDst.mType == IT_INT16)
 					{
 						ins->mSrc[0] = pins->mSrc[1];
 						ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
@@ -13863,7 +13970,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						changed = true;
 					}
 #if 1
-					else if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD && pins->mSrc[1].mTemp < 0 && pins->mDst.mType == IT_INT16)
+					else if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS) && pins->mSrc[1].mTemp < 0 && pins->mDst.mType == IT_INT16)
 					{
 						ins->mSrc[0] = pins->mSrc[0];
 						ins->mSrc[1].mIntConst += pins->mSrc[1].mIntConst;
@@ -13876,7 +13983,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mDst.IsUByte())
+						if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADDS || ains->mOperator == IA_ADDU) && ains->mSrc[0].mTemp < 0 && ains->mDst.IsUByte())
 						{
 							if (ains->mSrc[1].mType == IT_INT16)
 							{
@@ -14221,7 +14328,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 #if 1
 			if (ins->mCode == IC_BINARY_OPERATOR &&
-				(ins->mOperator == IA_MUL || ins->mOperator == IA_ADD || ins->mOperator == IA_AND || ins->mOperator == IA_OR || ins->mOperator == IA_XOR) &&
+				(ins->mOperator == IA_MULU || ins->mOperator == IA_MULS || ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS || ins->mOperator == IA_AND || ins->mOperator == IA_OR || ins->mOperator == IA_XOR) &&
 				ltvalue[ins->mSrc[1].mTemp] && ltvalue[ins->mSrc[0].mTemp] &&
 				ltvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT && ltvalue[ins->mSrc[0].mTemp]->mCode != IC_CONSTANT)
 			{
@@ -14232,7 +14339,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 #endif
 
 #if 1
-			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && ins->mDst.mType == IT_INT16 && spareTemps + 1 < tvalid.Size())
+			if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MULU || ins->mOperator == IA_MULS) && ins->mDst.mType == IT_INT16 && spareTemps + 1 < tvalid.Size())
 			{
 				InterInstruction* mi0 = ltvalue[ins->mSrc[0].mTemp], * mi1 = ltvalue[ins->mSrc[1].mTemp];
 				InterInstruction* mci0 = nullptr;
@@ -14242,13 +14349,13 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 				if (mi1 && mi1->mCode == IC_CONVERSION_OPERATOR)
 					mci1 = ltvalue[mi1->mSrc[0].mTemp];
 
-				if (mi0 && mi1 && mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && mi0->mOperator == IA_ADD)
+				if (mi0 && mi1 && mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && (mi0->mOperator == IA_ADDU || mi0->mOperator == IA_ADDS))
 				{
 					InterInstruction* ai0 = ltvalue[mi0->mSrc[0].mTemp], * ai1 = ltvalue[mi0->mSrc[1].mTemp];
 					if (ai0 && ai0->mCode == IC_CONSTANT)
 					{
 						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						nai->mOperator = IA_MUL;
+						nai->mOperator = ins->mOperator;
 						nai->mSrc[0].mTemp = mi0->mSrc[1].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
 						nai->mSrc[1].mTemp = ins->mSrc[1].mTemp;
@@ -14267,14 +14374,14 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[cai->mDst.mTemp] = nullptr;
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
 					}
 					else if (ai1 && ai1->mCode == IC_CONSTANT)
 					{
 						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						nai->mOperator = IA_MUL;
+						nai->mOperator = ins->mOperator;
 						nai->mSrc[0].mTemp = mi0->mSrc[0].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
 						nai->mSrc[1].mTemp = ins->mSrc[1].mTemp;
@@ -14293,18 +14400,18 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[cai->mDst.mTemp] = nullptr;
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
 					}
 				}
-				else if (mi0 && mi1 && mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && mi1->mOperator == IA_ADD)
+				else if (mi0 && mi1 && mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && (mi1->mOperator == IA_ADDU || mi1->mOperator == IA_ADDS))
 				{
 					InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
 					if (ai0 && ai0->mCode == IC_CONSTANT)
 					{
 						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						nai->mOperator = IA_MUL;
+						nai->mOperator = ins->mOperator;
 						nai->mSrc[0].mTemp = mi1->mSrc[1].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
 						nai->mSrc[1].mTemp = ins->mSrc[0].mTemp;
@@ -14323,14 +14430,14 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[cai->mDst.mTemp] = nullptr;
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[0].mTemp = nai->mDst.mTemp;
 						ins->mSrc[1].mTemp = cai->mDst.mTemp;
 					}
 					else if (ai1 && ai1->mCode == IC_CONSTANT)
 					{
 						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						nai->mOperator = IA_MUL;
+						nai->mOperator = ins->mOperator;
 						nai->mSrc[0].mTemp = mi1->mSrc[0].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
 						nai->mSrc[1].mTemp = ins->mSrc[0].mTemp;
@@ -14349,19 +14456,19 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[cai->mDst.mTemp] = nullptr;
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[0].mTemp = nai->mDst.mTemp;
 						ins->mSrc[1].mTemp = cai->mDst.mTemp;
 					}
 				}
 #if 1
-				else if (mi0 && mi1 && mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && mi1->mOperator == IA_SUB)
+				else if (mi0 && mi1 && mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && (mi1->mOperator == IA_SUBU || mi1->mOperator == IA_SUBS))
 				{
 					InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
 					if (ai0 && ai0->mCode == IC_CONSTANT)
 					{
 						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						nai->mOperator = IA_MUL;
+						nai->mOperator = ins->mOperator;
 						nai->mSrc[0].mTemp = mi1->mSrc[1].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
 						nai->mSrc[1].mTemp = ins->mSrc[0].mTemp;
@@ -14380,7 +14487,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[cai->mDst.mTemp] = nullptr;
 
-						ins->mOperator = IA_SUB;
+						ins->mOperator = IA_SUBS;
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
 					}
@@ -14424,13 +14531,13 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 			}
 #endif
 #if 1
-			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mDst.mType == IT_INT16 && spareTemps < tvalid.Size())
+			if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS) && ins->mDst.mType == IT_INT16 && spareTemps < tvalid.Size())
 			{
 				InterInstruction* mi0 = ltvalue[ins->mSrc[0].mTemp], * mi1 = ltvalue[ins->mSrc[1].mTemp];
 
 				if (mi0 && mi1)
 				{
-					if (mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && mi0->mOperator == IA_ADD)
+					if (mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && (mi0->mOperator == IA_ADDU || mi0->mOperator == IA_ADDS))
 					{
 						InterInstruction* ai0 = ltvalue[mi0->mSrc[0].mTemp], * ai1 = ltvalue[mi0->mSrc[1].mTemp];
 						if (ai0 && ai1)
@@ -14463,7 +14570,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 							}
 						}
 					}
-					else if (mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && mi1->mOperator == IA_ADD)
+					else if (mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && (mi1->mOperator == IA_ADDU || mi1->mOperator == IA_ADDS))
 					{
 						InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
 						if (ai0 && ai1)
@@ -14505,7 +14612,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 				if (li0 && li1)
 				{
-					if (li1->mCode != IC_CONSTANT && li0->mCode == IC_BINARY_OPERATOR && li0->mOperator == IA_ADD)
+					if (li1->mCode != IC_CONSTANT && li0->mCode == IC_BINARY_OPERATOR && (li0->mOperator == IA_ADDU || li0->mOperator == IA_ADDS))
 					{
 						InterInstruction* ai0 = ltvalue[li0->mSrc[0].mTemp], * ai1 = ltvalue[li0->mSrc[1].mTemp];
 						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT && ai0->mConst.mIntConst >= 0)
@@ -17698,7 +17805,7 @@ bool InterCodeBasicBlock::ReplaceByteIndexPointers(const NumberSet& inctemps, co
 				if (inctemps[ins->mDst.mTemp])
 				{
 					ins->mCode = IC_BINARY_OPERATOR;
-					ins->mOperator = IA_ADD;
+					ins->mOperator = IA_ADDS;
 					ins->mDst.mType = itype;
 					ins->mSrc[1].mType = itype;
 					changed = true;
@@ -19107,7 +19214,7 @@ void InterCodeBasicBlock::LimitLoopIndexIntegerRangeSets(void)
 								if (i < tail->mInstructions.Size())
 								{
 									InterInstruction* ai = tail->mInstructions[i];
-									if ((ai->mOperator == IA_ADD || ai->mOperator == IA_SUB) && (ai->mSrc[0].mTemp == itemp && ai->mSrc[1].mTemp < 0 || ai->mSrc[1].mTemp == itemp && ai->mSrc[0].mTemp < 0))
+									if ((ai->mOperator == IA_ADDS || ai->mOperator == IA_ADDU || ai->mOperator == IA_SUBS || ai->mOperator == IA_SUBU) && (ai->mSrc[0].mTemp == itemp && ai->mSrc[1].mTemp < 0 || ai->mSrc[1].mTemp == itemp && ai->mSrc[0].mTemp < 0))
 									{
 										int j = 0;
 										while (j < body.Size() && (body[j] == tail || !body[j]->IsTempModified(itemp)))
@@ -19118,7 +19225,7 @@ void InterCodeBasicBlock::LimitLoopIndexIntegerRangeSets(void)
 
 											int64 istart = mDominator->mTrueValueRange[itemp].mMaxValue;
 											int64 iinc, iend;
-											if (ai->mOperator == IA_ADD)
+											if (ai->mOperator == IA_ADDS || ai->mOperator == IA_ADDU)
 												iinc = ai->mSrc[1 - iasrc].mIntConst;
 											else
 												iinc = -ai->mSrc[1 - iasrc].mIntConst;
@@ -19202,7 +19309,7 @@ void InterCodeBasicBlock::LimitLoopIndexRanges(void)
 						InterInstruction* ci = tail->mInstructions[tz - 2];
 						InterInstruction* bi = tail->mInstructions[tz - 1];
 
-						if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 1 && IsIntegerType(ai->mDst.mType) &&
+						if (ai->mCode == IC_BINARY_OPERATOR && (ai->mOperator == IA_ADDU || ai->mOperator == IA_ADDS) && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 1 && IsIntegerType(ai->mDst.mType) &&
 							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp < 0 && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
 							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
 							!tail->IsTempModifiedInRange(0, tz - 3, ai->mDst.mTemp))
@@ -19273,7 +19380,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						InterInstruction* ci = tail->mInstructions[tz - 2];
 						InterInstruction* bi = tail->mInstructions[tz - 1];
 
-						if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 0 && IsIntegerType(ai->mDst.mType) &&
+						if (ai->mCode == IC_BINARY_OPERATOR && (ai->mOperator == IA_ADDU || ai->mOperator == IA_ADDS) && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 0 && IsIntegerType(ai->mDst.mType) &&
 							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp < 0 && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
 							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
 							!tail->IsTempReferencedInRange(0, tz - 3, ai->mDst.mTemp))
@@ -19314,7 +19421,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									}
 									else if (num > 0)
 									{
-										ai->mOperator = IA_SUB;
+										ai->mOperator = IA_SUBU;
 										ai->mSrc[0].mIntConst = 1;
 										ci->mOperator = IA_CMPGU;
 										ci->mSrc[0].mIntConst = 0;
@@ -19345,7 +19452,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								}
 							}
 						}
-						else if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst == 1 && IsIntegerType(ai->mDst.mType) &&
+						else if (ai->mCode == IC_BINARY_OPERATOR && (ai->mOperator == IA_ADDS || ai->mOperator == IA_ADDU) && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst == 1 && IsIntegerType(ai->mDst.mType) &&
 							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp >= 0 && ci->mSrc[0].IsPositive() && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
 							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
 							!tail->IsTempReferencedInRange(0, tz - 3, ai->mDst.mTemp) && !tail->IsTempModifiedInRange(0, tz - 3, ci->mSrc[0].mTemp))
@@ -19364,7 +19471,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									IntegerValueRange::State	bound = ci->mSrc[0].mRange.mMaxState;
 
 									InterInstruction* mins = new InterInstruction(si->mLocation, IC_BINARY_OPERATOR);
-									mins->mOperator = IA_SUB;
+									mins->mOperator = IA_SUBU;
 									mins->mSrc[0] = si->mConst;
 									mins->mSrc[1] = ci->mSrc[0];
 									mins->mDst = ai->mDst;
@@ -19372,7 +19479,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
 
-									ai->mOperator = IA_SUB;
+									ai->mOperator = IA_SUBU;
 									ai->mSrc[0].mIntConst = 1;
 									ci->mOperator = IA_CMPGU;
 									ci->mSrc[0].mTemp = -1;
@@ -19409,7 +19516,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						for (int i = 0; i < tz; i++)
 						{
 							InterInstruction* ai = tail->mInstructions[i];
-							if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst != 0 && IsIntegerType(ai->mDst.mType) &&
+							if (ai->mCode == IC_BINARY_OPERATOR && (ai->mOperator == IA_ADDU || ai->mOperator == IA_ADDS) && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst != 0 && IsIntegerType(ai->mDst.mType) &&
 								!tail->IsTempModifiedInRange(i + 1, tz, ai->mDst.mTemp) &&
 								!tail->IsTempModifiedInRange(0, i - 1, ai->mDst.mTemp))
 							{
@@ -19443,7 +19550,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 						if (lins->mCode == IC_BINARY_OPERATOR)
 						{
-							if (lins->mOperator == IA_MUL && lins->mSrc[0].mTemp < 0 && (lins->mDst.IsNotUByte() || !IsSimpleFactor(lins->mSrc[0].mIntConst)) && lins->mSrc[1].mTemp >= 0 && indexScale[lins->mSrc[1].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
+							if ((lins->mOperator == IA_MULU || lins->mOperator == IA_MULS) && lins->mSrc[0].mTemp < 0 && (lins->mDst.IsNotUByte() || !IsSimpleFactor(lins->mSrc[0].mIntConst)) && lins->mSrc[1].mTemp >= 0 && indexScale[lins->mSrc[1].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
 							{
 								mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
 								mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
@@ -19453,7 +19560,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								mInstructions.Remove(i);
 
 								InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
-								ains->mOperator = IA_ADD;
+								ains->mOperator = IA_ADDS;
 								ains->mDst = lins->mDst;
 								ains->mSrc[1] = lins->mDst;
 								ains->mSrc[0] = lins->mSrc[0];
@@ -19466,7 +19573,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								modified = true;
 								continue;
 							}
-							else if (lins->mOperator == IA_ADD && lins->mSrc[0].mTemp >= 0 && indexScale[lins->mSrc[0].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
+							else if ((lins->mOperator == IA_ADDU || lins->mOperator == IA_ADDS) && lins->mSrc[0].mTemp >= 0 && indexScale[lins->mSrc[0].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
 							{
 								if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == lins->mDst.mTemp)
 									;
@@ -19484,7 +19591,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									mInstructions.Remove(i);
 
 									InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
-									ains->mOperator = IA_ADD;
+									ains->mOperator = IA_ADDS;
 									ains->mDst = lins->mDst;
 									ains->mSrc[1] = lins->mDst;
 									ains->mSrc[0].mType = lins->mDst.mType;
@@ -19503,7 +19610,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									continue;
 								}
 							}
-							else if ((lins->mOperator == IA_ADD || lins->mOperator == IA_SUB) && lins->mSrc[1].mTemp >= 0 && lins->mSrc[1].mTemp != lins->mDst.mTemp && 
+							else if ((lins->mOperator == IA_ADDU || lins->mOperator == IA_ADDS || lins->mOperator == IA_SUBU || lins->mOperator == IA_SUBS) && lins->mSrc[1].mTemp >= 0 && lins->mSrc[1].mTemp != lins->mDst.mTemp && 
 								      indexScale[lins->mSrc[1].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
 							{
 								if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == lins->mDst.mTemp)
@@ -19522,7 +19629,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									mInstructions.Remove(i);
 
 									InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
-									ains->mOperator = IA_ADD;
+									ains->mOperator = IA_ADDS;
 									ains->mDst = lins->mDst;
 									ains->mSrc[1] = lins->mDst;
 									ains->mSrc[0].mType = lins->mDst.mType;
@@ -19544,7 +19651,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 							if (nins->mCode == IC_BINARY_OPERATOR)
 							{
-								if (nins->mOperator == IA_MUL && nins->mSrc[0].mTemp < 0 && (nins->mDst.IsNotUByte() || !IsSimpleFactor(nins->mSrc[0].mIntConst)) && nins->mSrc[1].mTemp == lins->mDst.mTemp && nins->mSrc[1].mFinal && IsSingleLoopAssign(i + 1, this, body))
+								if ((nins->mOperator == IA_MULS || nins->mOperator == IA_MULU) && nins->mSrc[0].mTemp < 0 && (nins->mDst.IsNotUByte() || !IsSimpleFactor(nins->mSrc[0].mIntConst)) && nins->mSrc[1].mTemp == lins->mDst.mTemp && nins->mSrc[1].mFinal && IsSingleLoopAssign(i + 1, this, body))
 								{
 									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
 									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, nins);
@@ -19556,7 +19663,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									mInstructions.Remove(i);
 
 									InterInstruction* ains = new InterInstruction(nins->mLocation, IC_BINARY_OPERATOR);
-									ains->mOperator = IA_ADD;
+									ains->mOperator = IA_ADDS;
 									ains->mDst = nins->mDst;
 									ains->mSrc[1] = nins->mDst;
 									ains->mSrc[0] = nins->mSrc[0];
@@ -19575,7 +19682,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							{
 
 							}
-							else if (nins->mCode == IC_BINARY_OPERATOR && nins->mOperator == IA_ADD && nins->mSrc[0].mTemp == lins->mDst.mTemp && !nins->mDst.IsNotUByte())
+							else if (nins->mCode == IC_BINARY_OPERATOR && (nins->mOperator == IA_ADDU || nins->mOperator == IA_ADDS) && nins->mSrc[0].mTemp == lins->mDst.mTemp && !nins->mDst.IsNotUByte())
 							{
 							}
 							else if (lins->mSrc[0].IsUByte()) // ensure no overflow
@@ -19590,7 +19697,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								mInstructions.Remove(i);
 
 								InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
-								ains->mOperator = IA_ADD;
+								ains->mOperator = IA_ADDS;
 								ains->mDst = lins->mDst;
 								ains->mSrc[1] = lins->mDst;
 								ains->mSrc[0].mType = lins->mDst.mType;
@@ -19826,7 +19933,7 @@ bool InterCodeBasicBlock::EmptyLoopOptimization(void)
 				InterInstruction* ci = mInstructions[1];
 				InterInstruction* bi = mInstructions[2];
 
-				if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst == 1 && IsIntegerType(ai->mDst.mType) &&
+				if (ai->mCode == IC_BINARY_OPERATOR && (ai->mOperator == IA_ADDU || ai->mOperator == IA_ADDS) && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst == 1 && IsIntegerType(ai->mDst.mType) &&
 					ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
 					bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp)
 				{
@@ -20378,7 +20485,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 						lc.mReferenced = false;
 						lc.mEnd = -1;
 
-						if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType))
+						if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && IsIntegerType(ins->mDst.mType))
 						{
 							if (ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 ||
 								ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
@@ -20387,7 +20494,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 							}
 						}
 #if 1
-						else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType))
+						else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && IsIntegerType(ins->mDst.mType))
 						{
 							if (ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
 							{
@@ -20454,7 +20561,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 											lc.mStart = lc.mInit->mConst.mIntConst;
 											if (lc.mInc->mSrc[0].mTemp < 0)
 											{
-												if (lc.mInc->mOperator == IA_SUB)
+												if (lc.mInc->mOperator == IA_SUBS || lc.mInc->mOperator == IA_SUBU)
 													lc.mStep = -lc.mInc->mSrc[0].mIntConst;
 												else
 													lc.mStep = lc.mInc->mSrc[0].mIntConst;
@@ -21060,7 +21167,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 						 mInstructions[nins - 2]->mOperator == IA_CMPNE) &&
 						mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
 					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
-					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADD || mInstructions[nins - 3]->mOperator == IA_SUB) && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
+					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDU || mInstructions[nins - 3]->mOperator == IA_ADDS || mInstructions[nins - 3]->mOperator == IA_SUBU || mInstructions[nins - 3]->mOperator == IA_SUBS) && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
 				{
 					int	ireg = mInstructions[nins - 3]->mDst.mTemp;
 					if (ireg == mInstructions[nins - 3]->mSrc[0].mTemp && mInstructions[nins - 3]->mSrc[1].mTemp < 0 ||
@@ -21081,7 +21188,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 									end--;
 
 								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
-								if (mInstructions[nins - 3]->mOperator == IA_SUB)
+								if (mInstructions[nins - 3]->mOperator == IA_SUBU || mInstructions[nins - 3]->mOperator == IA_SUBS)
 									step = -step;
 
 								int	count = step > 0 ? int((end - start + step - 1) / step) : int((start - end - step - 1) / -step);
@@ -21187,7 +21294,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 					(mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPLS || mInstructions[nins - 2]->mOperator == IA_CMPLES || mInstructions[nins - 2]->mOperator == IA_CMPNE) &&
 					mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
 					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
-					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
+					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDU || mInstructions[nins - 3]->mOperator == IA_ADDS) && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
 				{
 					int	ireg = mInstructions[nins - 3]->mDst.mTemp;
 
@@ -21218,7 +21325,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 										InterInstruction* ins = mInstructions[i];
 
 										if (ins->mCode == IC_BINARY_OPERATOR &&
-											(ins->mOperator == IA_ADD || ins->mOperator == IA_SUB) &&
+											(ins->mOperator == IA_ADDU || ins->mOperator == IA_ADDS || ins->mOperator == IA_SUBU || ins->mOperator == IA_SUBS) &&
 											(ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 || ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0) &&
 											!IsTempReferencedInRange(0, i, ins->mDst.mTemp) && !IsTempReferencedInRange(i + 1, mInstructions.Size(), ins->mDst.mTemp))
 										{
@@ -22135,7 +22242,7 @@ void InterCodeBasicBlock::InnerLoopCountZeroCheck(void)
 
 				if (lblock->mInstructions[sz - 1]->mCode == IC_BRANCH &&
 					lblock->mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-					lblock->mInstructions[sz - 3]->mCode == IC_BINARY_OPERATOR && lblock->mInstructions[sz - 3]->mOperator == IA_ADD)
+					lblock->mInstructions[sz - 3]->mCode == IC_BINARY_OPERATOR && (lblock->mInstructions[sz - 3]->mOperator == IA_ADDS || lblock->mInstructions[sz - 3]->mOperator == IA_ADDU))
 				{
 					InterInstruction* ains = lblock->mInstructions[sz - 3];
 					InterInstruction* cins = lblock->mInstructions[sz - 2];
@@ -22233,7 +22340,7 @@ void InterCodeBasicBlock::SingleLoopCountZeroCheck(void)
 
 			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDS || mInstructions[nins - 3]->mOperator == IA_ADDU))
 			{
 				InterInstruction* ains = mInstructions[nins - 3];
 				InterInstruction* cins = mInstructions[nins - 2];
@@ -22595,7 +22702,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 
 		if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 			mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-			mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+			mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDS || mInstructions[nins - 3]->mOperator == IA_ADDU))
 		{
 			InterInstruction* ains = mInstructions[nins - 3];
 			InterInstruction* cins = mInstructions[nins - 2];
@@ -22660,7 +22767,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 		}
 		else if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 			mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-			mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_SUB)
+			mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_SUBS || mInstructions[nins - 3]->mOperator == IA_SUBU))
 		{
 			InterInstruction* ains = mInstructions[nins - 3];
 			InterInstruction* cins = mInstructions[nins - 2];
@@ -22696,7 +22803,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 		}
 		else if (
 			mInstructions[nins - 1]->mCode == IC_BRANCH &&
-			mInstructions[nins - 2]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 2]->mOperator == IA_ADD)
+			mInstructions[nins - 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_ADDS || mInstructions[nins - 2]->mOperator == IA_ADDU))
 		{
 			InterInstruction* ains = mInstructions[nins - 2];
 			InterInstruction* bins = mInstructions[nins - 1];
@@ -22790,7 +22897,7 @@ bool InterCodeBasicBlock::SingleBlockLoopIndexReduction(int& spareTemps)
 
 			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDS || mInstructions[nins - 3]->mOperator == IA_ADDU))
 			{
 				InterInstruction* ains = mInstructions[nins - 3];
 				InterInstruction* cins = mInstructions[nins - 2];
@@ -22930,7 +23037,7 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerToByte(int& spareTemps)
 
 			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDS || mInstructions[nins - 3]->mOperator == IA_ADDU))
 			{
 				InterInstruction* ains = mInstructions[nins - 3];
 				InterInstruction* cins = mInstructions[nins - 2];
@@ -23036,7 +23143,7 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerToByte(int& spareTemps)
 
 										InterInstruction* iins = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
 										iins->mNumOperands = 2;
-										iins->mOperator = IA_ADD;
+										iins->mOperator = IA_ADDS;
 										iins->mDst = cins->mDst;
 										iins->mSrc[1] = cins->mDst;
 										iins->mSrc[0].mTemp = -1;
@@ -23109,7 +23216,7 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 
 			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADDS || mInstructions[nins - 3]->mOperator == IA_ADDU))
 			{
 				InterInstruction* ains = mInstructions[nins - 3];
 				InterInstruction* cins = mInstructions[nins - 2];
@@ -23312,7 +23419,7 @@ bool InterCodeBasicBlock::Flatten2DLoop(void)
 						int otemp = eblock->mInstructions[esz - 3]->mDst.mTemp;
 						int sz = mInstructions.Size();
 						if (sz == 3 &&
-							mInstructions[0]->mCode == IC_BINARY_OPERATOR && (mInstructions[0]->mOperator == IA_SHL || mInstructions[0]->mOperator == IA_MUL) && 
+							mInstructions[0]->mCode == IC_BINARY_OPERATOR && (mInstructions[0]->mOperator == IA_SHL || mInstructions[0]->mOperator == IA_MULS || mInstructions[0]->mOperator == IA_MULU) &&
 							mInstructions[0]->mSrc[0].mTemp < 0 && mInstructions[0]->mSrc[1].mTemp == otemp)
 						{
 							int64 scale = mInstructions[0]->mSrc[0].mIntConst;
@@ -23338,7 +23445,7 @@ bool InterCodeBasicBlock::Flatten2DLoop(void)
 										!eblock->mEntryRequiredTemps[itemp] &&
 										!eblock->mFalseJump->mEntryRequiredTemps[otemp])
 									{
-										if (lblock->mInstructions[0]->mCode == IC_BINARY_OPERATOR && lblock->mInstructions[0]->mOperator == IA_ADD &&
+										if (lblock->mInstructions[0]->mCode == IC_BINARY_OPERATOR && (lblock->mInstructions[0]->mOperator == IA_ADDS || lblock->mInstructions[0]->mOperator == IA_ADDU) &&
 											((lblock->mInstructions[0]->mSrc[0].mTemp == itemp &&	lblock->mInstructions[0]->mSrc[1].mTemp == mInstructions[0]->mDst.mTemp) ||
 											 (lblock->mInstructions[0]->mSrc[1].mTemp == itemp && lblock->mInstructions[0]->mSrc[0].mTemp == mInstructions[0]->mDst.mTemp)) &&
 											!IsTempReferencedInRange(2, sz, itemp) &&
@@ -23436,7 +23543,7 @@ bool InterCodeBasicBlock::PostDecLoopOptimization(void)
 							inci++;
 						if (inci < nins)
 						{
-							if (mInstructions[inci]->mCode == IC_BINARY_OPERATOR && mInstructions[inci]->mOperator == IA_ADD)
+							if (mInstructions[inci]->mCode == IC_BINARY_OPERATOR && (mInstructions[inci]->mOperator == IA_ADDS || mInstructions[inci]->mOperator == IA_ADDU))
 							{
 								int inco = -1;
 								if (mInstructions[inci]->mSrc[0].mTemp == ltemp && mInstructions[inci]->mSrc[1].mTemp < 0)
@@ -23519,7 +23626,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						cins->mSrc[1].mTemp == ains->mDst.mTemp && ains->mSrc[0].mTemp < 0 &&
 						bins->mSrc[0].mTemp == cins->mDst.mTemp && bins->mSrc[0].mFinal)
 					{
-						if (ains->mOperator == IA_ADD && ains->mSrc[0].mIntConst == 1 &&
+						if ((ains->mOperator == IA_ADDS || ains->mOperator == IA_ADDU) && ains->mSrc[0].mIntConst == 1 &&
 							cins->mOperator == IA_CMPLU && mTrueJump == this && !tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
 						{
 							cins->mCode = IC_CONSTANT;
@@ -23741,7 +23848,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						dep[t] = DEP_VARIABLE;
 					else if (dep[t] == DEP_UNKNOWN)
 					{
-						if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == t)// && ins->mSrc[0].mIntConst > 0)
+						if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == t)// && ins->mSrc[0].mIntConst > 0)
 						{
 							indexStep[t] = ins->mSrc[0].mIntConst;
 							indexBase[t] = 0;
@@ -23779,7 +23886,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						InterInstruction* ins0 = mInstructions[i + 0];
 						InterInstruction* ins1 = mInstructions[i + 1];
-						if (ins0->mCode == IC_BINARY_OPERATOR && ins0->mOperator == IA_ADD && ins1->mCode == IC_BINARY_OPERATOR && ins1->mOperator == IA_ADD)
+						if (ins0->mCode == IC_BINARY_OPERATOR && (ins0->mOperator == IA_ADDS || ins0->mOperator == IA_ADDU) && ins1->mCode == IC_BINARY_OPERATOR && (ins1->mOperator == IA_ADDS || ins1->mOperator == IA_ADDU))
 						{
 							if (ins0->mDst.mTemp == ins1->mSrc[1].mTemp && IsIntegerType(ins1->mDst.mType) && ins1->mSrc[1].mFinal)
 							{
@@ -23803,7 +23910,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							}
 						}
 
-						if (ins0->mCode == IC_BINARY_OPERATOR && ins0->mOperator == IA_ADD && ins1->mCode == IC_LEA && ins1->mSrc[1].mTemp >= 0)
+						if (ins0->mCode == IC_BINARY_OPERATOR && (ins0->mOperator == IA_ADDS || ins0->mOperator == IA_ADDU) && ins1->mCode == IC_LEA && ins1->mSrc[1].mTemp >= 0)
 						{
 							if (ins1->mSrc[0].mTemp == ins0->mDst.mTemp && ins1->mSrc[0].mFinal && ins0->mSrc[0].mTemp >= 0 && ins0->mSrc[1].mTemp >= 0)
 							{
@@ -23852,18 +23959,18 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 									j++;
 								if (j < ins->mNumOperands)
 								{
-									if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[1].mTemp < 0 && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
+									if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MULS || ins->mOperator == IA_MULU) && IsIntegerType(ins->mDst.mType) && ins->mSrc[1].mTemp < 0 && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MULS || ins->mOperator == IA_MULU) && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
 										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SHL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED || dep[ins->mSrc[0].mTemp] == DEP_INDEX) ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED ||
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED || dep[ins->mSrc[0].mTemp] == DEP_INDEX) ||
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) &&
 										IsIntegerType(ins->mDst.mType) &&
 										(ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].IsNotUByte() && (dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED)) &&
 										(dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
-										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+										ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) &&
 										IsIntegerType(ins->mDst.mType) &&
 										(ins->mSrc[1].mTemp >= 0 && ins->mSrc[1].IsNotUByte() && (dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED)) &&
 										(dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
@@ -23954,33 +24061,33 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 				}
 				else if (ins->mDst.mTemp >= 0 && dep[ins->mDst.mTemp] == DEP_INDEX_DERIVED)
 				{
-					if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[1].mTemp < 0 && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED))
+					if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MULS || ins->mOperator == IA_MULU) && IsIntegerType(ins->mDst.mType) && ins->mSrc[1].mTemp < 0 && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED))
 					{
 						indexStep[ins->mDst.mTemp] = ins->mSrc[1].mIntConst * indexStep[ins->mSrc[0].mTemp];
 						indexBase[ins->mDst.mTemp] = ins->mSrc[1].mIntConst * indexBase[ins->mSrc[0].mTemp];
 
 						InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						bins->mOperator = IA_MUL;
+						bins->mOperator = ins->mOperator;
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						ains->mOperator = IA_ADD;
+						ains->mOperator = IA_ADDS;
 						ains->mDst = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
 						ains->mSrc[1] = ins->mSrc[1]; ains->mSrc[1].mIntConst = ins->mSrc[1].mIntConst * indexBase[ins->mSrc[0].mTemp];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ains);
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[1].mIntConst = ins->mSrc[1].mIntConst * indexStep[ins->mSrc[0].mTemp];
 						ins->mSrc[0] = ins->mDst;
 
 						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp] && !(cins && (cins->mSrc[0].mTemp == ins->mDst.mTemp || cins->mSrc[1].mTemp == ins->mDst.mTemp)))
 						{
 							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							rins->mOperator = IA_SUB;
+							rins->mOperator = IA_SUBS;
 							rins->mDst = ins->mDst;
 							rins->mSrc[1] = ins->mDst;
 							rins->mSrc[0] = ins->mSrc[1];
@@ -23989,33 +24096,33 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						indexins.Push(ins);
 					}
-					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
+					else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MULS || ins->mOperator == IA_MULU) && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
 					{
 						indexStep[ins->mDst.mTemp] = ins->mSrc[0].mIntConst * indexStep[ins->mSrc[1].mTemp];
 						indexBase[ins->mDst.mTemp] = ins->mSrc[0].mIntConst * indexBase[ins->mSrc[1].mTemp];
 
 						InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						bins->mOperator = IA_MUL;
+						bins->mOperator = ins->mOperator;
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						ains->mOperator = IA_ADD;
+						ains->mOperator = IA_ADDS;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[0] = ins->mSrc[0]; ains->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * indexBase[ins->mSrc[1].mTemp];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ains);
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * indexStep[ins->mSrc[1].mTemp];
 						ins->mSrc[1] = ins->mDst;
 
 						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp] && !(cins && (cins->mSrc[0].mTemp == ins->mDst.mTemp || cins->mSrc[1].mTemp == ins->mDst.mTemp)))
 						{
 							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							rins->mOperator = IA_SUB;
+							rins->mOperator = IA_SUBS;
 							rins->mDst = ins->mDst;
 							rins->mSrc[1] = ins->mDst;
 							rins->mSrc[0] = ins->mSrc[0];
@@ -24037,13 +24144,13 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						ains->mOperator = IA_ADD;
+						ains->mOperator = IA_ADDS;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[0] = ins->mSrc[0]; ains->mSrc[0].mIntConst = indexBase[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ains);
 
-						ins->mOperator = IA_ADD;
+						ins->mOperator = IA_ADDS;
 						ins->mSrc[0].mIntConst = indexStep[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
 						ins->mSrc[1] = ins->mDst;
 						if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
@@ -24052,7 +24159,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp] && !(cins && (cins->mSrc[0].mTemp == ins->mDst.mTemp || cins->mSrc[1].mTemp == ins->mDst.mTemp)))
 						{
 							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							rins->mOperator = IA_SUB;
+							rins->mOperator = IA_SUBS;
 							rins->mDst = ins->mDst;
 							rins->mSrc[1] = ins->mDst;
 							rins->mSrc[0] = ins->mSrc[0];
@@ -24061,7 +24168,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						indexins.Push(ins);
 					}
-					else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADD || ins->mOperator == IA_SUB) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
+					else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU || ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
 					{
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[1].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
@@ -24070,7 +24177,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						if (indexBase[ins->mSrc[1].mTemp])
 						{
 							InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							bins->mOperator = IA_ADD;
+							bins->mOperator = IA_ADDS;
 							bins->mDst = ins->mDst;
 							bins->mSrc[0] = ins->mDst;
 							bins->mSrc[1].mType = ins->mDst.mType;
@@ -24080,7 +24187,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						}
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						ains->mOperator = IA_ADD;
+						ains->mOperator = IA_ADDS;
 						ains->mDst = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
@@ -24091,7 +24198,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						indexins.Push(ains);
 					}
-					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED))
+					else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED))
 					{
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[0].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
@@ -24100,7 +24207,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						if (indexBase[ins->mSrc[0].mTemp])
 						{
 							InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							bins->mOperator = IA_ADD;
+							bins->mOperator = IA_ADDS;
 							bins->mDst = ins->mDst;
 							bins->mSrc[0] = ins->mDst;
 							bins->mSrc[1].mType = ins->mDst.mType;
@@ -24110,7 +24217,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						}
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						ains->mOperator = IA_ADD;
+						ains->mOperator = IA_ADDS;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
@@ -24121,7 +24228,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 						indexins.Push(ains);
 					}
-					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED))
+					else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_SUBS || ins->mOperator == IA_SUBU) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED))
 					{
 						indexStep[ins->mDst.mTemp] = -indexStep[ins->mSrc[0].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
@@ -24130,7 +24237,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						if (indexBase[ins->mSrc[0].mTemp])
 						{
 							InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-							bins->mOperator = IA_SUB;
+							bins->mOperator = IA_SUBS;
 							bins->mDst = ins->mDst;
 							bins->mSrc[1] = ins->mDst;
 							bins->mSrc[0].mType = ins->mDst.mType;
@@ -24140,7 +24247,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						}
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
-						ains->mOperator = IA_SUB;
+						ains->mOperator = IA_SUBS;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
@@ -24297,7 +24404,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						{
 							if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
 								toffset += int(cins->mSrc[0].mIntConst);
-							else if (cins->mCode == IC_BINARY_OPERATOR && cins->mOperator == IA_ADD && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
+							else if (cins->mCode == IC_BINARY_OPERATOR && (cins->mOperator == IA_ADDS || cins->mOperator == IA_ADDU) && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
 								toffset += int(cins->mSrc[0].mIntConst);
 							else
 								break;						
@@ -24334,7 +24441,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							else
 							{
 								ins->mCode = IC_BINARY_OPERATOR;
-								ins->mOperator = IA_ADD;
+								ins->mOperator = IA_ADDS;
 								ins->mNumOperands = 2;
 								ins->mSrc[1] = ins->mSrc[0];
 								ins->mSrc[0].mTemp = -1;
@@ -24483,7 +24590,7 @@ bool InterCodeBasicBlock::ShortLeaMerge(int& spareTemps)
 									{
 										InterInstruction* sins = iins[k];
 										sins->mCode = IC_BINARY_OPERATOR;
-										sins->mOperator = IA_ADD;
+										sins->mOperator = IA_ADDS;
 										sins->mDst = sins->mSrc[0];
 										sins->mSrc[1].mTemp = -1;
 										sins->mSrc[1].mType = sins->mSrc[0].mType;
@@ -24826,12 +24933,12 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && 
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
 
 				mInstructions[i + 1]->mDst.mRange.IsRange(0, 1) && CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 1]) &&
 
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
 				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
 			{
@@ -24882,7 +24989,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && 
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 &&
 				mInstructions[i + 1]->mCode == IC_TYPECAST && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 1]->mDst.mType == IT_POINTER && mInstructions[i + 1]->mSrc[0].mType == IT_INT16)
@@ -24906,7 +25013,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				(mInstructions[i + 1]->mSrc[0].mIntConst & ((1LL << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
 			{
@@ -24919,7 +25026,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				(mInstructions[i + 1]->mSrc[1].mIntConst & ((1LL << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
 			{
@@ -24932,7 +25039,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 65536)
 			{
@@ -24944,14 +25051,14 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_MUL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_MULS || mInstructions[i + 0]->mOperator == IA_MULU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				(mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) < 65536)
 			{
 				mInstructions[i + 1]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mOperator = IA_MUL;
+				mInstructions[i + 1]->mOperator = IA_MULS;
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
 				mInstructions[i + 0]->mDst.mTemp = -1;
@@ -24959,7 +25066,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_ADD && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 1]->mSrc[1].IsUByte() &&
 				mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + (mInstructions[i + 1]->mSrc[0].mIntConst >> mInstructions[i + 0]->mSrc[0].mIntConst) < 256 &&
@@ -24967,7 +25074,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst, add = mInstructions[i + 1]->mSrc[0].mIntConst;
 
-				mInstructions[i + 0]->mOperator = IA_ADD; mInstructions[i + 0]->mSrc[0].mIntConst = add >> shift;
+				mInstructions[i + 0]->mOperator = IA_ADDS; mInstructions[i + 0]->mSrc[0].mIntConst = add >> shift;
 				mInstructions[i + 1]->mOperator = IA_SHL; mInstructions[i + 1]->mSrc[0].mIntConst = shift;
 				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
 				mInstructions[i + 0]->mDst.mRange.AddConstValue(mInstructions[i + 0]->mDst.mType, add >> shift);
@@ -25016,7 +25123,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUB || mInstructions[i + 0]->mOperator == IA_XOR) &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU || mInstructions[i + 0]->mOperator == IA_XOR) &&
 				mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[1].mTemp)
 			{
 				mInstructions[i + 0]->mCode = IC_CONSTANT;
@@ -25067,7 +25174,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_MUL && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_MULS || mInstructions[i + 2]->mOperator == IA_MULU) && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
 				(mInstructions[i + 2]->mSrc[0].mIntConst & 1) == 0)
@@ -25164,7 +25271,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #if 1
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[0].mIntConst) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[0].mIntConst) &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
 			{
 
@@ -25462,7 +25569,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 #if 1
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 0]->mSrc[0].IsUByte() &&
 				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp)
@@ -25480,7 +25587,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 0]->mSrc[0].IsUByte() && !mInstructions[i + 0]->mSrc[1].IsUByte() &&
 				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp)
@@ -25500,7 +25607,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #endif
 #if 1
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 && mInstructions[i + 0]->mSrc[0].mIntConst <= 16 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 && mInstructions[i + 0]->mSrc[0].mIntConst <= 16 &&
 				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
 			{
 				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
@@ -25518,7 +25625,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #endif
 #if 1
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB && mInstructions[i + 0]->mSrc[0].mTemp < 0 && 
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
 			{
 				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
@@ -25554,7 +25661,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 
 				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 0]->mOperator = IA_ADD;
+				mInstructions[i + 0]->mOperator = IA_ADDS;
 				mInstructions[i + 0]->mDst.mType = IT_INT16;
 				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
 				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[0].mRange;
@@ -25565,7 +25672,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 #endif
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 1]->mSrc[0].IsUByte() &&
@@ -25582,7 +25689,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 1]->mSrc[0].IsUByte() &&
@@ -25599,7 +25706,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				mInstructions[i + 1]->mSrc[0].IsUByte() &&
@@ -25616,9 +25723,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_ADD &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp >= 0 &&
 				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
 				mInstructions[i + 2]->mSrc[1].mTemp < 0 &&
@@ -25632,13 +25739,13 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
 
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_ADD &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
 				mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[1].mTemp >= 0 &&
 
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
 				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp &&
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
 
@@ -25674,7 +25781,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 
 				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 0]->mOperator = IA_ADD;
+				mInstructions[i + 0]->mOperator = IA_ADDS;
 				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
 				mInstructions[i + 0]->mDst.mType = IT_INT16;
 				mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
@@ -25718,7 +25825,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 
 				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 0]->mOperator = IA_ADD;
+				mInstructions[i + 0]->mOperator = IA_ADDS;
 				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
 				mInstructions[i + 0]->mDst.mType = IT_INT16;
 				mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
@@ -25731,7 +25838,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 #endif
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
 				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
@@ -25749,7 +25856,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
 				mInstructions[i + 0]->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mIntConst < 32767 &&
@@ -25763,7 +25870,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
 				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
 				mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
@@ -25804,7 +25911,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mCode == IC_LOAD && 
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && 
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
 				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
@@ -25857,7 +25964,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 
 			if (i + 3 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 0]->mDst.IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
@@ -25878,7 +25985,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
 				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 
@@ -25910,7 +26017,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
 				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 
@@ -25937,7 +26044,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
 				mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
 
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
 				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
 
@@ -25956,7 +26063,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
 				mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
 
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
 				mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
 
@@ -25976,7 +26083,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			if (i + 2 < mInstructions.Size() &&
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mDst.mType == IT_FLOAT &&
 
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_MUL) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) &&
 				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
 			{
@@ -26034,38 +26141,38 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 						InterOperator	o1 = mInstructions[s1]->mOperator;
 						InterOperator	o2 = mInstructions[s2]->mOperator;
 
-						if (o2 == IA_SUB)
+						if (o2 == IA_SUBS || o2 == IA_SUBU)
 						{
-							if ((o0 == IA_ADD || o0 == IA_SUB && c0 == 0) && (o1 == IA_ADD || o1 == IA_SUB && c1 == 0))
+							if ((o0 == IA_ADDS || o0 == IA_ADDU || o0 == IA_SUBS || o0 == IA_SUBU && c0 == 0) && (o1 == IA_ADDS || o1 == IA_ADDU || o1 == IA_SUBS || o1 == IA_SUBU && c1 == 0))
 							{
 								int64 iconst =
-									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
-									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
+									((o1 == IA_ADDS || o1 == IA_ADDU) ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
+									((o0 == IA_ADDS || o0 == IA_ADDU) ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
 
 								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
 								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
 								mInstructions[s0]->mDst.mRange.Reset();
-								mInstructions[s0]->mOperator = IA_SUB;
-								mInstructions[s2]->mOperator = IA_ADD;
+								mInstructions[s0]->mOperator = IA_SUBS;
+								mInstructions[s2]->mOperator = IA_ADDS;
 								mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
 								mInstructions[s2]->mSrc[1].mTemp = -1;
 								mInstructions[s2]->mSrc[1].mIntConst = iconst;
 								changed = true;
 							}
 						}
-						else if (o2 == IA_ADD)
+						else if (o2 == IA_ADDS ||o2 == IA_ADDU)
 						{
-							if ((o0 == IA_ADD || o0 == IA_SUB && c0 == 0) && (o1 == IA_ADD || o1 == IA_SUB && c1 == 0))
+							if ((o0 == IA_ADDS || o0 == IA_ADDU || o0 == IA_SUBS || o0 == IA_SUBU && c0 == 0) && (o1 == IA_ADDS || o1 == IA_ADDU || o1 == IA_SUBS || o1 == IA_SUBU && c1 == 0))
 							{
 								int64 iconst =
-									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
-									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
+									((o1 == IA_ADDS || o1 == IA_ADDU) ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
+									((o0 == IA_ADDS || o0 == IA_ADDU) ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
 
 								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
 								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
 								mInstructions[s0]->mDst.mRange.Reset();
-								mInstructions[s0]->mOperator = IA_ADD;
-								mInstructions[s2]->mOperator = IA_ADD;
+								mInstructions[s0]->mOperator = IA_ADDS;
+								mInstructions[s2]->mOperator = IA_ADDS;
 								mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
 								mInstructions[s2]->mSrc[1].mTemp = -1;
 								mInstructions[s2]->mSrc[1].mIntConst = iconst;
@@ -26146,7 +26253,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[0].mTemp < 0)
 			{
 				if (
-					mInstructions[i + 1]->mOperator == IA_ADD &&
+					(mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
 					(mInstructions[i + 2]->mOperator == IA_CMPLES || mInstructions[i + 2]->mOperator == IA_CMPLS) &&
 					mInstructions[i + 1]->mSrc[0].mIntConst > 0 &&
 					mInstructions[i + 2]->mSrc[0].mIntConst + mInstructions[i + 1]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
@@ -26162,10 +26269,10 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		if (i + 3 < mInstructions.Size())
 		{
 			if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
 				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
 				mInstructions[i + 3]->mCode == IC_LEA && mInstructions[i + 3]->mSrc[1].mTemp < 0 &&
 				mInstructions[i + 3]->mSrc[0].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[0].mFinal)
@@ -26273,8 +26380,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #if 1
 		if (i + 1 < mInstructions.Size())
 		{
-			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_ADD &&
+			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				IsIntegerType(mInstructions[i + 0]->mDst.mType))
@@ -26293,7 +26400,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #if 1
 		if (i + 1 < mInstructions.Size())
 		{
-			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB &&
+			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) &&
 				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[0].IsUByte() &&
 				mInstructions[i + 1]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[1].mIntConst))
@@ -26317,7 +26424,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					changed = true;
 				}
 			}
-			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB &&
+			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) &&
 				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[0].IsUByte() &&
 				mInstructions[i + 1]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[1].mIntConst))
@@ -27184,7 +27291,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					}
 					else if (rins->mSrc[0].mType == IT_INT16 &&
 						rins->mSrc[0].IsInRange(0, 65534) &&
-						ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_MUL)
+						ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_MULS || ains->mOperator == IA_MULU))
 					{
 						if (ains->mSrc[0].mTemp < 0 && rins->mSrc[1].mIntConst % ains->mSrc[0].mIntConst == 0)
 						{
@@ -27226,7 +27333,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						InterInstruction* ins = mInstructions[k];
 						if (ins->mDst.mTemp == si)
 						{
-							if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == si)
+							if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADDS || ins->mOperator == IA_ADDU) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == si)
 							{
 								ioffset += int(ins->mSrc[0].mIntConst);
 								ains = ins;
@@ -27258,7 +27365,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			while (fi < mInstructions.Size() && !(mInstructions[fi]->mDst.mTemp >= 0 && mInstructions[fi]->mDst.mType == IT_FLOAT))
 				fi++;
 			if (fi < mInstructions.Size() && mInstructions[fi]->mCode == IC_BINARY_OPERATOR &&
-				(mInstructions[fi]->mOperator == IA_ADD || mInstructions[fi]->mOperator == IA_MUL) &&
+				(mInstructions[fi]->mOperator == IA_ADDS || mInstructions[fi]->mOperator == IA_ADDU || mInstructions[fi]->mOperator == IA_MULS || mInstructions[fi]->mOperator == IA_MULU) &&
 				mInstructions[fi]->mSrc[0].mTemp >= 0 && mInstructions[fi]->mSrc[1].mTemp >= 0)
 			{
 				int fj = mInstructions.Size() - 1;

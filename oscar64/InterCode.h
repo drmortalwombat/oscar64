@@ -77,9 +77,12 @@ enum InterMemory : uint8
 enum InterOperator : uint8
 {
 	IA_NONE,
-	IA_ADD,
-	IA_SUB,
-	IA_MUL,
+	IA_ADDU,
+	IA_ADDS,
+	IA_SUBU,
+	IA_SUBS,
+	IA_MULU,
+	IA_MULS,
 	IA_DIVU,
 	IA_DIVS,
 	IA_MODU,
