@@ -1094,6 +1094,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			break;
 		case ASMIM_ZERO_PAGE:
 		case ASMIM_ZERO_PAGE_X:
+		case ASMIM_ZERO_PAGE_Y:
 		case ASMIM_INDIRECT_X:
 		case ASMIM_INDIRECT_Y:
 			if (!aexp)
