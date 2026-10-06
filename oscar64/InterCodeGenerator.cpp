@@ -975,6 +975,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 
 		if (cexp->mAsmInsType != ASMIT_BYTE)
 		{
+			if (!HasAsmInstructionMode(cexp->mAsmInsType, cexp->mAsmInsMode))
+				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid addressing mode");
+
 			int	opcode = AsmInsOpcodes[cexp->mAsmInsType][cexp->mAsmInsMode];
 			d[offset++] = opcode;
 		}
@@ -1318,24 +1321,24 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					if (aexp->mBase->mBase == adec)
 						disp = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
 					else if (aexp->mBase->mBase)
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mBase->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mBase->mQualIdent);
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
 				}
 				else if (aexp->mType == DT_LABEL)
 				{
 					if (aexp->mBase == adec)
 						disp = aexp->mInteger - offset - 1;
 					else if (aexp->mBase)
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mQualIdent);
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mQualIdent);
 				}
 				else
-					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid branch target", aexp->mQualIdent);
+					mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid branch target", aexp->mQualIdent);
 
 				if (disp < -128 || disp > 127)
-					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");
+					mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");
 
 				d[offset] = uint8(disp);
 			}
