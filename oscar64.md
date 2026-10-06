@@ -906,7 +906,7 @@ Inline assembler can be embedded inside of any functions, regardless of their co
 
 ### Accessing variables in assembler
 
-Access to local variables and parameters is done with zero page registers, global variables are accessed using absolute addressing.
+Read access to local variables and parameters is done with zero page registers, global variables are accessed using absolute addressing.
 
     void putchar(char c)
     {
@@ -918,6 +918,8 @@ Access to local variables and parameters is done with zero page registers, globa
             jsr 0xffd2
         }
     }
+
+Local variables and function arguments cannot be changed from within an assembler block.
 
 A function return value can be provided in the zero page addresses ACCU (+0..+3).
 
