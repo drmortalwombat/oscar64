@@ -44,11 +44,11 @@ void krnio_setbnk(char filebank, char namebank)
 __asm k_checkst
 {
 	lda	ST
-	beq	l1
+	beq	.l1
 	lda	#5	// Device not present
 	sec
 	rts
-l1:
+.l1:
 	clc
 	rts
 }
@@ -65,10 +65,10 @@ __asm k_open
 {
 	lda	PET_DETECT
 	cmp	#PET_4000
-	bne	V2
+	bne	.V2
 	jsr	$f563
 	jmp	k_checkst
-V2:
+.V2:
 	jsr	$f524
 	jmp	k_checkst
 }
@@ -77,9 +77,9 @@ __asm k_close
 {
 	ldx	PET_DETECT
 	cpx	#PET_4000
-	bne	l1
+	bne	.l1
 	jmp	$F2E2			// BASIC 4
-l1:
+.l1:
 	jmp	$F2AE			//BASIC 2&3
 }
 
@@ -91,14 +91,16 @@ BANKINLINE void krnio_setnam(const char * name)
 	{
 		lda name
 		ora name + 1
-		beq W1
+		beq .W1
 
 		ldy	#$ff
-	L1:	iny
+	.L1:
+		iny
 		lda	(name), y
-		bne	L1
+		bne	.L1
 		tya
-	W1: ldx name
+	.W1: 
+		ldx name
 		ldy	name + 1
 		BANKIN
 #if defined(__CBMPET__)
@@ -159,7 +161,7 @@ BANKINLINE bool krnio_open(char fnum, char device, char channel)
 
 		jsr	$ffc0			// open
 #endif
-		bcc	W1
+		bcc	.W1
 
 		lda	fnum
 #if defined(__CBMPET__)
@@ -167,13 +169,13 @@ BANKINLINE bool krnio_open(char fnum, char device, char channel)
 #else
 		jsr	$ffc3			// close
 #endif
-		jmp	E2
-	W1:
+		jmp	.E2
+	.W1:
 		lda	#1
 		sta	accu
 
 		BANKOUT
-	E2:
+	.E2:
 	});
 }
 

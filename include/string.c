@@ -12,19 +12,19 @@ char * strcpy(char * dst, const char * src)
 		sta accu + 1
 
 		ldy #0
-	L1:	lda (src), y
+	.L1:lda (src), y
 		sta (dst), y
-		beq W1
+		beq .W1
 		iny
 		lda (src), y
 		sta (dst), y
-		beq W1
+		beq .W1
 		iny
-		bne L1
+		bne .L1
 		inc src + 1
 		inc dst + 1
-		bne L1
-	W1:
+		bne .L1
+	.W1:
 
 	}
 }
@@ -68,32 +68,36 @@ signed char strcmp(const char * ptr1, const char * ptr2)
 	__asm 
 	{
 		ldy #0
-	L1: lda (ptr1), y
-		beq W1
+	.L1:
+		lda (ptr1), y
+		beq .W1
 		cmp (ptr2), y
-		bne W2
+		bne .W2
 		iny
 		lda (ptr1), y
-		beq W1
+		beq .W1
 		cmp (ptr2), y
-		bne W2
+		bne .W2
 		iny
-		bne L1
+		bne .L1
 		inc ptr1 + 1
 		inc ptr2 + 1
-		bne L1
+		bne .L1
 
-	W1:	cmp (ptr2), y
-		beq E
+	.W1:
+		cmp (ptr2), y
+		beq .E
 
-	W2:	bcs W3
+	.W2:
+		bcs .W3
 
 		lda #$ff
-		bmi E
+		bmi .E
 
-	W3: lda #$01
+	.W3:
+		lda #$01
 
-	E:
+	.E:
 		sta accu
 	}
 }
@@ -270,23 +274,23 @@ void * memset(void * dst, int value, int size)
 			lda	value
 
 			ldx	size + 1
-			beq	_w1
+			beq	.w1
 			ldy	#0
-	_loop1:
+	.loop1:
 			sta (dst), y
 			iny
-			bne	_loop1
+			bne	.loop1
 			inc dst + 1
 			dex
-			bne	_loop1
-	_w1:
+			bne	.loop1
+	.w1:
 			ldy	size
-			beq	_w2
-	_loop2:
+			beq	.w2
+	.loop2:
 			dey
 			sta (dst), y
-			bne _loop2
-	_w2:
+			bne .loop2
+	.w2:
 	}
 	return dst;
 }
@@ -305,31 +309,31 @@ void * memcpy(void * dst, const void * src, int size)
 	__asm
 	{
 			ldx	size + 1
-			beq	_w1
+			beq	.w1
 			ldy	#0
-	_loop1:
+	.loop1:
 			lda (src), y
 			sta (dst), y
 			iny
-			bne	_loop1
+			bne	.loop1
 			inc src + 1
 			inc dst + 1
 			dex
-			bne	_loop1
-	_w1:
+			bne	.loop1
+	.w1:
 			ldy	size
-			beq	_w2
+			beq	.w2
 			dey
-			beq	_w3
-	_loop2:
+			beq	.w3
+	.loop2:
 			lda (src), y
 			sta (dst), y
 			dey
-			bne _loop2
-	_w3:
+			bne .loop2
+	.w3:
 			lda (src), y
 			sta (dst), y
-	_w2:
+	.w2:
 	}
 	return dst;
 #if 0

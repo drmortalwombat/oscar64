@@ -1315,18 +1315,24 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				int64 disp = 0;
 				if (aexp->mType == DT_LABEL_REF)
 				{
-					if (aexp->mBase->mBase)
+					if (aexp->mBase->mBase == adec)
 						disp = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
+					else if (aexp->mBase->mBase)
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mBase->mQualIdent);
 					else
 						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
 				}
 				else if (aexp->mType == DT_LABEL)
 				{
-					if (aexp->mBase)
+					if (aexp->mBase == adec)
 						disp = aexp->mInteger - offset - 1;
+					else if (aexp->mBase)
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mQualIdent);
 					else
 						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mQualIdent);
 				}
+				else
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid branch target", aexp->mQualIdent);
 
 				if (disp < -128 || disp > 127)
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");

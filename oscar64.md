@@ -912,9 +912,9 @@ Access to local variables and parameters is done with zero page registers, globa
     {
         __asm {
             lda c
-            bne w1
+            bne .w1
             lda #13
-        w1:
+        .w1:
             jsr 0xffd2
         }
     }
@@ -952,6 +952,8 @@ Struct member offsets can be generated with the Type::Member syntax:
 
 
 Labels are defined with a colon after the name.  Pure assembler functions can be defined outside of the scope of a function and accessed using their name inside of other assembler function.  One can e.g. set up an interrupt.
+
+Local labels are preceded by a "dot".  The difference between a local and a global label is the scope of search.  A local label will only be searched in the scope of the __asm block, preventing accidental pick of an outside named object.
 
 
 ### Interrupt routines

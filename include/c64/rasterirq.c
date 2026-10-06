@@ -26,23 +26,23 @@ volatile byte		nextIRQ;
 
 __asm rirq_isr_ram_io
 {	
-	stx plrx + 1
+	stx .plrx + 1
 
 	ldx	nextIRQ
-	bmi	exi
+	bmi	.exi
 
-	sta plra + 1
-	sty plry + 1
+	sta .plra + 1
+	sty .plry + 1
 
-l1:	
+.l1:	
 	lda	rasterIRQNext, x
 	ldy rasterIRQIndex + 1, x
 	ldx	rasterIRQLow, y
-	stx ji + 1
+	stx .ji + 1
 	ldx	rasterIRQHigh, y
-	stx ji + 2
+	stx .ji + 2
 
-ji:	
+.ji:	
 	jsr $0000
 
 	inc	nextIRQ
@@ -53,28 +53,28 @@ ji:
 	asl $d019
 
 	cpy #$ff
-	beq e2
+	beq .e2
 
 	dey
 	sty	$d012
 	dey
 	cpy $d012
-	bcc l1
+	bcc .l1
 
-plry:
+.plry:
 	ldy #0
-plra:
+.plra:
 	lda #0
-plrx:
+.plrx:
 	ldx #0
     rti
 
-exi:
+.exi:
 	asl $d019
-	jmp plrx
+	jmp .plrx
 
     // No more interrupts to service
-e2:
+.e2:
 	inc rirq_count
 
 	ldy	rasterIRQNext
@@ -82,7 +82,7 @@ e2:
 	sty	$d012
 	ldx	#0
 	stx nextIRQ
-	beq	plry
+	beq	.plry
 }
 
 __asm rirq_isr_io
@@ -92,19 +92,19 @@ __asm rirq_isr_io
     pha
     tya
     pha
-kentry:
+.kentry:
 
 	ldx	nextIRQ
-	bmi	exi
-l1:
+	bmi	.exi
+.l1:
 	lda	rasterIRQNext, x
 	ldy rasterIRQIndex + 1, x
 	ldx	rasterIRQLow, y
-	stx ji + 1
+	stx .ji + 1
 	ldx	rasterIRQHigh, y
-	stx ji + 2
+	stx .ji + 2
 
-ji:	
+.ji:	
 	jsr $0000
 
 	inc	nextIRQ
@@ -115,15 +115,15 @@ ji:
 	asl $d019
 
 	cpy #$ff
-	beq e2
+	beq .e2
 
 	dey
 	sty	$d012
 	dey
 	cpy $d012
-	bcc l1
+	bcc .l1
 
-exd:
+.exd:
     pla
     tay
     pla
@@ -131,11 +131,11 @@ exd:
     pla
     rti
 
-exi:
+.exi:
 	asl $d019
-	jmp exd
+	jmp .exd
 
-e2:
+.e2:
 	inc rirq_count
 
 	ldy	rasterIRQNext
@@ -143,7 +143,7 @@ e2:
 	sty	$d012
 	ldx	#0
 	stx nextIRQ
-	beq	exd
+	beq	.exd
 }
 
 __asm rirq_isr_noio
@@ -153,7 +153,7 @@ __asm rirq_isr_noio
     pha
     tya
     pha
-kentry:
+.kentry:
     lda $01
     pha
 
@@ -161,16 +161,16 @@ kentry:
     sta $01
 
 	ldx	nextIRQ
-	bmi	exi
-l1:
+	bmi	.exi
+.l1:
 	lda	rasterIRQNext, x
 	ldy rasterIRQIndex + 1, x
 	ldx	rasterIRQLow, y
-	stx ji + 1
+	stx .ji + 1
 	ldx	rasterIRQHigh, y
-	stx ji + 2
+	stx .ji + 2
 
-ji:	
+.ji:	
 	jsr $0000
 
 	inc	nextIRQ
@@ -181,15 +181,15 @@ ji:
 	asl $d019
 
 	cpy #$ff
-	beq e2
+	beq .e2
 
 	dey
 	sty	$d012
 	dey
 	cpy $d012
-	bcc l1
+	bcc .l1
 
-exd:
+.exd:
 	pla
 	sta $01
 
@@ -200,11 +200,11 @@ exd:
     pla
     rti
 
-exi:
+.exi:
 	asl $d019
-	jmp exd
+	jmp .exd
 
-e2:
+.e2:
 	inc rirq_count
 
 	ldy	rasterIRQNext
@@ -212,27 +212,27 @@ e2:
 	sty	$d012
 	ldx	#0
 	stx nextIRQ
-	beq	exd
+	beq	.exd
 }
 
 __asm rirq_isr_kernal_io
 {	
 	lda $d019
-	bpl ex2
+	bpl .ex2
 	
 	ldx	nextIRQ
-	bmi exi
-l1:
+	bmi .exi
+.l1:
 	lda	rasterIRQNext, x
 	ldy rasterIRQIndex + 1, x
 	ldx	rasterIRQLow, y
-	stx ji + 1
+	stx .ji + 1
 	ldx	rasterIRQHigh, y
-	stx ji + 2
+	stx .ji + 2
 
-ji:	
+.ji:	
 	jsr $0000
-jx:
+.jx:
 
 	inc	nextIRQ
 	ldx nextIRQ
@@ -242,23 +242,23 @@ jx:
 	asl $d019
 
 	cpy #$ff
-	beq e2
+	beq .e2
 
 	dey
 	dey
 	sty	$d012
 	dey
 	cpy $d012
-	bcc l1
+	bcc .l1
 
-exd:
+.exd:
 	jmp $ea81
 
-exi:
+.exi:
 	asl $d019
 	jmp $ea81
 
-e2:
+.e2:
 	inc rirq_count
 
 	ldy	rasterIRQNext
@@ -269,7 +269,7 @@ e2:
 	stx nextIRQ
 	jmp $ea81
 
-ex2:
+.ex2:
 	LDA $DC0D
 	cli
 	jmp $ea31
@@ -283,21 +283,21 @@ __asm rirq_isr_kernal_noio
 	sta $01
 
 	lda $d019
-	bpl ex2
+	bpl .ex2
 	
 	ldx	nextIRQ
-	bmi exi
-l1:
+	bmi .exi
+.l1:
 	lda	rasterIRQNext, x
 	ldy rasterIRQIndex + 1, x
 	ldx	rasterIRQLow, y
-	stx ji + 1
+	stx .ji + 1
 	ldx	rasterIRQHigh, y
-	stx ji + 2
+	stx .ji + 2
 
-ji:	
+.ji:	
 	jsr $0000
-jx:
+.jx:
 
 	inc	nextIRQ
 	ldx nextIRQ
@@ -307,25 +307,25 @@ jx:
 	asl $d019
 
 	cpy #$ff
-	beq e2
+	beq .e2
 
 	dey
 	dey
 	sty	$d012
 	dey
 	cpy $d012
-	bcc l1
-exd:
+	bcc .l1
+.exd:
 	pla
 	sta $01
 
 	jmp $ea81
 
-exi:
+.exi:
 	asl $d019
-	jmp exd
+	jmp .exd
 
-e2:
+.e2:
 	inc rirq_count
 
 	ldy	rasterIRQNext
@@ -334,9 +334,9 @@ e2:
 	sty	$d012
 	ldx	#0
 	stx nextIRQ
-	beq	exd
+	beq	.exd
 
-ex2:
+.ex2:
 	LDA $DC0D
 	cli
 	pla

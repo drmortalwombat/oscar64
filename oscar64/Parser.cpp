@@ -13779,6 +13779,27 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 		ConsumeToken(TK_CLOSE_PARENTHESIS);
 		break;
 
+	case TK_DOT:
+		mScanner->NextToken();
+		if (ExpectToken(TK_IDENT))
+		{
+			exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+			exp->mDecType = TheUnsignedIntTypeDeclaration;
+
+			dec = mScope->Lookup(mScanner->mTokenIdent, SLEVEL_LOCAL);
+			if (!dec)
+			{
+				dec = new Declaration(mScanner->mLocation, DT_LABEL);
+				dec->mIdent = mScanner->mTokenIdent;
+				dec->mQualIdent = mScanner->mTokenIdent;
+				mScope->Insert(dec->mIdent, dec);
+			}
+
+			exp->mDecValue = dec;
+			mScanner->NextToken();
+		}
+		break;
+
 	case TK_IDENT:
 		dec = mScope->Lookup(mScanner->mTokenIdent);
 		if (!dec)
@@ -14278,7 +14299,37 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 
 	while (mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_EOF)
 	{
-		if (mScanner->mToken == TK_IDENT)
+		if (ConsumeTokenIf(TK_DOT))
+		{
+			if (ExpectToken(TK_IDENT))
+			{
+				const Ident* label = mScanner->mTokenIdent;
+				mScanner->NextToken();
+				if (mScanner->mToken != TK_COLON)
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "':' expected");
+				else
+					mScanner->NextToken();
+
+				exitLabel = true;
+
+				Declaration* dec = mScope->Lookup(label, SLEVEL_LOCAL);
+				if (dec)
+				{
+					if (dec->mType != DT_LABEL || dec->mBase)
+						mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate label definition");
+				}
+				else
+					dec = new Declaration(mScanner->mLocation, DT_LABEL);
+
+				dec->mIdent = label;
+				dec->mQualIdent = dec->mIdent;
+				dec->mValue = ilast;
+				dec->mInteger = offset;
+				dec->mBase = vdasm;
+				mScope->Insert(dec->mIdent, dec);
+			}
+		}
+		else if (mScanner->mToken == TK_IDENT)
 		{
 			AsmInsType	ins = FindAsmInstruction(mScanner->mTokenIdent->mString);
 			if (ins == ASMIT_INV)
