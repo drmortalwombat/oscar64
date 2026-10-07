@@ -982,6 +982,15 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			d[offset++] = opcode;
 		}
 
+		uint32	rflags = 0, aflags = AsmInsFlags(cexp->mAsmInsType, cexp->mAsmInsMode);
+
+		if (aflags & ASMIFLG_CALL)
+			rflags |= LREF_CALL;
+		if (aflags & ASMIFLG_USES_MEMORY)
+			rflags |= LREF_LOAD;
+		if (aflags & ASMIFLG_CHANGES_MEMORY)
+			rflags |= LREF_STORE;
+
 		switch (cexp->mAsmInsMode)
 		{
 		case ASMIM_IMPLIED:
@@ -1115,6 +1124,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					ref.mFlags |= rflags;
+
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else if (refvars)
@@ -1132,6 +1143,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mRefObject = dec->mLinkerObject;
 					ref.mRefOffset = j;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+
 					dec->mLinkerObject->AddReference(ref);
 
 					d[offset] = aexp->mOffset;
@@ -1152,6 +1164,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mRefObject = aexp->mLinkerObject;
 					ref.mRefOffset = 0;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					ref.mFlags |= rflags;
+
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else if (refvars)
@@ -1202,6 +1216,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = int(aexp->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1221,6 +1237,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset + int(aexp->mBase->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1238,6 +1256,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+				ref.mFlags |= rflags;
+
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1253,6 +1273,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mLinkerObject;
 					ref.mRefOffset = 0;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1269,6 +1291,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1286,6 +1310,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+				ref.mFlags |= rflags;
+
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1302,6 +1328,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+				ref.mFlags |= rflags;
+
 				ref.mRefObject = aexp->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;

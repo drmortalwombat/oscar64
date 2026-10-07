@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"call_obj"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -1293,6 +1293,10 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 		}
 
 		return false;
+	}
+	else if (sins->mCode == IC_ASSEMBLER)
+	{
+		return true;
 	}
 	else if (sins->mCode == IC_CALL || sins->mCode == IC_CALL_NATIVE)
 	{
@@ -27548,6 +27552,12 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 						loadsIndirect = true;
 					}
 				}
+				if (ins->mSrc[0].mLinkerObject)
+				{
+					mProc->CollectAssemblerReferences(ins->mSrc[0].mLinkerObject);
+					referencedGlobals |= ins->mSrc[0].mLinkerObject->mReferencedGlobals;
+					modifiedGlobals |= ins->mSrc[0].mLinkerObject->mModifiedGlobals;
+				}
 				break;
 			case IC_CALL:
 			case IC_CALL_NATIVE:
@@ -28732,6 +28742,44 @@ void InterCodeProcedure::LimitLoopIndexIntegerRangeSets(void)
 
 	ResetVisited();
 	mEntryBlock->LimitLoopIndexIntegerRangeSets();
+}
+
+void InterCodeProcedure::CollectAssemblerReferences(LinkerObject* lo)
+{
+	if (lo->mReferencedGlobals.Size() == 0)
+	{
+		lo->mReferencedGlobals.Expand(mModule->mGlobalVars.Size());
+		lo->mModifiedGlobals.Expand(mModule->mGlobalVars.Size());
+
+		for (int i = 0; i < lo->mReferences.Size(); i++)
+		{
+			LinkerObject* ro = lo->mReferences[i]->mRefObject;
+			if (ro->mVariable)
+			{
+				if (lo->mReferences[i]->mFlags & LREF_LOAD)
+					lo->mReferencedGlobals += ro->mVariable->mIndex;
+				if (lo->mReferences[i]->mFlags & LREF_STORE)
+					lo->mModifiedGlobals += ro->mVariable->mIndex;
+			}
+			else if (ro->mProc)
+			{
+				if (lo->mReferences[i]->mFlags & LREF_CALL)
+				{
+					if (ro->mProc->mGlobalsChecked)
+						lo->mReferencedGlobals |= ro->mProc->mReferencedGlobals;
+				}
+			}
+			else
+			{
+				if (lo->mReferences[i]->mFlags & LREF_CALL)
+				{
+					CollectAssemblerReferences(ro);
+					lo->mReferencedGlobals |= ro->mReferencedGlobals;
+					lo->mModifiedGlobals |= ro->mModifiedGlobals;
+				}
+			}
+		}
+	}
 }
 
 void InterCodeProcedure::PropagateMemoryAliasingInfo(bool loops)

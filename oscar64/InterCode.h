@@ -913,6 +913,8 @@ protected:
 	void ForwardSingleAssignmentBools(void);
 	void LimitLoopIndexIntegerRangeSets(void);
 
+	void CollectAssemblerReferences(LinkerObject* lo);
+
 	bool PropagateByteIndexPointers(void);
 	bool ReplaceByteIndexPointers(FastNumberSet& activeSet);
 
@@ -924,6 +926,7 @@ protected:
 	void CheckBlocks(void);
 
 	void DisassembleDebug(const char* name, bool dumpSets = false);
+
 };
 
 class InterCodeModule

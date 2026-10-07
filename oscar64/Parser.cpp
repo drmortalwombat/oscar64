@@ -14593,6 +14593,18 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 				if (flags & ASMIFLG_CHANGES_XREG)	vdasm->mFlags &= ~DTF_ASM_PRESERVE_X;
 				if (flags & ASMIFLG_CHANGES_YREG)	vdasm->mFlags &= ~DTF_ASM_PRESERVE_Y;
 
+				if ((AsmInsFlags(ilast->mAsmInsType, ilast->mAsmInsMode) & ASMIFLG_CHANGES_MEMORY) && (ilast->mAsmInsMode == ASMIM_ZERO_PAGE || ilast->mAsmInsMode == ASMIM_ZERO_PAGE_X || ilast->mAsmInsMode == ASMIM_ZERO_PAGE_Y))
+				{
+					if (ilast->mLeft && ilast->mLeft->mDecValue)
+					{
+						Declaration* dv = ilast->mLeft->mDecValue;
+						if (dv->mType == DT_VARIABLE_REF)
+							dv = dv->mBase;
+						if (dv->mType == DT_ARGUMENT || dv->mType == DT_VARIABLE && !(dv->mFlags & DTF_GLOBAL))
+							mErrors->Error(ilast->mLocation, EWARN_UNDEFINED_ASM_BEHAVIOUR, "changing a local variable from __asm is undefined", dv->mQualIdent);
+					}
+				}
+
 				ifinal = ilast;
 
 				ilast->mRight = new Expression(mScanner->mLocation, EX_ASSEMBLER);
@@ -14848,17 +14860,6 @@ void Parser::ParsePragma(void)
 					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
 					{
 						mErrors->mDisabled -= int(mScanner->mTokenInteger);
-						mErrors->mWarnErrors += int(mScanner->mTokenInteger);
-						mScanner->NextToken();
-					}
-				} while (ConsumeTokenIf(TK_COMMA));
-			}
-			else if (ConsumeIdentIf("error"))
-			{
-				ConsumeToken(TK_COLON);
-				do {
-					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
-					{
 						mErrors->mWarnErrors += int(mScanner->mTokenInteger);
 						mScanner->NextToken();
 					}
