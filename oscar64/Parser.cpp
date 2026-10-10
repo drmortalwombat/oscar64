@@ -10167,7 +10167,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 				nexp->mDecType = TheSignedIntTypeDeclaration;
 			}
 			else if (
-			    ttype->mType == DT_TYPE_ENUM && ttype->mSize < 2
+			    ttype->IsIntegerType() && ttype->mSize < 2
 			    && (
 			        nexp->mToken == TK_ADD
 			        || nexp->mToken == TK_SUB
@@ -10522,8 +10522,9 @@ Expression* Parser::ParseShiftExpression(bool lhs)
 
 		nexp->mRight = ParseAddExpression(false);
 		nexp->mDecType = exp->mDecType;
+		Declaration* ttype = exp->mDecType->NonRefBase();
 
-		if (exp->mDecType->mType == DT_TYPE_ENUM && exp->mDecType->mSize < 2)
+		if (ttype->IsIntegerType() && ttype->mSize < 2)
 			nexp->mDecType = TheSignedIntTypeDeclaration;
 
 		exp = nexp->ConstantFold(mErrors, mDataSection);

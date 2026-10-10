@@ -755,6 +755,13 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			switch (mToken)
 			{
 			case TK_ADD:
+				if (mLeft->mDecValue->mBase->mSize < 2)
+				{
+					Expression* ex = new Expression(mLocation, EX_CONSTANT);
+					ex->mDecValue = mLeft->mDecValue->ConstCast(TheSignedIntTypeDeclaration);
+					ex->mDecType = ex->mDecValue->mBase;
+					return ex;
+				}
 				return mLeft;
 			case TK_SUB:
 			{
@@ -977,7 +984,12 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
 
 			Declaration* dtype = TheSignedIntTypeDeclaration;
-			if (mLeft->mDecValue->mBase->mSize > mRight->mDecValue->mBase->mSize)
+			if (mToken == TK_LEFT_SHIFT || mToken == TK_RIGHT_SHIFT)
+			{
+				if (mLeft->mDecValue->mBase->mSize >= 2)
+					dtype = mLeft->mDecValue->mBase;
+			}
+			else if (mLeft->mDecValue->mBase->mSize > mRight->mDecValue->mBase->mSize)
 				dtype = mLeft->mDecValue->mBase;
 			else if (mLeft->mDecValue->mBase->mSize < mRight->mDecValue->mBase->mSize)
 				dtype = mRight->mDecValue->mBase;

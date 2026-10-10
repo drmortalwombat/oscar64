@@ -264,6 +264,9 @@ rem @echo off
 @call :test enum-promotion-tests.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test integerpromotiontest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test enumconstanttypetest.cpp
 @if %errorlevel% neq 0 goto :error
 

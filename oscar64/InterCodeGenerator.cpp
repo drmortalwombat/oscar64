@@ -3292,7 +3292,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
+						if (vl.mType->mSize == 4)
 							dtype = TheUnsignedLongTypeDeclaration;
 						else
 							dtype = TheUnsignedIntTypeDeclaration;
