@@ -1033,6 +1033,12 @@ The 6502 is an eight bit processor, all 16 bit operations are much more expensiv
 
 An enum type has a limited value range, thus allowing various optimizations, which would not be possible with constants created by defines.
 
+### Explicit enum underlying types in C
+
+The C frontend accepts the C23 `enum Name : type` syntax using the same integer types
+supported by the C++ frontend: `char`, `short`, `int` and `long`, their signed and unsigned
+variants, and typedefs naming those types. Type qualifiers on the underlying type are ignored.
+
 ## Give the compiler hints
 
 The __assume keyword gives the programmer the ability to tell the compiler things that cannot be easily expressed in terms of the language. Examples are:

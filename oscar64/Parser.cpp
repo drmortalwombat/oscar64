@@ -1125,7 +1125,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		dec->mSize = 1;
 		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
 
-		bool	classTemplate = false, baseClass = false;
+		bool	classTemplate = false, baseClass = false, explicitBase = false;
 
 		mScanner->NextToken();
 
@@ -1150,26 +1150,57 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 
 		}
 
-		if (mCompilerOptions & COPT_CPLUSPLUS)
+		if (ConsumeTokenIf(TK_COLON))
 		{
-			if (ConsumeTokenIf(TK_COLON))
+			explicitBase = true;
+			// C23 and C++ both permit an explicit integer underlying type.
+			Declaration* pdec = ParseTypeID(false);
+
+			while (ConsumeTokenIf(TK_CONST) || ConsumeTokenIf(TK_VOLATILE))
+			{}
+
+			if (pdec->mType == DT_TYPE_INTEGER)
 			{
-				Declaration* pdec = ParseBaseTypeDeclaration(0, false);
-				if (pdec->mType == DT_TYPE_INTEGER)
-				{
-					dec->mSize = pdec->mSize;
-					dec->mFlags |= pdec->mFlags & DTF_SIGNED;
-					baseClass = true;
-				}
-				else
-					mErrors->Error(pdec->mLocation, EERR_INCOMPATIBLE_TYPES, "Integer base type expected");
+				dec->mSize = pdec->mSize;
+				dec->mFlags |= (pdec->mFlags & DTF_SIGNED) | DTF_ENUM_FIXED;
+				dec->mMinValue = dec->MinInteger();
+				dec->mMaxValue = dec->MaxInteger();
+				baseClass = true;
+
+				if (
+				    odec != nullptr
+				    && (
+						odec->mType != DT_TYPE_ENUM
+						|| ! (odec->mFlags & DTF_ENUM_FIXED)
+						|| odec->mSize != dec->mSize
+						|| (odec->mFlags & DTF_SIGNED) != (dec->mFlags & DTF_SIGNED)
+					)
+                )
+					mErrors->Error(
+					    dec->mLocation,
+                        EERR_INCOMPATIBLE_TYPES,
+                        "Enum underlying type does not match previous declaration",
+                        dec->mIdent
+                    );
 			}
+			else
+				mErrors->Error(
+				    pdec->mLocation,
+				    EERR_INCOMPATIBLE_TYPES,
+				    "Enum base type must be an integer type"
+                );
+		}
+
+		if (odec != nullptr && odec->mType == DT_TYPE_ENUM && (odec->mFlags & DTF_ENUM_FIXED))
+		{
+			dec = odec;
+			baseClass = true;
 		}
 
 		int64	nitem = 0;
 		if (mScanner->mToken == TK_OPEN_BRACE)
 		{
-			if (odec)
+			if (odec != nullptr && ( ! baseClass || odec->mParams))
 			{
 				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
 				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
@@ -1213,8 +1244,18 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 					}
 					cdec->mInteger = nitem++;
 
-					// C enumerators have type int, independently of enum storage.
-					if ( ! (mCompilerOptions & COPT_CPLUSPLUS))
+					if (baseClass)
+					{
+						if (cdec->mInteger < dec->MinInteger() || cdec->mInteger > dec->MaxInteger())
+							mErrors->Error(
+							    cdec->mLocation,
+							    EERR_INVALID_VALUE,
+							    "Enum constant is not representable in underlying type",
+							    cdec->mIdent
+                            );
+					}
+					// Ordinary C enumerators have type int, independently of enum storage.
+					else if ( ! (mCompilerOptions & COPT_CPLUSPLUS))
 					{
 						cdec->mBase = TheSignedIntTypeDeclaration;
 
@@ -1248,36 +1289,20 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 						break;
 				}
 
-				dec->mMinValue = minValue;
-				dec->mMaxValue = maxValue;
-
-				if (minValue < 0)
+				// Fixed enums can hold every value of their underlying type, including unnamed
+				// values.
+				if ( ! baseClass)
 				{
-					if (baseClass)
-					{
-						if (dec->mFlags & DTF_SIGNED)
-						{
-							if (minValue < -128 && dec->mSize == 1)
-								mErrors->Error(mScanner->mLocation, EWARN_INVALID_VALUE_RANGE, "Enum constant out of bounds");
-						}
-						else
-							mErrors->Error(mScanner->mLocation, EWARN_INVALID_VALUE_RANGE, "Enum constant out of bounds");
-					}
-					else
+					dec->mMinValue = minValue;
+					dec->mMaxValue = maxValue;
+
+					if (minValue < 0)
 					{
 						dec->mFlags |= DTF_SIGNED;
 						if (minValue < -128 || maxValue > 127)
 							dec->mSize = 2;
 					}
-				}
-				else if (maxValue > 255)
-				{
-					if (baseClass)
-					{
-						if (dec->mSize == 1)
-							mErrors->Error(mScanner->mLocation, EWARN_INVALID_VALUE_RANGE, "Enum constant out of bounds");
-					}
-					else
+					else if (maxValue > 255)
 						dec->mSize = 2;
 				}
 			}
@@ -1287,7 +1312,20 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			else
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 		}
-		else if (odec)
+		else if (baseClass && dec->mIdent)
+		{
+			if (
+			    explicitBase
+			    && ! (mCompilerOptions & COPT_CPLUSPLUS)
+			    && mScanner->mToken != TK_SEMICOLON
+            )
+				mErrors->Error(
+				    dec->mLocation,
+				    EERR_SYNTAX,
+				    "Fixed enum declaration without enumerators must be standalone"
+                );
+		}
+		else if (odec != nullptr)
 		{
 			if (odec->mType != DT_TYPE_ENUM)
 			{
@@ -10126,6 +10164,17 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 			{
 				nexp->mDecType = TheSignedIntTypeDeclaration;
 			}
+			else if (
+			    ttype->mType == DT_TYPE_ENUM && ttype->mSize < 2
+			    && (
+			        nexp->mToken == TK_ADD
+			        || nexp->mToken == TK_SUB
+			        || nexp->mToken == TK_BINARY_NOT
+                )
+            )
+			{
+				nexp->mDecType = TheSignedIntTypeDeclaration;
+			}
 			else if (nexp->mToken == TK_BINARY_NOT)
 			{
 				if (ttype->IsIntegerType() && ttype->mFlags & DTF_SIGNED)
@@ -10471,6 +10520,9 @@ Expression* Parser::ParseShiftExpression(bool lhs)
 
 		nexp->mRight = ParseAddExpression(false);
 		nexp->mDecType = exp->mDecType;
+
+		if (exp->mDecType->mType == DT_TYPE_ENUM && exp->mDecType->mSize < 2)
+			nexp->mDecType = TheSignedIntTypeDeclaration;
 
 		exp = nexp->ConstantFold(mErrors, mDataSection);
 

@@ -2,7 +2,28 @@ SRCS=$(filter-out ambiguousoverload_trigger.c constconversionordertest_impl.c co
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES) enumrangeconstraints diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+all: $(EXES) enumrangeconstraints c23enumconstraints diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+
+.PHONY: c23enumconstraints
+c23enumconstraints: c23enumtest.c
+	@set -e; \
+	for mode in -n -bc; do \
+		for selector in BYTE_LOWER BYTE_UPPER UNSIGNED_LOWER UNSIGNED_UPPER WORD_UPPER WORD_LOWER UNSIGNED_WORD_UPPER LONG_UPPER UNSIGNED_LONG_UPPER IMPLICIT_BYTE IMPLICIT_WORD IMPLICIT_LONG BASE_FLOAT BASE_ENUM BASE_POINTER MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED NON_STANDALONE; do \
+			case $$selector in \
+				BASE_*) diagnostic='Enum base type must be an integer type' ;; \
+				MISMATCH_*|PLAIN_TO_FIXED) diagnostic='Enum underlying type does not match previous declaration' ;; \
+				NON_STANDALONE) diagnostic='Fixed enum declaration without enumerators must be standalone' ;; \
+				*) diagnostic='Enum constant is not representable in underlying type' ;; \
+			esac; \
+			status=0; \
+			output="$$($(OSCAR64_CC) -g $$mode -dC23_ENUM_$$selector -o=c23enuminvalid.prg $< 2>&1)" || status=$$?; \
+			if [ $$status -ne 20 ] || ! printf '%s\n' "$$output" | grep -Fq "$$diagnostic"; then \
+				printf '%s\n' "$$output"; \
+				printf 'Expected fixed enum diagnostic for %s %s, got exit status %s\n' "$$mode" "$$selector" "$$status"; \
+				exit 1; \
+			fi; \
+		done; \
+	done
 
 .PHONY: enumrangeconstraints
 enumrangeconstraints: enumrangecheck.c

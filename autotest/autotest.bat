@@ -273,6 +273,12 @@ rem @echo off
 @call :testenumrangeconstraints
 @if %errorlevel% neq 0 goto :error
 
+@call :test c23enumtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testc23enumconstraints
+@if %errorlevel% neq 0 goto :error
+
 @call :test incvector.c
 @if %errorlevel% neq 0 goto :error
 
@@ -392,6 +398,34 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testc23enumconstraints
+@for %%M in (-n -bc) do @for %%C in (BYTE_LOWER BYTE_UPPER UNSIGNED_LOWER UNSIGNED_UPPER WORD_UPPER WORD_LOWER UNSIGNED_WORD_UPPER LONG_UPPER UNSIGNED_LONG_UPPER IMPLICIT_BYTE IMPLICIT_WORD IMPLICIT_LONG BASE_FLOAT BASE_ENUM BASE_POINTER MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED NON_STANDALONE) do (
+	@call :testc23enuminvalid %%M %%C
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testc23enuminvalid
+@set enum_diagnostic=Enum constant is not representable in underlying type
+@for %%C in (BASE_FLOAT BASE_ENUM BASE_POINTER) do @if "%~2"=="%%C" @set enum_diagnostic=Enum base type must be an integer type
+@for %%C in (MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED) do @if "%~2"=="%%C" @set enum_diagnostic=Enum underlying type does not match previous declaration
+@if "%~2"=="NON_STANDALONE" @set enum_diagnostic=Fixed enum declaration without enumerators must be standalone
+..\bin\oscar64 -g %~1 -dC23_ENUM_%~2 -o=c23enuminvalid.prg c23enumtest.c > c23enumtest.log 2>&1
+@set enum_range_error=%errorlevel%
+@if %enum_range_error% neq 20 (
+	@type c23enumtest.log
+	@del c23enumtest.log
+	@exit /b 1
+)
+@findstr /c:"%enum_diagnostic%" c23enumtest.log > nul
+@if %errorlevel% neq 0 (
+	@type c23enumtest.log
+	@del c23enumtest.log
+	@exit /b 1
+)
+@del c23enumtest.log
+@exit /b 0
 
 :testenumrangeconstraints
 @for %%M in (-n -bc) do @for %%C in (EXPLICIT UPPER LOWER IMPLICIT WIDE) do (
