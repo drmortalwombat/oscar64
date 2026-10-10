@@ -1172,27 +1172,27 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				dec->mFlags |= pdec->mFlags & DTF_SIGNED;
 				baseClass = true;
 
-				if (
-				    odec != nullptr
-				    && (
-						odec->mType != DT_TYPE_ENUM
-						|| odec->mBase == nullptr
-						|| !odec->mBase->IsSame(dec->mBase)
-					)
-                )
-					mErrors->Error(
-					    dec->mLocation,
-                        EERR_INCOMPATIBLE_TYPES,
-                        "Enum underlying type does not match previous declaration",
-                        dec->mIdent
-                    );
+				if (odec)
+				{
+					if (odec->mType != DT_TYPE_ENUM || !odec->mBase || !odec->mBase->IsSame(dec->mBase))
+					{
+						mErrors->Error(
+							dec->mLocation,
+							EERR_INCOMPATIBLE_TYPES,
+							"Enum underlying type does not match previous declaration",
+							dec->mIdent
+						);
+					}
+				}
 			}
 			else
+			{
 				mErrors->Error(
-				    pdec->mLocation,
-				    EERR_INCOMPATIBLE_TYPES,
-				    "Enum base type must be an integer type"
-                );
+					pdec->mLocation,
+					EERR_INCOMPATIBLE_TYPES,
+					"Enum base type must be an integer type"
+				);
+			}
 		}
 
 		if (odec != nullptr && odec->mType == DT_TYPE_ENUM && odec->mBase != nullptr)
@@ -1263,16 +1263,15 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 					{
 						cdec->mBase = TheSignedIntTypeDeclaration;
 
-						if (
-						    cdec->mInteger < cdec->mBase->MinInteger()
-						    || cdec->mInteger > cdec->mBase->MaxInteger()
-                        )
+						if (cdec->mInteger < cdec->mBase->MinInteger() || cdec->mInteger > cdec->mBase->MaxInteger())
+						{
 							mErrors->Error(
-                                cdec->mLocation,
-                                EWARN_INVALID_VALUE_RANGE,
-							    "C enum constant is not representable as int",
-							    cdec->mIdent
-                            );
+								cdec->mLocation,
+								EWARN_INVALID_VALUE_RANGE,
+								"C enum constant is not representable as int",
+								cdec->mIdent
+							);
+						}
 					}
 
 					if (cdec->mInteger < minValue)

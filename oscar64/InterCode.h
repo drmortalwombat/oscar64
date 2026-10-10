@@ -688,6 +688,9 @@ public:
 	bool SplitSingleBranchUseConst(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+
+	bool PeepholeReplaceOptimizationIns(int i, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+
 	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 
 	int NumUnrollInstructions(int ireg);

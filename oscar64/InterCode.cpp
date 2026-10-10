@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"bench_tri"
+#define CHECK_FUNC			"p64_loop"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -1818,6 +1818,42 @@ InterOperator InvertRelational(InterOperator oper)
 		return IA_CMPNE;
 	case IA_CMPNE:
 		return IA_CMPEQ;
+	default:
+		return oper;
+	}
+
+}
+
+InterOperator ToUnsignedRelational(InterOperator oper)
+{
+	switch (oper)
+	{
+	case IA_CMPGES:
+		return IA_CMPGEU;
+	case IA_CMPLES:
+		return IA_CMPLEU;
+	case IA_CMPGS:
+		return IA_CMPGU;
+	case IA_CMPLS:
+		return IA_CMPLU;
+	default:
+		return oper;
+	}
+
+}
+
+InterOperator ToSignedRelational(InterOperator oper)
+{
+	switch (oper)
+	{
+	case IA_CMPGEU:
+		return IA_CMPGES;
+	case IA_CMPLEU:
+		return IA_CMPLES;
+	case IA_CMPGU:
+		return IA_CMPGS;
+	case IA_CMPLU:
+		return IA_CMPLS;
 	default:
 		return oper;
 	}
@@ -14208,9 +14244,9 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
 
-						if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDU || pins->mOperator == IA_ADDS))
+						if (pins->mCode == IC_BINARY_OPERATOR && (pins->mOperator == IA_ADDS || pins->mOperator == IA_ADDU && pins->mDst.IsUnsigned()))
 						{
-							if (pins->mSrc[0].mTemp < 0)
+							if (pins->mSrc[0].mTemp < 0 && (pins->mOperator == IA_ADDS || pins->mSrc[1].IsUnsigned()))
 							{
 								if (IsValidSignedIntRange(ins->mSrc[0].mType, ins->mSrc[0].mIntConst - pins->mSrc[0].mIntConst))
 								{
@@ -14220,7 +14256,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 									changed = true;
 								}
 							}
-							else if (pins->mSrc[1].mTemp < 0)
+							else if (pins->mSrc[1].mTemp < 0 && (pins->mOperator == IA_ADDS || pins->mSrc[0].IsUnsigned()))
 							{
 								if (IsValidSignedIntRange(ins->mSrc[0].mType, ins->mSrc[0].mIntConst - pins->mSrc[1].mIntConst))
 								{
@@ -24063,6 +24099,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											nins->mDst.Forward(ins->mDst);
 											nins->mSrc[0].Forward(sins->mSrc[0]);
 											ins->mDst.Forward(sins->mSrc[0]);
+											ins->mDst.mRange.Limit(nins->mDst.mRange);
 											sins->mSrc[0].mFinal = false;
 											assert(nins->mSrc[0].mTemp >= 0);
 
@@ -25145,6 +25182,1782 @@ void InterCodeBasicBlock::CheckBlocks(void)
 #endif
 }
 
+bool InterCodeBasicBlock::PeepholeReplaceOptimizationIns(int i, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
+{
+	int sz = mInstructions.Size();
+
+	if (mInstructions[i + 0]->mCode == IC_NONE)
+	{
+		return false;
+	}
+
+	if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && mInstructions[i]->mDst.mTemp == mInstructions[i]->mSrc[0].mTemp)
+	{
+		mInstructions[i]->mCode = IC_NONE;
+		mInstructions[i]->mNumOperands = 0;
+		mInstructions[i]->mDst.mTemp = -1;
+		return true;
+	}
+
+	if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
+	{
+		LoadConstantFold(mInstructions[i], nullptr, staticVars, staticProcs);
+		return true;
+	}
+
+	if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[0].IsUnsigned())
+	{
+		mInstructions[i]->mSrc[1].mIntConst &= BinMask(mInstructions[i]->mSrc[0].mRange.mMaxValue);
+		if (mInstructions[i]->mSrc[1].mIntConst == BinMask(mInstructions[i]->mSrc[1].mIntConst) && mInstructions[i]->mSrc[0].mRange.mMaxValue <= mInstructions[i]->mSrc[1].mIntConst)
+		{
+			mInstructions[i]->mCode = IC_LOAD_TEMPORARY;
+			mInstructions[i]->mNumOperands = 1;
+			return true;
+		}
+
+	}
+	if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[0].mTemp < 0 && mInstructions[i]->mSrc[1].IsUnsigned())
+	{
+		mInstructions[i]->mSrc[0].mIntConst &= BinMask(mInstructions[i]->mSrc[1].mRange.mMaxValue);
+		if (mInstructions[i]->mSrc[0].mIntConst == BinMask(mInstructions[i]->mSrc[0].mIntConst) && mInstructions[i]->mSrc[1].mRange.mMaxValue <= mInstructions[i]->mSrc[0].mIntConst)
+		{
+			mInstructions[i]->mCode = IC_LOAD_TEMPORARY;
+			mInstructions[i]->mSrc[0] = mInstructions[i]->mSrc[1];
+			mInstructions[i]->mNumOperands = 1;
+			return true;
+		}
+	}
+
+	if (mInstructions[i]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i]->mOperator == IA_CMPGEU && mInstructions[i]->mSrc[0].mTemp < 0 && IsIntegerType(mInstructions[i]->mSrc[0].mType) && mInstructions[i]->mSrc[0].mIntConst == 1)
+	{
+		mInstructions[i]->mOperator = IA_CMPNE;
+		mInstructions[i]->mSrc[0].mIntConst = 0;
+		return true;
+	}
+
+	if (i + 1 < mInstructions.Size())
+	{
+#if 1
+		if (mInstructions[i + 0]->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[i + 1]->mCode == IC_BRANCH && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			(mInstructions[i + 0]->mOperator == IA_CMPEQ || mInstructions[i + 0]->mOperator == IA_CMPNE) &&
+			(mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT8 && mInstructions[i + 0]->mSrc[0].mIntConst == 0 ||
+				mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT8 && mInstructions[i + 0]->mSrc[1].mIntConst == 0))
+		{
+			if (mInstructions[i + 0]->mSrc[0].mTemp < 0)
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			else
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+			if (mInstructions[i + 0]->mOperator == IA_CMPEQ)
+			{
+				InterCodeBasicBlock* b = mTrueJump; mTrueJump = mFalseJump; mFalseJump = b;
+			}
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+#endif
+
+		if (mInstructions[i + 0]->mCode == IC_LOAD && mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mDst.mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst)
+		{
+			InterInstruction* ins(mInstructions[i + 0]);
+			mInstructions[i + 0] = mInstructions[i + 1];
+			mInstructions[i + 1] = ins;
+			mInstructions[i + 1]->mSrc[0].mIntConst = 0;
+			return true;
+		}
+
+		if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[1].mTemp && mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp &&
+			mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
+			!mInstructions[i + 2]->ReferencesTemp(mInstructions[i + 1]->mDst.mTemp))
+		{
+			SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
+			InterInstruction* ins(mInstructions[i + 0]);
+			mInstructions[i + 0] = mInstructions[i + 1];
+			mInstructions[i + 1] = ins;
+		}
+	}
+
+	if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[1].mFinal && mInstructions[i]->mSrc[0].mTemp < 0)
+	{
+		int k = i;
+		while (k + 1 < mInstructions.Size() &&
+			mInstructions[k + 1]->mCode == IC_STORE && mInstructions[k + 1]->mSrc[1].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[k + 1]->mSrc[0].mTemp != mInstructions[i]->mDst.mTemp &&
+			mInstructions[k + 1]->mSrc[1].mIntConst + mInstructions[i]->mSrc[0].mIntConst < 128)
+			k++;
+		if (k > i && mInstructions[k]->mSrc[1].mFinal)
+		{
+			while (k > i)
+			{
+				mInstructions[k]->mSrc[1].mRange = mInstructions[i]->mSrc[1].mRange;
+				mInstructions[k]->mSrc[1].mTemp = mInstructions[i]->mSrc[1].mTemp;
+				mInstructions[k]->mSrc[1].mIntConst += mInstructions[i]->mSrc[0].mIntConst;
+				k--;
+			}
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+	}
+
+	if (i + 2 < mInstructions.Size())
+	{
+		if (mInstructions[i + 0]->mCode == IC_LOAD &&
+			mInstructions[i + 1]->mCode == IC_LOAD &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+			mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
+			mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+			!(mInstructions[i + 0]->mVolatile && mInstructions[i + 1]->mVolatile))
+		{
+			SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
+			InterInstruction* ins(mInstructions[i + 0]);
+			mInstructions[i + 0] = mInstructions[i + 1];
+			mInstructions[i + 1] = ins;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
+
+			mInstructions[i + 1]->mDst.mRange.IsRange(0, 1) && CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 1]) &&
+
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
+		{
+			SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
+			InterInstruction* ins(mInstructions[i + 0]);
+			mInstructions[i + 0] = mInstructions[i + 1];
+			mInstructions[i + 1] = ins;
+			return true;
+		}
+		
+		if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
+			mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
+			(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal)
+		{
+#if _DEBUG
+			for (int j = i + 3; j < mInstructions.Size(); j++)
+				assert(!mInstructions[j]->ReferencesTemp(mInstructions[i]->mDst.mTemp));
+#endif
+
+			int	t = mInstructions[i + 0]->mDst.mTemp;
+			mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
+			mInstructions[i + 2]->mSrc[0].mTemp = mInstructions[i + 1]->mDst.mTemp;
+			mInstructions[i + 2]->mSrc[0].mFinal = false;
+			if (mInstructions[i + 2]->mSrc[1].mTemp == t)
+			{
+				mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
+				mInstructions[i + 2]->mSrc[1].mFinal = false;
+			}
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			mInstructions[i + 1]->mNumOperands = 0;
+			return true;
+		}
+
+		if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
+			mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
+			(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal)
+		{
+#if _DEBUG
+			for (int j = i + 3; j < mInstructions.Size(); j++)
+				assert(!mInstructions[j]->ReferencesTemp(mInstructions[i]->mDst.mTemp));
+#endif
+
+			mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
+			mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
+			mInstructions[i + 2]->mSrc[1].mFinal = false;
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 &&
+			mInstructions[i + 1]->mCode == IC_TYPECAST && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 1]->mDst.mType == IT_POINTER && mInstructions[i + 1]->mSrc[0].mType == IT_INT16)
+		{
+			int64	addr = mInstructions[i + 0]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mCode = IC_LEA;
+			mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mSrc[1].mTemp = -1;
+			mInstructions[i + 0]->mSrc[1].mType = IT_POINTER;
+			mInstructions[i + 0]->mSrc[1].mMemory = IM_ABSOLUTE;
+			mInstructions[i + 0]->mSrc[1].mIntConst = addr;
+			mInstructions[i + 0]->mSrc[1].mLinkerObject = nullptr;
+			mInstructions[i + 0]->mSrc[1].mVarIndex = -1;
+			mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			(mInstructions[i + 1]->mSrc[0].mIntConst & ((1LL << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
+		{
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[0].mIntConst >>= shift;
+			mInstructions[i + 0]->mOperator = IA_AND;
+			mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
+			mInstructions[i + 0]->mDst.mRange.Reset();
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			(mInstructions[i + 1]->mSrc[1].mIntConst & ((1LL << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
+		{
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[1].mIntConst >>= shift;
+			mInstructions[i + 0]->mOperator = IA_AND;
+			mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
+			mInstructions[i + 0]->mDst.mRange.Reset();
+			return true;
+		}
+		
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 65536)
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_MULS || mInstructions[i + 0]->mOperator == IA_MULU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			(mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) < 65536)
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 1]->mOperator = IA_MULS;
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 1]->mSrc[1].IsUByte() &&
+			mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + (mInstructions[i + 1]->mSrc[0].mIntConst >> mInstructions[i + 0]->mSrc[0].mIntConst) < 256 &&
+			(mInstructions[i + 1]->mSrc[0].mIntConst & ((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
+		{
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst, add = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mOperator = IA_ADDS; mInstructions[i + 0]->mSrc[0].mIntConst = add >> shift;
+			mInstructions[i + 1]->mOperator = IA_SHL; mInstructions[i + 1]->mSrc[0].mIntConst = shift;
+			mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+			mInstructions[i + 0]->mDst.mRange.AddConstValue(mInstructions[i + 0]->mDst.mType, add >> shift);
+			mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+			int64	ior = mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst;
+			int64	iand = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mOperator = IA_AND;
+			mInstructions[i + 0]->mSrc[0].mIntConst = iand;
+			mInstructions[i + 1]->mOperator = IA_OR;
+			mInstructions[i + 1]->mSrc[0].mIntConst = ior;
+			return true;
+		}
+		
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+			mInstructions[i + 0]->mSrc[0].mIntConst &= mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_OR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+			mInstructions[i + 0]->mSrc[0].mIntConst |= mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU || mInstructions[i + 0]->mOperator == IA_XOR) &&
+			mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[1].mTemp)
+		{
+			mInstructions[i + 0]->mCode = IC_CONSTANT;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mConst.mType = mInstructions[i + 0]->mDst.mType;
+			mInstructions[i + 0]->mConst.mIntConst = 0;
+			mInstructions[i + 0]->mConst.mFloatConst = 0;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 0]->mSrc[0].mIntConst) &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[i + 1]->mOperator == IA_CMPEQ || mInstructions[i + 1]->mOperator == IA_CMPNE) && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst = 0;
+			mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 0]->mSrc[1].mIntConst) &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[i + 1]->mOperator == IA_CMPEQ || mInstructions[i + 1]->mOperator == IA_CMPNE) && mInstructions[i + 1]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mIntConst == mInstructions[i + 1]->mSrc[1].mIntConst &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp)
+		{
+			mInstructions[i + 1]->mSrc[1].mIntConst = 0;
+			mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mOperator == IA_CMPGEU && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
+			!((mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) & 0xff) &&
+			(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 0x10000)
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mSrc[1].mFinal = false;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_MULS || mInstructions[i + 2]->mOperator == IA_MULU) && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+			(mInstructions[i + 2]->mSrc[0].mIntConst & 1) == 0)
+		{
+
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+			int64	mshift = 1;
+			while (!(mInstructions[i + 2]->mSrc[0].mIntConst & (1ULL << mshift)))
+				mshift++;
+
+			mInstructions[i + 1]->mCode = IC_BINARY_OPERATOR;
+			mInstructions[i + 1]->mOperator = IA_AND;
+			mInstructions[i + 1]->mNumOperands = 2;
+			mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
+			mInstructions[i + 1]->mSrc[1].mType = IT_INT16;
+			mInstructions[i + 1]->mSrc[1].mTemp = -1;
+			mInstructions[i + 1]->mSrc[1].mIntConst = 255;
+
+			if (mshift < shift)
+			{
+				mInstructions[i + 0]->mDst.mRange.mMaxValue <<= mshift;
+				mInstructions[i + 0]->mSrc[0].mIntConst = shift - mshift;
+
+				mInstructions[i + 1]->mSrc[0].mRange.mMaxValue = mInstructions[i + 0]->mDst.mRange.mMaxValue;
+				mInstructions[i + 1]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mDst.mRange.mMaxValue;
+				mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << mshift;
+				mInstructions[i + 2]->mSrc[1].mRange.mMaxValue = mInstructions[i + 0]->mDst.mRange.mMaxValue;
+				mInstructions[i + 2]->mSrc[0].mIntConst >>= mshift;
+			}
+			else if (mshift >= shift)
+			{
+				mInstructions[i + 0]->mCode = IC_LOAD_TEMPORARY;
+				mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->mSrc[1].mTemp = -1;
+				assert(mInstructions[i + 0]->mSrc[0].mTemp >= 0);
+
+				mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << shift;
+				mInstructions[i + 2]->mSrc[0].mIntConst >>= shift;
+			}
+
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+			if (shift & 7)
+			{
+				int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mOperator = IA_AND;
+				mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 0]->mSrc[1].mType;
+
+				mInstructions[i + 0]->mSrc[0].mIntConst = (UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType) >> shift) << shift;
+				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+				mInstructions[i + 0]->mDst.mRange.LimitMax(mInstructions[i + 0]->mSrc[0].mIntConst);
+				mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+				mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+				mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
+
+				if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+				{
+					mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+					mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+				}
+
+				if (shift > mshift)
+				{
+					mInstructions[i + 1]->mOperator = IA_SHR;
+					mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+				}
+				else if (shift < mshift)
+				{
+					mInstructions[i + 1]->mOperator = IA_SHL;
+					mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+				}
+				else
+				{
+					mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+					mInstructions[i + 1]->mCode = IC_NONE;
+					mInstructions[i + 1]->mNumOperands = 0;
+					mInstructions[i + 1]->mDst.mTemp = -1;
+				}
+
+				return true;
+			}
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[0].mIntConst) &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+			if (shift & 7)
+			{
+				int64	mshift = binlog(mInstructions[i + 1]->mSrc[0].mIntConst);
+
+				mInstructions[i + 0]->mOperator = IA_AND;
+				mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 0]->mSrc[1].mType;
+
+				mInstructions[i + 0]->mSrc[0].mIntConst = (UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType) >> shift) << shift;
+				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+				mInstructions[i + 0]->mDst.mRange.LimitMax(mInstructions[i + 0]->mSrc[0].mIntConst);
+				mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+				mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+				mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
+
+				if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+				{
+					mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+					mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+				}
+
+				if (shift > mshift)
+				{
+					mInstructions[i + 1]->mOperator = IA_SHR;
+					mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+				}
+				else if (shift < mshift)
+				{
+					mInstructions[i + 1]->mOperator = IA_SHL;
+					mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+				}
+				else
+				{
+					mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+					mInstructions[i + 1]->mCode = IC_NONE;
+					mInstructions[i + 1]->mNumOperands = 0;
+					mInstructions[i + 1]->mDst.mTemp = -1;
+				}
+
+				return true;
+			}
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+			int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+			if (shift & 7)
+			{
+				int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mOperator = IA_AND;
+				mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
+
+				switch (mInstructions[i + 0]->mSrc[1].mType)
+				{
+				case IT_INT8:
+					mInstructions[i + 0]->mSrc[0].mIntConst = 0xffu >> shift;
+					break;
+				case IT_INT16:
+					mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffu >> shift;
+					break;
+				case IT_INT32:
+					mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffffffu >> shift;
+					break;
+				}
+
+				if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+				{
+					mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+					mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+				}
+
+				if (shift > mshift)
+				{
+					mInstructions[i + 1]->mOperator = IA_SHL;
+					mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+				}
+				else if (shift < mshift)
+				{
+					mInstructions[i + 1]->mOperator = IA_SHR;
+					mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+				}
+				else
+				{
+					mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+					mInstructions[i + 1]->mCode = IC_NONE;
+					mInstructions[i + 1]->mNumOperands = 0;
+					mInstructions[i + 1]->mDst.mTemp = -1;
+				}
+
+				return true;
+			}
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_SHL && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal)
+		{
+			int64	ishr = mInstructions[i + 0]->mSrc[0].mIntConst;
+			int64	iand = mInstructions[i + 1]->mSrc[0].mIntConst;
+			int64	ishl = mInstructions[i + 2]->mSrc[0].mIntConst;
+
+			iand = ((iand & (UnsignedTypeMax(mInstructions[i + 2]->mDst.mType) >> ishl)) << ishr) & UnsignedTypeMax(mInstructions[i + 1]->mDst.mType);
+
+			mInstructions[i + 0]->mOperator = IA_AND;
+			mInstructions[i + 0]->mSrc[0].mIntConst = iand;
+			mInstructions[i + 0]->mDst.mRange.Reset();
+
+			if (ishr > ishl)
+			{
+				mInstructions[i + 1]->mOperator = IA_SHR;
+				mInstructions[i + 1]->mSrc[0].mIntConst = ishr - ishl;
+				mInstructions[i + 1]->mSrc[1].mRange.Reset();
+				mInstructions[i + 1]->mDst.mTemp = mInstructions[i + 2]->mDst.mTemp;
+
+				mInstructions[i + 2]->mCode = IC_NONE;
+				mInstructions[i + 2]->mNumOperands = 0;
+				mInstructions[i + 2]->mDst.mTemp = -1;
+			}
+			else if (ishr < ishl)
+			{
+				mInstructions[i + 2]->mOperator = IA_SHL;
+				mInstructions[i + 2]->mSrc[0].mIntConst = ishl - ishr;
+				mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 0]->mDst.mTemp;
+				mInstructions[i + 2]->mSrc[1].mRange.Reset();
+				mInstructions[i + 2]->mSrc[1].mType = mInstructions[i + 2]->mDst.mType;
+
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
+			}
+			else
+			{
+				mInstructions[i + 0]->mDst = mInstructions[i + 2]->mDst;
+				mInstructions[i + 2]->mCode = IC_NONE;
+				mInstructions[i + 2]->mNumOperands = 0;
+				mInstructions[i + 2]->mDst.mTemp = -1;
+
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
+			}
+
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal
+			)
+		{
+			mInstructions[i + 1]->mSrc[0].ForwardTemp(mInstructions[i + 0]->mSrc[0]);
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
+			mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal
+			)
+		{
+			mInstructions[i + 1]->mSrc[0].ForwardTemp(mInstructions[i + 0]->mSrc[0]);
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR &&
+			(mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[1].mTemp < 0 ||
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
+			)
+		{
+			int64 v = mInstructions[i + 1]->mSrc[0].mIntConst;
+			InterOperator	op = mInstructions[i + 1]->mOperator;
+			if (mInstructions[i + 1]->mSrc[0].mTemp >= 0)
+			{
+				v = mInstructions[i + 1]->mSrc[1].mIntConst;
+				op = MirrorRelational(op);
+			}
+
+			bool	flip = false, istrue = false, isfalse = true;
+
+			switch (op)
+			{
+			case IA_CMPEQ:
+				flip = v == 0;
+				istrue = false;
+				isfalse = (v != 0 && v != 1);
+				break;
+			case IA_CMPNE:
+				flip = v != 0;
+				isfalse = false;
+				istrue = (v != 0 && v != 1);
+				break;
+			case IA_CMPGEU:
+			case IA_CMPGES:
+				istrue = v <= 0;
+				isfalse = v > 1;
+				break;
+			case IA_CMPGU:
+			case IA_CMPGS:
+				istrue = v < 0;
+				isfalse = v >= 1;
+				break;
+			case IA_CMPLEU:
+			case IA_CMPLES:
+				flip = true;
+				isfalse = v < 0;
+				istrue = v >= 1;
+				break;
+			case IA_CMPLU:
+			case IA_CMPLS:
+				flip = true;
+				isfalse = v <= 0;
+				istrue = v > 1;
+				break;
+			}
+
+			if (istrue)
+			{
+				mInstructions[i + 1]->mCode = IC_CONSTANT;
+				mInstructions[i + 1]->mConst.mType = IT_BOOL;
+				mInstructions[i + 1]->mConst.mIntConst = 1;
+				mInstructions[i + 1]->mSrc[0].mTemp = -1;
+				mInstructions[i + 1]->mSrc[0].mType = IT_NONE;
+				mInstructions[i + 1]->mSrc[1].mTemp = -1;
+				mInstructions[i + 1]->mSrc[1].mType = IT_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+			}
+			else if (isfalse)
+			{
+				mInstructions[i + 1]->mCode = IC_CONSTANT;
+				mInstructions[i + 1]->mConst.mType = IT_BOOL;
+				mInstructions[i + 1]->mConst.mIntConst = 0;
+				mInstructions[i + 1]->mSrc[0].mTemp = -1;
+				mInstructions[i + 1]->mSrc[0].mType = IT_NONE;
+				mInstructions[i + 1]->mSrc[1].mTemp = -1;
+				mInstructions[i + 1]->mSrc[1].mType = IT_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+			}
+			else
+			{
+				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
+				if (flip)
+					mInstructions[i + 0]->mOperator = InvertRelational(mInstructions[i + 0]->mOperator);
+			}
+			return true;
+		}
+
+		if (
+			mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] &&
+			(!mExitRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp] ||
+				(mEntryRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mEntryRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp])) &&
+			mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp)
+		{
+			mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
+			mInstructions[i + 1]->mDst.mTemp = mInstructions[i + 1]->mSrc[0].mTemp;
+			mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
+			mInstructions[i + 1]->mSrc[0].mFinal = false;
+			mInstructions[i + 0]->mSingleAssignment = mInstructions[i + 1]->mSingleAssignment;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mDst.mTemp >= 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && IsCommutative(mInstructions[i + 1]->mOperator) &&
+			mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp)
+		{
+			InterOperand	io = mInstructions[i + 1]->mSrc[1];
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+			mInstructions[i + 1]->mSrc[0] = io;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 0]->mSrc[0].IsUByte() &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp)
+		{
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+
+			mInstructions[i + 0]->mCode = IC_LEA;
+			mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+			mInstructions[i + 0]->mDst.mType = IT_POINTER;
+			mInstructions[i + 0]->mDst.mRange.Reset();
+
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
+			mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
+
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 0]->mSrc[0].IsUByte() && !mInstructions[i + 0]->mSrc[1].IsUByte() &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp)
+		{
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+
+			mInstructions[i + 0]->mCode = IC_LEA;
+			mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+			mInstructions[i + 0]->mDst.mType = IT_POINTER;
+			mInstructions[i + 0]->mDst.mRange.Reset();
+
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
+			mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 && mInstructions[i + 0]->mSrc[0].mIntConst <= 16 &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+		{
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+
+			mInstructions[i + 0]->mCode = IC_LEA;
+			mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+			mInstructions[i + 0]->mDst.mType = IT_POINTER;
+			mInstructions[i + 0]->mDst.mRange.Reset();
+
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
+			mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+		{
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 1]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+		{
+			mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+			mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+
+			mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp >= 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+			mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 256)
+		{
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+			mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+			mInstructions[i + 0]->mOperator = IA_ADDS;
+			mInstructions[i + 0]->mDst.mType = IT_INT16;
+			mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+			mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[0].mRange;
+			mInstructions[i + 0]->mDst.mRange.mMaxValue += mInstructions[i + 0]->mSrc[1].mRange.mMaxValue;
+
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
+			mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 1]->mSrc[0].IsUByte() &&
+			mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp < 0)
+		{
+			mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+			mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[1].mIntConst;
+
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+			mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 1]->mSrc[0].IsUByte() &&
+			mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp < 0)
+		{
+			mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+			mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 1]->mSrc[0].IsUByte() &&
+			mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp < 0)
+		{
+			mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 2]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp >= 0 &&
+			mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp < 0 &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp)
+		{
+			mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 1]->mDst.mRange.Reset();
+			mInstructions[i + 0]->mSrc[1].mFinal = false;
+			mInstructions[i + 1]->mSrc[0].mFinal = false;
+			return true;
+		}
+		
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[1].mTemp >= 0 &&
+
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+
+			//						!mInstructions[i + 1]->ReferencesTemp(mInstructions[i + 0]->mDst.mTemp) &&
+			(mInstructions[i + 2]->mSrc[0].mFinal || mInstructions[i + 2]->mSrc[1].mFinal))
+		{
+			if (mInstructions[i + 2]->mSrc[1].mFinal)
+			{
+				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[1].mFinal = false;
+				mInstructions[i + 2]->mSrc[0] = mInstructions[i + 1]->mSrc[1];
+				mInstructions[i + 0]->mDst.mRange.Reset();
+				mInstructions[i + 2]->mDst.mRange.Reset();
+			}
+			else
+			{
+				mInstructions[i + 1]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 0]->mSrc[1].mFinal = false;
+				mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+
+				mInstructions[i + 1]->mDst.mRange.Reset();
+				mInstructions[i + 2]->mDst.mRange.Reset();
+			}
+
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 252)
+		{
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+			mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+			mInstructions[i + 0]->mOperator = IA_ADDS;
+			mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+			mInstructions[i + 0]->mDst.mType = IT_INT16;
+			mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
+			mInstructions[i + 0]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
+			mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+			mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+			mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst < 256)
+		{
+			mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mSrc[1].mTemp;
+			mInstructions[i + 1]->mSrc[0].mRange = mInstructions[i + 0]->mSrc[1].mRange;
+			mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[0].mFinal = mInstructions[i + 0]->mSrc[1].mFinal;
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_STORE && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 1]->mSrc[1].mIntConst != 0)
+		{
+			mInstructions[i + 0]->mSrc[1].mIntConst += mInstructions[i + 1]->mSrc[1].mIntConst;
+			mInstructions[i + 1]->mSrc[1].mIntConst = 0;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 1]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && !mInstructions[i + 1]->mSrc[0].IsUByte() &&
+			mInstructions[i + 0]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && !mInstructions[i + 0]->mSrc[0].IsUByte())
+		{
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+			mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+			mInstructions[i + 0]->mOperator = IA_ADDS;
+			mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+			mInstructions[i + 0]->mDst.mType = IT_INT16;
+			mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
+			mInstructions[i + 0]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
+			mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+			mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 2]->mCode == IC_LEA &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[1].mTemp < 0)
+		{
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 2]->mSrc[0].mRange.AddConstValue(IT_INT16, -(mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst));
+
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+		
+		// Signed add/sub const and compare const
+		if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_SUBS) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == mInstructions[i + 1]->mSrc[1].mType &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
+		{
+			InterType		ct = mInstructions[i + 1]->mSrc[0].mType;
+			if (IsIntegerType(ct))
+			{
+				InterOperator	co = mInstructions[i + 1]->mOperator;
+
+				int64	ai = mInstructions[i + 0]->mOperator == IA_ADDS ? mInstructions[i + 0]->mSrc[0].mIntConst : -mInstructions[i + 0]->mSrc[0].mIntConst;
+				int64	ci = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+				if (IsSignedRelational(co))
+				{
+					ci -= ai;
+					if (ci >= SignedTypeMin(ct) && ci <= SignedTypeMax(ct))
+					{
+						mInstructions[i + 1]->mSrc[0].mIntConst = ci;
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 0]->Reset();
+						return true;
+					}
+				}
+				else if (mInstructions[i + 0]->mDst.IsUnsigned())
+				{
+					ci -= ai;
+					if (ci >= SignedTypeMin(ct) && ci <= SignedTypeMax(ct))
+					{
+						mInstructions[i + 1]->mOperator = ToSignedRelational(co);
+						mInstructions[i + 1]->mSrc[0].mIntConst = ci;
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 0]->Reset();
+						return true;
+					}
+				}
+
+				if (co == IA_CMPEQ || co == IA_CMPNE)
+				{
+					mInstructions[i + 1]->mSrc[0].mIntConst = (ci - ai) & UnsignedTypeMax(ct);
+					mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+					mInstructions[i + 0]->Reset();
+					return true;
+				}
+			}
+			else if (ct == IT_FLOAT)
+			{
+				double	af = mInstructions[i + 0]->mOperator == IA_ADDS ? mInstructions[i + 0]->mSrc[0].mFloatConst : -mInstructions[i + 0]->mSrc[0].mFloatConst;
+
+				mInstructions[i + 1]->mSrc[0].mFloatConst -= af;
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->Reset();
+				return true;
+			}
+		}
+
+		// Unsigned add/sub const and compare const
+		if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDU || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == mInstructions[i + 1]->mSrc[1].mType &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
+		{
+			InterType		ct = mInstructions[i + 1]->mSrc[0].mType;
+			if (IsIntegerType(ct))
+			{
+				InterOperator	co = mInstructions[i + 1]->mOperator;
+
+				int64	ai = mInstructions[i + 0]->mOperator == IA_ADDU ? mInstructions[i + 0]->mSrc[0].mIntConst : -mInstructions[i + 0]->mSrc[0].mIntConst;
+				int64	ci = mInstructions[i + 1]->mSrc[0].mIntConst;
+				int64	m = UnsignedTypeMax(ct);
+
+				if (IsUnsignedRelational(co))
+				{
+					if (mInstructions[i + 0]->mDst.mRange.IsBound() && ci >= mInstructions[i + 0]->mDst.mRange.mMinValue && ci <= mInstructions[i + 0]->mDst.mRange.mMaxValue)
+					{
+						int64	imin = (mInstructions[i + 0]->mDst.mRange.mMinValue + ai) & m;
+						int64	imax = (mInstructions[i + 0]->mDst.mRange.mMaxValue + ai) & m;
+
+						if (imax > imin)
+						{
+							mInstructions[i + 1]->mSrc[0].mIntConst = (ci - ai) & m;
+							mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+							mInstructions[i + 0]->Reset();
+							return true;
+						}
+					}
+				}
+				else
+				{
+					if (ci >= 0)
+					{
+						int64	imin = (0 - ai) & m, imax = (SignedTypeMax(ct) - ai) & m;
+						if (imax >= imin)
+						{
+							mInstructions[i + 1]->mOperator = ToUnsignedRelational(co);
+							mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+							mInstructions[i + 1]->mSrc[0].mIntConst = (ci - ai) & m;
+							mInstructions[i + 0]->Reset();
+							return true;
+						}
+					}
+					else
+					{
+						mInstructions[i + 1]->mCode = IC_CONSTANT;
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mConst.mIntConst = (co == IA_CMPGES || co == IA_CMPGS);
+						mInstructions[i + 0]->Reset();
+						return true;
+					}
+				}
+
+				if (co == IA_CMPEQ || co == IA_CMPNE)
+				{
+					mInstructions[i + 1]->mSrc[0].mIntConst = (ci - ai) & UnsignedTypeMax(ct);
+					mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+					mInstructions[i + 0]->Reset();
+					return true;
+				}
+			}
+			else if (ct == IT_FLOAT)
+			{
+				double	af = mInstructions[i + 0]->mOperator == IA_ADDS ? mInstructions[i + 0]->mSrc[0].mFloatConst : -mInstructions[i + 0]->mSrc[0].mFloatConst;
+
+				mInstructions[i + 1]->mSrc[0].mFloatConst -= af;
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->Reset();
+				return true;
+			}
+		}
+
+#if 0
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 0]->mSrc[0].mIntConst >= 0 &&
+			mInstructions[i + 0]->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mIntConst < 32767 &&
+			(IsSignedRelational(mInstructions[i + 1]->mOperator) || mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
+			mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? 0 : -32768) &&
+			mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mSrc[1].mFinal = false;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
+			mInstructions[i + 0]->mSrc[0].mIntConst >= 0 &&
+			mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
+			mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 0]->mSrc[1].mFinal = false;
+			return true;
+		}
+#endif
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+			mInstructions[i + 2]->mCode == IC_LOAD &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 2]))
+		{
+			InterInstruction* ins = mInstructions[i + 2];
+			mInstructions[i + 2] = mInstructions[i + 1];
+			mInstructions[i + 1] = ins;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 1]->mCode == IC_STORE &&
+			SameMemSegment(mInstructions[i + 1]->mSrc[1], mInstructions[i + 0]->mSrc[1]) &&
+			!mInstructions[i + 0]->mVolatile && !mInstructions[i + 1]->mVolatile)
+		{
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA &&
+			mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+
+			mInstructions[i + 1]->mCode == IC_LOAD &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+			mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 2]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
+			mInstructions[i + 2]->mSrc[1].mTemp != mInstructions[i + 1]->mDst.mTemp)
+		{
+			InterInstruction* iadd = mInstructions[i + 2];
+			mInstructions[i + 2] = mInstructions[i + 1];
+			mInstructions[i + 1] = mInstructions[i + 0];
+			mInstructions[i + 0] = iadd;
+			mInstructions[i + 2]->mSrc[0].mIntConst = 0;
+			return true;
+		}
+
+		if (i + 2 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR && IsUnsignedRelational(mInstructions[i + 1]->mOperator) &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+			mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+			(mInstructions[i + 2]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
+		{
+			mInstructions[i + 0]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 1]->mSrc[0].mIntConst) - 1);
+			mInstructions[i + 2]->mSrc[0].mIntConst <<= mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 2]->mSrc[1] = mInstructions[i + 0]->mDst;
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (i + 2 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && IsUnsignedRelational(mInstructions[i + 1]->mOperator) &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 1]->mSrc[0].mType))
+		{
+			mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+			mInstructions[i + 0]->mOperator = IA_AND;
+			mInstructions[i + 0]->mSrc[0].mIntConst = ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+			mInstructions[i + 0]->mDst.mRange.Reset();
+			mInstructions[i + 1]->mSrc[1].mRange.Reset();
+			return true;
+		}
+
+		if (i + 3 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 0]->mDst.IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
+			mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[1].mTemp >= 0 &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 3]->mCode == IC_STORE &&
+			mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal)
+		{
+			mInstructions[i + 3]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 1]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+			mInstructions[i + 2]->mSrc[0].mRange = mInstructions[i + 0]->mSrc[1].mRange;
+			return true;
+		}
+
+
+		if (i + 3 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_SHL &&
+			mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+
+			mInstructions[i + 3]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 3]->mOperator == IA_AND &&
+			mInstructions[i + 3]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal &&
+
+			mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 2]->mSrc[0].mIntConst)
+		{
+			mInstructions[i + 3]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+			mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 1]->mDst = mInstructions[i + 2]->mDst;
+
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			mInstructions[i + 2]->mCode = IC_NONE;
+			mInstructions[i + 2]->mNumOperands = 0;
+			mInstructions[i + 2]->mDst.mTemp = -1;
+			return true;
+		}
+
+		if (i + 2 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_AND &&
+			mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+
+			(mInstructions[i + 0]->mSrc[0].mIntConst & (mInstructions[i + 0]->mSrc[0].mIntConst + 1)) == 0 && // Is power of two - 1
+			(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst) == 0 && // add is part of initial mask
+			(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 2]->mSrc[0].mIntConst) == 0) // final mask is part of initial mask
+		{
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+			mInstructions[i + 0]->mCode = IC_NONE;
+			mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+
+
+		if (i + 2 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 0]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+			mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+
+			mInstructions[i + 2]->mCode == IC_STORE &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
+		{
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
+			mInstructions[i + 0]->mSrc[0].mFinal = false;
+			mInstructions[i + 1]->mDst.mType = IT_INT8;
+
+			return true;
+		}
+
+		if (i + 2 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 0]->mOperator == IA_EXT8TO16U &&
+			mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+			mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
+			mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+
+			mInstructions[i + 2]->mCode == IC_STORE &&
+			mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+			mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
+		{
+			mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+			mInstructions[i + 0]->mSrc[0].mFinal = false;
+			mInstructions[i + 1]->mDst.mType = IT_INT8;
+
+			return true;
+		}
+
+		if (i + 2 < mInstructions.Size() &&
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[0].mTemp &&
+			mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp &&
+			mInstructions[i + 2]->mSrc[0].mTemp >= 0 && mInstructions[i + 2]->mSrc[1].mTemp >= 0 &&
+			mInstructions[i + 2]->mSrc[0].mFinal && mInstructions[i + 2]->mSrc[1].mFinal &&
+			mInstructions[i + 2]->mDst.mType == IT_INT16)
+		{
+			bool	fail = false;
+			int		s0, s1, c0, c1, s2 = i + 2;
+
+			if (mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
+			{
+				s0 = i + 0; s1 = i + 1;
+			}
+			else if (mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
+			{
+				s0 = i + 1; s1 = i + 0;
+			}
+			else
+				fail = true;
+
+			if (!fail)
+			{
+				if (mInstructions[s0]->mSrc[0].mTemp < 0)
+					c0 = 0;
+				else if (mInstructions[s0]->mSrc[1].mTemp < 0)
+					c0 = 1;
+				else
+					fail = true;
+
+				if (mInstructions[s1]->mSrc[0].mTemp < 0)
+					c1 = 0;
+				else if (mInstructions[s1]->mSrc[1].mTemp < 0)
+					c1 = 1;
+				else
+					fail = true;
+
+				if (!fail)
+				{
+					InterOperator	o0 = mInstructions[s0]->mOperator;
+					InterOperator	o1 = mInstructions[s1]->mOperator;
+					InterOperator	o2 = mInstructions[s2]->mOperator;
+
+					if (o2 == IA_SUBS || o2 == IA_SUBU)
+					{
+						if ((o0 == IA_ADDS || o0 == IA_ADDU || o0 == IA_SUBS || o0 == IA_SUBU && c0 == 0) && (o1 == IA_ADDS || o1 == IA_ADDU || o1 == IA_SUBS || o1 == IA_SUBU && c1 == 0))
+						{
+							int64 iconst =
+								((o1 == IA_ADDS || o1 == IA_ADDU) ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
+								((o0 == IA_ADDS || o0 == IA_ADDU) ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
+
+							mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
+							mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
+							mInstructions[s0]->mDst.mRange.Reset();
+							mInstructions[s0]->mOperator = IA_SUBS;
+							mInstructions[s2]->mOperator = IA_ADDS;
+							mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
+							mInstructions[s2]->mSrc[1].mTemp = -1;
+							mInstructions[s2]->mSrc[1].mIntConst = iconst;
+							return true;
+						}
+					}
+					else if (o2 == IA_ADDS || o2 == IA_ADDU)
+					{
+						if ((o0 == IA_ADDS || o0 == IA_ADDU || o0 == IA_SUBS || o0 == IA_SUBU && c0 == 0) && (o1 == IA_ADDS || o1 == IA_ADDU || o1 == IA_SUBS || o1 == IA_SUBU && c1 == 0))
+						{
+							int64 iconst =
+								((o1 == IA_ADDS || o1 == IA_ADDU) ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
+								((o0 == IA_ADDS || o0 == IA_ADDU) ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
+
+							mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
+							mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
+							mInstructions[s0]->mDst.mRange.Reset();
+							mInstructions[s0]->mOperator = IA_ADDS;
+							mInstructions[s2]->mOperator = IA_ADDS;
+							mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
+							mInstructions[s2]->mSrc[1].mTemp = -1;
+							mInstructions[s2]->mSrc[1].mIntConst = iconst;
+							return true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY)
+		{
+			InterInstruction* mins = mInstructions[i];
+
+			int j = i + 1;
+			while (j + 1 < mInstructions.Size() &&
+				!mInstructions[j]->ReferencesTemp(mins->mDst.mTemp) &&
+				!mInstructions[j]->ReferencesTemp(mins->mSrc[0].mTemp))
+				j++;
+
+			if (j + 1 < mInstructions.Size())
+			{
+				bool changed = false;
+
+				InterInstruction* bins = mInstructions[j];
+				if (bins->mCode == IC_BINARY_OPERATOR &&
+					bins->mSrc[0].mTemp < 0 &&
+					mins->mSrc[0].mTemp == bins->mSrc[1].mTemp &&
+					mins->mSrc[0].mTemp == bins->mDst.mTemp)
+				{
+					int		ttemp = bins->mDst.mTemp;
+					int	k = j;
+					while (k + 2 < mInstructions.Size() &&
+						mInstructions[k + 1]->mCode != IC_RELATIONAL_OPERATOR &&
+						!mInstructions[k + 1]->ReferencesTemp(ttemp))
+					{
+						mInstructions[k] = mInstructions[k + 1];
+						k++;
+					}
+					if (k > j)
+					{
+						mInstructions[k] = bins;
+						changed = true;
+					}
+
+					j = i;
+					while (j + 1 < mInstructions.Size() &&
+						!mInstructions[j + 1]->ReferencesTemp(mins->mDst.mTemp) &&
+						!mInstructions[j + 1]->ReferencesTemp(mins->mSrc[0].mTemp))
+					{
+						mInstructions[j] = mInstructions[j + 1];
+						j++;
+					}
+					if (j > i)
+					{
+						mInstructions[j] = mins;
+						changed = true;
+					}
+				}
+
+				if (changed)
+					return true;
+			}
+		}
+
+		CheckFinalLocal();
+	}
+
+	if (i + 2 < mInstructions.Size())
+	{
+		if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
+			IsIntegerType(mInstructions[i + 0]->mDst.mType) &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mSrc[1].mTemp &&
+			mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp &&
+			mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+			mInstructions[i + 2]->mSrc[0].mTemp < 0)
+		{
+			if (
+				(mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
+				(mInstructions[i + 2]->mOperator == IA_CMPLES || mInstructions[i + 2]->mOperator == IA_CMPLS) &&
+				mInstructions[i + 1]->mSrc[0].mIntConst > 0 &&
+				mInstructions[i + 2]->mSrc[0].mIntConst + mInstructions[i + 1]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
+			{
+				mInstructions[i + 2]->mSrc[1] = mInstructions[i + 1]->mDst;
+				mInstructions[i + 2]->mSrc[1].mFinal = false;
+				mInstructions[i + 2]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+				return true;
+			}
+		}
+	}
+
+	if (i + 3 < mInstructions.Size())
+	{
+		if (
+			mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
+			mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+			mInstructions[i + 3]->mCode == IC_LEA && mInstructions[i + 3]->mSrc[1].mTemp < 0 &&
+			mInstructions[i + 3]->mSrc[0].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[0].mFinal)
+		{
+			int64	d = mInstructions[i + 0]->mSrc[0].mIntConst * mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 3]->mSrc[1].mIntConst += d;
+			mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+			mInstructions[i + 1]->mDst.mRange.mMinValue -= d; mInstructions[i + 1]->mDst.mRange.mMaxValue -= d;
+			mInstructions[i + 2]->mSrc[1].mRange.mMinValue -= d; mInstructions[i + 2]->mSrc[1].mRange.mMaxValue -= d;
+			mInstructions[i + 2]->mDst.mRange.mMinValue -= d; mInstructions[i + 2]->mDst.mRange.mMaxValue -= d;
+			mInstructions[i + 3]->mSrc[0].mRange.mMinValue -= d; mInstructions[i + 3]->mSrc[0].mRange.mMaxValue -= d;
+			mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+			mInstructions[i + 0]->mDst.mTemp = -1;
+			return true;
+		}
+	}
+
+	if (i + 1 < mInstructions.Size())
+	{
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mIntConst < 0)
+		{
+			InterOperand	t0 = mInstructions[i + 0]->mDst;
+			InterOperand	t1 = mInstructions[i + 1]->mDst;
+
+			mInstructions[i + 0]->mDst = t1;
+			mInstructions[i + 1]->mDst = t0;
+			mInstructions[i + 1]->mSrc[1] = t1;
+			mInstructions[i + 0]->mSrc[1].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[0].mIntConst = -mInstructions[i + 1]->mSrc[0].mIntConst;
+			return true;
+		}
+		if (
+			mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
+			mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mIntConst < 0)
+		{
+			InterOperand	t0 = mInstructions[i + 0]->mDst;
+			InterOperand	t1 = mInstructions[i + 1]->mDst;
+
+			mInstructions[i + 0]->mDst = t1;
+			mInstructions[i + 1]->mDst = t0;
+			mInstructions[i + 1]->mSrc[1] = t1;
+			mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 1]->mSrc[0].mIntConst = -mInstructions[i + 1]->mSrc[0].mIntConst;
+			return true;
+		}
+	}
+
+	if (i + 1 < mInstructions.Size())
+	{
+		if (
+			mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[0].mFinal
+			)
+		{
+			mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
+			mInstructions[i + 1]->mSrc[0].mFinal = false;
+			return true;
+		}
+
+		if (
+			mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[1].mFinal
+			)
+		{
+			mInstructions[i + 1]->mSrc[1].mTemp = mInstructions[i + 0]->mDst.mTemp;
+			mInstructions[i + 1]->mSrc[1].mFinal = false;
+			return true;
+		}
+	}
+
+	if (i + 1 < mInstructions.Size())
+	{
+		if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
+			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			mInstructions[i + 1]->mSrc[0].mMemory == IM_ABSOLUTE && mInstructions[i + 1]->mSrc[0].mIntConst == 0)
+		{
+			if (mInstructions[i + 0]->mSrc[1].mMemory != IM_ABSOLUTE)
+			{
+				if (mInstructions[i + 1]->mOperator == IA_CMPEQ)
+				{
+					mInstructions[i + 1]->mNumOperands = 0;
+					mInstructions[i + 1]->mCode = IC_CONSTANT;
+					mInstructions[i + 1]->mConst.mType = IT_BOOL;
+					mInstructions[i + 1]->mConst.mIntConst = 0;
+					return true;
+				}
+				else if (mInstructions[i + 1]->mOperator == IA_CMPNE)
+				{
+					mInstructions[i + 1]->mNumOperands = 0;
+					mInstructions[i + 1]->mCode = IC_CONSTANT;
+					mInstructions[i + 1]->mConst.mType = IT_BOOL;
+					mInstructions[i + 1]->mConst.mIntConst = 1;
+					return true;
+				}
+			}
+		}
+	}
+
+	if (i + 1 < mInstructions.Size())
+	{
+		if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
+			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+			mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			IsIntegerType(mInstructions[i + 0]->mDst.mType))
+		{
+			mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+			mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+
+			mInstructions[i + 1]->mCode = IC_NONE;
+			mInstructions[i + 1]->mNumOperands = 0;
+			mInstructions[i + 1]->mDst.mTemp = -1;
+
+			return true;
+		}
+	}
+
+	if (i + 1 < mInstructions.Size())
+	{
+		if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[0].IsUByte() &&
+			mInstructions[i + 1]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[1].mIntConst))
+		{
+			int64 k = binlog(mInstructions[i + 1]->mSrc[1].mIntConst);
+
+			if (mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp < 0)
+			{
+				int64 s = mInstructions[i + 0]->mSrc[1].mIntConst;
+				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
+				mInstructions[i + 0]->mSrc[0].mTemp = -1;
+				mInstructions[i + 0]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[1].mRange.mMinValue;
+				mInstructions[i + 0]->mDst.mRange.SetLimit(0, mInstructions[i + 0]->mSrc[1].mRange.mMaxValue - mInstructions[i + 0]->mSrc[0].mIntConst);
+				mInstructions[i + 1]->mOperator = IA_SHR;
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+				int64 d = s - mInstructions[i + 0]->mSrc[0].mIntConst;
+				if (d < 0)
+					mInstructions[i + 1]->mSrc[1].mIntConst >>= -d;
+				else
+					mInstructions[i + 1]->mSrc[1].mIntConst <<= d;
+				return true;
+			}
+		}
+
+		if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) &&
+			mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
+			mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[0].IsUByte() &&
+			mInstructions[i + 1]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[1].mIntConst))
+		{
+			int64 k = binlog(mInstructions[i + 1]->mSrc[1].mIntConst);
+
+			if (mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp < 0)
+			{
+				int64 s = mInstructions[i + 0]->mSrc[1].mIntConst;
+				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
+				mInstructions[i + 0]->mSrc[0].mTemp = -1;
+				mInstructions[i + 0]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[1].mRange.mMinValue;
+				mInstructions[i + 0]->mDst.mRange.SetLimit(0, mInstructions[i + 0]->mSrc[1].mRange.mMaxValue - mInstructions[i + 0]->mSrc[0].mIntConst);
+				mInstructions[i + 1]->mOperator = IA_SHL;
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+				int64 d = s - mInstructions[i + 0]->mSrc[0].mIntConst;
+				if (d < 0)
+					mInstructions[i + 1]->mSrc[1].mIntConst <<= -d;
+				else
+					mInstructions[i + 1]->mSrc[1].mIntConst >>= d;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
 	int	j = 0;
@@ -25161,1659 +26974,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 	for (int i = 0; i < mInstructions.Size(); i++)
 	{
-		if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && mInstructions[i]->mDst.mTemp == mInstructions[i]->mSrc[0].mTemp)
-		{
-			mInstructions[i]->mCode = IC_NONE;
-			mInstructions[i]->mNumOperands = 0;
-			mInstructions[i]->mDst.mTemp = -1;
-			changed = true;
-		}
-		if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
-		{
-			LoadConstantFold(mInstructions[i], nullptr, staticVars, staticProcs);
-			changed = true;
-		}
-
-		if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[0].IsUnsigned())
-		{
-			mInstructions[i]->mSrc[1].mIntConst &= BinMask(mInstructions[i]->mSrc[0].mRange.mMaxValue);
-			if (mInstructions[i]->mSrc[1].mIntConst == BinMask(mInstructions[i]->mSrc[1].mIntConst) && mInstructions[i]->mSrc[0].mRange.mMaxValue <= mInstructions[i]->mSrc[1].mIntConst)
-			{
-				mInstructions[i]->mCode = IC_LOAD_TEMPORARY;
-				mInstructions[i]->mNumOperands = 1;
-				changed = true;
-			}
-				
-		}
-		if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[0].mTemp < 0 && mInstructions[i]->mSrc[1].IsUnsigned())
-		{
-			mInstructions[i]->mSrc[0].mIntConst &= BinMask(mInstructions[i]->mSrc[1].mRange.mMaxValue);
-			if (mInstructions[i]->mSrc[0].mIntConst == BinMask(mInstructions[i]->mSrc[0].mIntConst) && mInstructions[i]->mSrc[1].mRange.mMaxValue <= mInstructions[i]->mSrc[0].mIntConst)
-			{
-				mInstructions[i]->mCode = IC_LOAD_TEMPORARY;
-				mInstructions[i]->mSrc[0] = mInstructions[i]->mSrc[1];
-				mInstructions[i]->mNumOperands = 1;
-				changed = true;
-			}
-		}
-
-		if (mInstructions[i]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i]->mOperator == IA_CMPGEU && mInstructions[i]->mSrc[0].mTemp < 0 && IsIntegerType(mInstructions[i]->mSrc[0].mType) && mInstructions[i]->mSrc[0].mIntConst == 1)
-		{
-			mInstructions[i]->mOperator = IA_CMPNE;
-			mInstructions[i]->mSrc[0].mIntConst = 0;
-			changed = true;
-		}
-
-		if (i + 1 < mInstructions.Size())
-		{
-#if 1
-			if (mInstructions[i + 0]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[i + 1]->mCode == IC_BRANCH && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				(mInstructions[i + 0]->mOperator == IA_CMPEQ || mInstructions[i + 0]->mOperator == IA_CMPNE) &&
-				(mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT8 && mInstructions[i + 0]->mSrc[0].mIntConst == 0 ||
-					mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT8 && mInstructions[i + 0]->mSrc[1].mIntConst == 0))
-			{
-				if (mInstructions[i + 0]->mSrc[0].mTemp < 0)
-					mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				else
-					mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
-				if (mInstructions[i + 0]->mOperator == IA_CMPEQ)
-				{
-					InterCodeBasicBlock* b = mTrueJump; mTrueJump = mFalseJump; mFalseJump = b;
-				}
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-#endif
-
-			if (mInstructions[i + 0]->mCode == IC_LOAD && mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mDst.mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst)
-			{
-				InterInstruction* ins(mInstructions[i + 0]);
-				mInstructions[i + 0] = mInstructions[i + 1];
-				mInstructions[i + 1] = ins;
-				mInstructions[i + 1]->mSrc[0].mIntConst = 0;
-				changed = true;
-			}
-
-			if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[1].mTemp && mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp &&
-				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
-				!mInstructions[i + 2]->ReferencesTemp(mInstructions[i + 1]->mDst.mTemp))
-			{
-				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
-				InterInstruction* ins(mInstructions[i + 0]);
-				mInstructions[i + 0] = mInstructions[i + 1];
-				mInstructions[i + 1] = ins;
-			}
-		}
-
-		if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[1].mFinal && mInstructions[i]->mSrc[0].mTemp < 0)
-		{
-			int k = i;
-			while (k + 1 < mInstructions.Size() && 
-				mInstructions[k + 1]->mCode == IC_STORE && mInstructions[k + 1]->mSrc[1].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[k + 1]->mSrc[0].mTemp != mInstructions[i]->mDst.mTemp &&
-				mInstructions[k + 1]->mSrc[1].mIntConst + mInstructions[i]->mSrc[0].mIntConst < 128)
-				k++;
-			if (k > i && mInstructions[k]->mSrc[1].mFinal)
-			{
-				while (k > i)
-				{
-					mInstructions[k]->mSrc[1].mRange = mInstructions[i]->mSrc[1].mRange;
-					mInstructions[k]->mSrc[1].mTemp = mInstructions[i]->mSrc[1].mTemp;
-					mInstructions[k]->mSrc[1].mIntConst += mInstructions[i]->mSrc[0].mIntConst;
-					k--;
-				}
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-
-		}
-
-		if (i + 2 < mInstructions.Size())
-		{
-			if (mInstructions[i + 0]->mCode == IC_NONE)
-			{
-				// just skip it
-			}
-			else if (mInstructions[i + 0]->mCode == IC_LOAD &&
-				mInstructions[i + 1]->mCode == IC_LOAD &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
-				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
-				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
-				!(mInstructions[i + 0]->mVolatile && mInstructions[i + 1]->mVolatile))
-			{
-				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
-				InterInstruction* ins(mInstructions[i + 0]);
-				mInstructions[i + 0] = mInstructions[i + 1];
-				mInstructions[i + 1] = ins;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
-
-				mInstructions[i + 1]->mDst.mRange.IsRange(0, 1) && CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 1]) &&
-
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
-			{
-				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
-				InterInstruction* ins(mInstructions[i + 0]);
-				mInstructions[i + 0] = mInstructions[i + 1];
-				mInstructions[i + 1] = ins;
-				changed = true;
-			}
-			else if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
-				(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal)
-			{
-#if _DEBUG
-				for (int j = i + 3; j < mInstructions.Size(); j++)
-					assert(!mInstructions[j]->ReferencesTemp(mInstructions[i]->mDst.mTemp));
-#endif
-
-				int	t = mInstructions[i + 0]->mDst.mTemp;
-				mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 2]->mSrc[0].mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 2]->mSrc[0].mFinal = false;
-				if (mInstructions[i + 2]->mSrc[1].mTemp == t)
-				{
-					mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
-					mInstructions[i + 2]->mSrc[1].mFinal = false;
-				}
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				mInstructions[i + 1]->mNumOperands = 0;
-				changed = true;
-			}
-			else if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
-				(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal)
-			{
-#if _DEBUG
-				for (int j = i + 3; j < mInstructions.Size(); j++)
-					assert(!mInstructions[j]->ReferencesTemp(mInstructions[i]->mDst.mTemp));
-#endif
-
-				mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 2]->mSrc[1].mFinal = false;
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 &&
-				mInstructions[i + 1]->mCode == IC_TYPECAST && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 1]->mDst.mType == IT_POINTER && mInstructions[i + 1]->mSrc[0].mType == IT_INT16)
-			{
-				int64	addr = mInstructions[i + 0]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mCode = IC_LEA;
-				mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mSrc[1].mTemp = -1;
-				mInstructions[i + 0]->mSrc[1].mType = IT_POINTER;
-				mInstructions[i + 0]->mSrc[1].mMemory = IM_ABSOLUTE;
-				mInstructions[i + 0]->mSrc[1].mIntConst = addr;
-				mInstructions[i + 0]->mSrc[1].mLinkerObject = nullptr;
-				mInstructions[i + 0]->mSrc[1].mVarIndex = -1;
-				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-		
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				(mInstructions[i + 1]->mSrc[0].mIntConst & ((1LL << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
-			{
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[0].mIntConst >>= shift;
-				mInstructions[i + 0]->mOperator = IA_AND;
-				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
-				mInstructions[i + 0]->mDst.mRange.Reset();
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				(mInstructions[i + 1]->mSrc[1].mIntConst & ((1LL << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
-			{
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[1].mIntConst >>= shift;
-				mInstructions[i + 0]->mOperator = IA_AND;
-				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
-				mInstructions[i + 0]->mDst.mRange.Reset();
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 65536)
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_MULS || mInstructions[i + 0]->mOperator == IA_MULU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				(mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) < 65536)
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mOperator = IA_MULS;
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 1]->mSrc[1].IsUByte() &&
-				mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + (mInstructions[i + 1]->mSrc[0].mIntConst >> mInstructions[i + 0]->mSrc[0].mIntConst) < 256 &&
-				(mInstructions[i + 1]->mSrc[0].mIntConst & ((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
-			{
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst, add = mInstructions[i + 1]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mOperator = IA_ADDS; mInstructions[i + 0]->mSrc[0].mIntConst = add >> shift;
-				mInstructions[i + 1]->mOperator = IA_SHL; mInstructions[i + 1]->mSrc[0].mIntConst = shift;
-				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
-				mInstructions[i + 0]->mDst.mRange.AddConstValue(mInstructions[i + 0]->mDst.mType, add >> shift);
-				mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
-				changed = true;
-			}
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-				int64	ior = mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst;
-				int64	iand = mInstructions[i + 1]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mOperator = IA_AND;
-				mInstructions[i + 0]->mSrc[0].mIntConst = iand;
-				mInstructions[i + 1]->mOperator = IA_OR;
-				mInstructions[i + 1]->mSrc[0].mIntConst = ior;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-				mInstructions[i + 0]->mSrc[0].mIntConst &= mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_OR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-				mInstructions[i + 0]->mSrc[0].mIntConst |= mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU || mInstructions[i + 0]->mOperator == IA_XOR) &&
-				mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[1].mTemp)
-			{
-				mInstructions[i + 0]->mCode = IC_CONSTANT;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mConst.mType = mInstructions[i + 0]->mDst.mType;
-				mInstructions[i + 0]->mConst.mIntConst = 0;
-				mInstructions[i + 0]->mConst.mFloatConst = 0;
-				changed = true;
-			}
-#endif
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 0]->mSrc[0].mIntConst) &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[i + 1]->mOperator == IA_CMPEQ || mInstructions[i + 1]->mOperator == IA_CMPNE) && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst = 0;
-				mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 0]->mSrc[1].mIntConst) &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[i + 1]->mOperator == IA_CMPEQ || mInstructions[i + 1]->mOperator == IA_CMPNE) && mInstructions[i + 1]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mIntConst == mInstructions[i + 1]->mSrc[1].mIntConst &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp)
-			{
-				mInstructions[i + 1]->mSrc[1].mIntConst = 0;
-				mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
-				changed = true;
-			}
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mOperator == IA_CMPGEU && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
-				!((mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) & 0xff) &&
-				(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 0x10000)
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mSrc[1].mFinal = false;
-				changed = true;
-			}
-
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_MULS || mInstructions[i + 2]->mOperator == IA_MULU) && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
-				(mInstructions[i + 2]->mSrc[0].mIntConst & 1) == 0)
-			{
-
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				int64	mshift = 1;
-				while (!(mInstructions[i + 2]->mSrc[0].mIntConst & (1ULL << mshift)))
-					mshift++;
-
-				mInstructions[i + 1]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 1]->mOperator = IA_AND;
-				mInstructions[i + 1]->mNumOperands = 2;
-				mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
-				mInstructions[i + 1]->mSrc[1].mType = IT_INT16;
-				mInstructions[i + 1]->mSrc[1].mTemp = -1;
-				mInstructions[i + 1]->mSrc[1].mIntConst = 255;
-
-				if (mshift < shift)
-				{
-					mInstructions[i + 0]->mDst.mRange.mMaxValue <<= mshift;
-					mInstructions[i + 0]->mSrc[0].mIntConst = shift - mshift;
-
-					mInstructions[i + 1]->mSrc[0].mRange.mMaxValue = mInstructions[i + 0]->mDst.mRange.mMaxValue;
-					mInstructions[i + 1]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mDst.mRange.mMaxValue;
-					mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << mshift;
-					mInstructions[i + 2]->mSrc[1].mRange.mMaxValue = mInstructions[i + 0]->mDst.mRange.mMaxValue;
-					mInstructions[i + 2]->mSrc[0].mIntConst >>= mshift;
-				}
-				else if (mshift >= shift)
-				{
-					mInstructions[i + 0]->mCode = IC_LOAD_TEMPORARY;
-					mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-					mInstructions[i + 0]->mSrc[1].mTemp = -1;
-					assert(mInstructions[i + 0]->mSrc[0].mTemp >= 0);
-
-					mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << shift;
-					mInstructions[i + 2]->mSrc[0].mIntConst >>= shift;
-				}
-
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				if (shift & 7)
-				{
-					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
-
-					mInstructions[i + 0]->mOperator = IA_AND;
-					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 0]->mSrc[1].mType;
-
-					mInstructions[i + 0]->mSrc[0].mIntConst = (UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType) >> shift) << shift;
-					mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
-					mInstructions[i + 0]->mDst.mRange.LimitMax(mInstructions[i + 0]->mSrc[0].mIntConst);
-					mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
-					mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
-					mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
-
-					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
-					{
-						mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
-						mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
-					}
-
-					if (shift > mshift)
-					{
-						mInstructions[i + 1]->mOperator = IA_SHR;
-						mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
-					}
-					else if (shift < mshift)
-					{
-						mInstructions[i + 1]->mOperator = IA_SHL;
-						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
-					}
-					else
-					{
-						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-						mInstructions[i + 1]->mCode = IC_NONE;
-						mInstructions[i + 1]->mNumOperands = 0;
-						mInstructions[i + 1]->mDst.mTemp = -1;
-					}
-
-					changed = true;
-				}
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[0].mIntConst) &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				if (shift & 7)
-				{
-					int64	mshift = binlog(mInstructions[i + 1]->mSrc[0].mIntConst);
-
-					mInstructions[i + 0]->mOperator = IA_AND;
-					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 0]->mSrc[1].mType;
-
-					mInstructions[i + 0]->mSrc[0].mIntConst = (UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType) >> shift) << shift;
-					mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
-					mInstructions[i + 0]->mDst.mRange.LimitMax(mInstructions[i + 0]->mSrc[0].mIntConst);
-					mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
-					mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
-					mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
-
-					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
-					{
-						mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
-						mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
-					}
-
-					if (shift > mshift)
-					{
-						mInstructions[i + 1]->mOperator = IA_SHR;
-						mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
-					}
-					else if (shift < mshift)
-					{
-						mInstructions[i + 1]->mOperator = IA_SHL;
-						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
-					}
-					else
-					{
-						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-						mInstructions[i + 1]->mCode = IC_NONE;
-						mInstructions[i + 1]->mNumOperands = 0;
-						mInstructions[i + 1]->mDst.mTemp = -1;
-					}
-
-					changed = true;
-				}
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				if (shift & 7)
-				{
-					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
-
-					mInstructions[i + 0]->mOperator = IA_AND;
-					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
-
-					switch (mInstructions[i + 0]->mSrc[1].mType)
-					{
-					case IT_INT8:
-						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffu >> shift;
-						break;
-					case IT_INT16:
-						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffu >> shift;
-						break;
-					case IT_INT32:
-						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffffffu >> shift;
-						break;
-					}
-
-					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
-					{
-						mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
-						mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
-					}
-
-					if (shift > mshift)
-					{
-						mInstructions[i + 1]->mOperator = IA_SHL;
-						mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
-					}
-					else if (shift < mshift)
-					{
-						mInstructions[i + 1]->mOperator = IA_SHR;
-						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
-					}
-					else
-					{
-						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-						mInstructions[i + 1]->mCode = IC_NONE;
-						mInstructions[i + 1]->mNumOperands = 0;
-						mInstructions[i + 1]->mDst.mTemp = -1;
-					}
-
-					changed = true;
-				}
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_SHL && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal)
-			{
-				int64	ishr = mInstructions[i + 0]->mSrc[0].mIntConst;
-				int64	iand = mInstructions[i + 1]->mSrc[0].mIntConst;
-				int64	ishl = mInstructions[i + 2]->mSrc[0].mIntConst;
-
-				iand = ((iand & (UnsignedTypeMax(mInstructions[i + 2]->mDst.mType) >> ishl)) << ishr) & UnsignedTypeMax(mInstructions[i + 1]->mDst.mType);
-
-				mInstructions[i + 0]->mOperator = IA_AND;
-				mInstructions[i + 0]->mSrc[0].mIntConst = iand;
-				mInstructions[i + 0]->mDst.mRange.Reset();
-
-				if (ishr > ishl)
-				{
-					mInstructions[i + 1]->mOperator = IA_SHR;
-					mInstructions[i + 1]->mSrc[0].mIntConst = ishr - ishl;
-					mInstructions[i + 1]->mSrc[1].mRange.Reset();
-					mInstructions[i + 1]->mDst.mTemp = mInstructions[i + 2]->mDst.mTemp;
-
-					mInstructions[i + 2]->mCode = IC_NONE;
-					mInstructions[i + 2]->mNumOperands = 0;
-					mInstructions[i + 2]->mDst.mTemp = -1;
-				}
-				else if (ishr < ishl)
-				{
-					mInstructions[i + 2]->mOperator = IA_SHL;
-					mInstructions[i + 2]->mSrc[0].mIntConst = ishl - ishr;
-					mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 0]->mDst.mTemp;
-					mInstructions[i + 2]->mSrc[1].mRange.Reset();
-					mInstructions[i + 2]->mSrc[1].mType = mInstructions[i + 2]->mDst.mType;
-
-					mInstructions[i + 1]->mCode = IC_NONE;
-					mInstructions[i + 1]->mNumOperands = 0;
-					mInstructions[i + 1]->mDst.mTemp = -1;
-				}
-				else
-				{
-					mInstructions[i + 0]->mDst = mInstructions[i + 2]->mDst;
-					mInstructions[i + 2]->mCode = IC_NONE;
-					mInstructions[i + 2]->mNumOperands = 0;
-					mInstructions[i + 2]->mDst.mTemp = -1;
-
-					mInstructions[i + 1]->mCode = IC_NONE;
-					mInstructions[i + 1]->mNumOperands = 0;
-					mInstructions[i + 1]->mDst.mTemp = -1;
-				}
-
-
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal
-				)
-			{
-				mInstructions[i + 1]->mSrc[0].ForwardTemp(mInstructions[i + 0]->mSrc[0]);
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
-				mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal
-				)
-			{
-				mInstructions[i + 1]->mSrc[0].ForwardTemp(mInstructions[i + 0]->mSrc[0]);
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR &&
-				(mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[1].mTemp < 0 ||
-					mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
-				)
-			{
-				int64 v = mInstructions[i + 1]->mSrc[0].mIntConst;
-				InterOperator	op = mInstructions[i + 1]->mOperator;
-				if (mInstructions[i + 1]->mSrc[0].mTemp >= 0)
-				{
-					v = mInstructions[i + 1]->mSrc[1].mIntConst;
-					op = MirrorRelational(op);
-				}
-
-				bool	flip = false, istrue = false, isfalse = true;
-
-				switch (op)
-				{
-				case IA_CMPEQ:
-					flip = v == 0;
-					istrue = false;
-					isfalse = (v != 0 && v != 1);
-					break;
-				case IA_CMPNE:
-					flip = v != 0;
-					isfalse = false;
-					istrue = (v != 0 && v != 1);
-					break;
-				case IA_CMPGEU:
-				case IA_CMPGES:
-					istrue = v <= 0;
-					isfalse = v > 1;
-					break;
-				case IA_CMPGU:
-				case IA_CMPGS:
-					istrue = v < 0;
-					isfalse = v >= 1;
-					break;
-				case IA_CMPLEU:
-				case IA_CMPLES:
-					flip = true;
-					isfalse = v < 0;
-					istrue = v >= 1;
-					break;
-				case IA_CMPLU:
-				case IA_CMPLS:
-					flip = true;
-					isfalse = v <= 0;
-					istrue = v > 1;
-					break;
-				}
-
-				if (istrue)
-				{
-					mInstructions[i + 1]->mCode = IC_CONSTANT;
-					mInstructions[i + 1]->mConst.mType = IT_BOOL;
-					mInstructions[i + 1]->mConst.mIntConst = 1;
-					mInstructions[i + 1]->mSrc[0].mTemp = -1;
-					mInstructions[i + 1]->mSrc[0].mType = IT_NONE;
-					mInstructions[i + 1]->mSrc[1].mTemp = -1;
-					mInstructions[i + 1]->mSrc[1].mType = IT_NONE;
-					mInstructions[i + 1]->mNumOperands = 0;
-				}
-				else if (isfalse)
-				{
-					mInstructions[i + 1]->mCode = IC_CONSTANT;
-					mInstructions[i + 1]->mConst.mType = IT_BOOL;
-					mInstructions[i + 1]->mConst.mIntConst = 0;
-					mInstructions[i + 1]->mSrc[0].mTemp = -1;
-					mInstructions[i + 1]->mSrc[0].mType = IT_NONE;
-					mInstructions[i + 1]->mSrc[1].mTemp = -1;
-					mInstructions[i + 1]->mSrc[1].mType = IT_NONE;
-					mInstructions[i + 1]->mNumOperands = 0;
-				}
-				else
-				{
-					mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-					mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
-					mInstructions[i + 1]->mDst.mTemp = -1;
-					if (flip)
-						mInstructions[i + 0]->mOperator = InvertRelational(mInstructions[i + 0]->mOperator);
-				}
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] &&
-				(!mExitRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp] ||
-					(mEntryRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mEntryRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp])) &&
-				mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp)
-			{
-				mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 1]->mDst.mTemp = mInstructions[i + 1]->mSrc[0].mTemp;
-				mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
-				mInstructions[i + 1]->mSrc[0].mFinal = false;
-				mInstructions[i + 0]->mSingleAssignment = mInstructions[i + 1]->mSingleAssignment;
-				changed = true;
-			}
-#endif
-			else if (
-				mInstructions[i + 0]->mDst.mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && IsCommutative(mInstructions[i + 1]->mOperator) && 
-				mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp && 
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp)
-			{
-				InterOperand	io = mInstructions[i + 1]->mSrc[1];
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
-				mInstructions[i + 1]->mSrc[0] = io;
-				changed = true;
-			}
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 0]->mSrc[0].IsUByte() &&
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp)
-			{
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-
-				mInstructions[i + 0]->mCode = IC_LEA;
-				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
-				mInstructions[i + 0]->mDst.mType = IT_POINTER;
-				mInstructions[i + 0]->mDst.mRange.Reset();
-
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
-				mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
-
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 0]->mSrc[0].IsUByte() && !mInstructions[i + 0]->mSrc[1].IsUByte() &&
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp)
-			{
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
-
-				mInstructions[i + 0]->mCode = IC_LEA;
-				mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
-				mInstructions[i + 0]->mDst.mType = IT_POINTER;
-				mInstructions[i + 0]->mDst.mRange.Reset();
-
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
-				mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 && mInstructions[i + 0]->mSrc[0].mIntConst <= 16 &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
-			{
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
-
-				mInstructions[i + 0]->mCode = IC_LEA;
-				mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
-				mInstructions[i + 0]->mDst.mType = IT_POINTER;
-				mInstructions[i + 0]->mDst.mRange.Reset();
-
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
-				mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
-			{
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
-			{
-				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
-
-				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp >= 0 && 
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && 
-				mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 256)
-			{
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-
-				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 0]->mOperator = IA_ADDS;
-				mInstructions[i + 0]->mDst.mType = IT_INT16;
-				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
-				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[0].mRange;
-				mInstructions[i + 0]->mDst.mRange.mMaxValue += mInstructions[i + 0]->mSrc[1].mRange.mMaxValue;
-
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
-				changed = true;
-			}
-#endif
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
-				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 1]->mSrc[0].IsUByte() &&
-				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp < 0)
-			{
-				mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
-				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[1].mIntConst;
-
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
-				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 1]->mSrc[0].IsUByte() &&
-				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp < 0)
-			{
-				mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
-				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 1]->mSrc[0].IsUByte() &&
-				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp < 0)
-			{
-				mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 2]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp >= 0 &&
-				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp < 0 &&
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp)
-			{
-				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mDst.mRange.Reset();
-				mInstructions[i + 0]->mSrc[1].mFinal = false;
-				mInstructions[i + 1]->mSrc[0].mFinal = false;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
-
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[1].mTemp >= 0 &&
-
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
-
-				//						!mInstructions[i + 1]->ReferencesTemp(mInstructions[i + 0]->mDst.mTemp) &&
-				(mInstructions[i + 2]->mSrc[0].mFinal || mInstructions[i + 2]->mSrc[1].mFinal))
-			{
-				if (mInstructions[i + 2]->mSrc[1].mFinal)
-				{
-					mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
-					mInstructions[i + 1]->mSrc[1].mFinal = false;
-					mInstructions[i + 2]->mSrc[0] = mInstructions[i + 1]->mSrc[1];
-					mInstructions[i + 0]->mDst.mRange.Reset();
-					mInstructions[i + 2]->mDst.mRange.Reset();
-				}
-				else
-				{
-					mInstructions[i + 1]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
-					mInstructions[i + 0]->mSrc[1].mFinal = false;
-					mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-
-					mInstructions[i + 1]->mDst.mRange.Reset();
-					mInstructions[i + 2]->mDst.mRange.Reset();
-				}
-
-				changed = true;
-			}
-
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 252)
-			{
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-
-				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 0]->mOperator = IA_ADDS;
-				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
-				mInstructions[i + 0]->mDst.mType = IT_INT16;
-				mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
-				mInstructions[i + 0]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
-				mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
-				mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
-
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst < 256)
-			{
-				mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mSrc[1].mTemp;
-				mInstructions[i + 1]->mSrc[0].mRange = mInstructions[i + 0]->mSrc[1].mRange;
-				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[0].mFinal = mInstructions[i + 0]->mSrc[1].mFinal;
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_STORE && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 1]->mSrc[1].mIntConst != 0)
-			{
-				mInstructions[i + 0]->mSrc[1].mIntConst += mInstructions[i + 1]->mSrc[1].mIntConst;
-				mInstructions[i + 1]->mSrc[1].mIntConst = 0;
-				changed = true;
-			}
-#if 1
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 1]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && !mInstructions[i + 1]->mSrc[0].IsUByte() &&
-				mInstructions[i + 0]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && !mInstructions[i + 0]->mSrc[0].IsUByte())
-			{
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-
-				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
-				mInstructions[i + 0]->mOperator = IA_ADDS;
-				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
-				mInstructions[i + 0]->mDst.mType = IT_INT16;
-				mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
-				mInstructions[i + 0]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
-				mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
-				mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
-
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
-				changed = true;
-			}
-#endif
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mCode == IC_LEA &&
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[1].mTemp < 0)
-			{
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 2]->mSrc[0].mRange.AddConstValue(IT_INT16, - (mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst));
-
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
-				mInstructions[i + 0]->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mIntConst < 32767 &&
-				(IsSignedRelational(mInstructions[i + 1]->mOperator) || mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
-				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? 0 : -32768) &&
-				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mSrc[1].mFinal = false;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
-				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
-				mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
-				mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 0]->mSrc[1].mFinal = false;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && 
-				mInstructions[i + 2]->mCode == IC_LOAD &&
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 2]))
-			{
-				InterInstruction* ins = mInstructions[i + 2];
-				mInstructions[i + 2] = mInstructions[i + 1];
-				mInstructions[i + 1] = ins;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 1]->mCode == IC_STORE &&
-				SameMemSegment(mInstructions[i + 1]->mSrc[1], mInstructions[i + 0]->mSrc[1]) &&
-				!mInstructions[i + 0]->mVolatile && !mInstructions[i + 1]->mVolatile)
-			{
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_LEA && 
-				mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
-
-				mInstructions[i + 1]->mCode == IC_LOAD && 
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && 
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
-				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 2]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
-				mInstructions[i + 2]->mSrc[1].mTemp != mInstructions[i + 1]->mDst.mTemp)
-			{
-				InterInstruction* iadd = mInstructions[i + 2];
-				mInstructions[i + 2] = mInstructions[i + 1];
-				mInstructions[i + 1] = mInstructions[i + 0];
-				mInstructions[i + 0] = iadd;
-				mInstructions[i + 2]->mSrc[0].mIntConst = 0;
-				changed = true;
-			}
-#if 1
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR && IsUnsignedRelational(mInstructions[i + 1]->mOperator) &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
-				(mInstructions[i + 2]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
-			{
-				mInstructions[i + 0]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 1]->mSrc[0].mIntConst) - 1);
-				mInstructions[i + 2]->mSrc[0].mIntConst <<= mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 2]->mSrc[1] = mInstructions[i + 0]->mDst;
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-				changed = true;
-			}
-
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && IsUnsignedRelational(mInstructions[i + 1]->mOperator) &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 && 
-				(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 1]->mSrc[0].mType))
-			{
-				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
-
-				mInstructions[i + 0]->mOperator = IA_AND;
-				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
-				mInstructions[i + 0]->mDst.mRange.Reset();
-				mInstructions[i + 1]->mSrc[1].mRange.Reset();
-				changed = true;
-			}
-
-			if (i + 3 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 0]->mDst.IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
-				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[1].mTemp >= 0 &&
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 3]->mCode == IC_STORE &&
-				mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal)
-			{
-				mInstructions[i + 3]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
-				mInstructions[i + 2]->mSrc[0].mRange = mInstructions[i + 0]->mSrc[1].mRange;
-				changed = true;
-			}
-
-
-			if (i + 3 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_SHL &&
-				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
-
-				mInstructions[i + 3]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 3]->mOperator == IA_AND &&
-				mInstructions[i + 3]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal &&
-
-				mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 2]->mSrc[0].mIntConst)
-			{
-				mInstructions[i + 3]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
-				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
-
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mDst = mInstructions[i + 2]->mDst;
-
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				mInstructions[i + 2]->mCode = IC_NONE;
-				mInstructions[i + 2]->mNumOperands = 0;
-				mInstructions[i + 2]->mDst.mTemp = -1;
-				changed = true;
-			}
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_AND &&
-				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
-
-				(mInstructions[i + 0]->mSrc[0].mIntConst & (mInstructions[i + 0]->mSrc[0].mIntConst + 1)) == 0 && // Is power of two - 1
-				(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst) == 0 && // add is part of initial mask
-				(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 2]->mSrc[0].mIntConst) == 0) // final mask is part of initial mask
-			{
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-
-				mInstructions[i + 0]->mCode = IC_NONE;
-				mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-#endif
-
-#if 1
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 0]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
-				mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
-
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
-
-				mInstructions[i + 2]->mCode == IC_STORE && 
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
-			{
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
-				mInstructions[i + 0]->mSrc[0].mFinal = false;
-				mInstructions[i + 1]->mDst.mType = IT_INT8;
-
-				changed = true;
-			}
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 0]->mOperator == IA_EXT8TO16U &&
-				mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
-				mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
-
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_SUBS || mInstructions[i + 1]->mOperator == IA_SUBU) &&
-				mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
-
-				mInstructions[i + 2]->mCode == IC_STORE &&
-				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
-				mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
-			{
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
-				mInstructions[i + 0]->mSrc[0].mFinal = false;
-				mInstructions[i + 1]->mDst.mType = IT_INT8;
-
-				changed = true;
-			}
-#endif
-
-#if 0
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mDst.mType == IT_FLOAT &&
-
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU || mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) &&
-				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
-			{
-				InterOperand	op = mInstructions[i + 1]->mSrc[0];
-				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 1]->mSrc[1];
-				mInstructions[i + 1]->mSrc[1] = op;
-
-				changed = true;
-			}
-#endif
-#if 1
-			if (i + 2 < mInstructions.Size() &&
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && 
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[0].mTemp &&
-				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp &&
-				mInstructions[i + 2]->mSrc[0].mTemp >= 0 && mInstructions[i + 2]->mSrc[1].mTemp >= 0 &&
-				mInstructions[i + 2]->mSrc[0].mFinal && mInstructions[i + 2]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mDst.mType == IT_INT16)
-			{
-				bool	fail = false;
-				int		s0, s1, c0, c1, s2 = i + 2;
-
-				if (mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
-				{
-					s0 = i + 0; s1 = i + 1;
-				}
-				else if (mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
-				{
-					s0 = i + 1; s1 = i + 0;
-				}
-				else
-					fail = true;
-
-				if (!fail)
-				{
-					if (mInstructions[s0]->mSrc[0].mTemp < 0)
-						c0 = 0;
-					else if (mInstructions[s0]->mSrc[1].mTemp < 0)
-						c0 = 1;
-					else
-						fail = true;
-
-					if (mInstructions[s1]->mSrc[0].mTemp < 0)
-						c1 = 0;
-					else if (mInstructions[s1]->mSrc[1].mTemp < 0)
-						c1 = 1;
-					else
-						fail = true;
-
-					if (!fail)
-					{
-						InterOperator	o0 = mInstructions[s0]->mOperator;
-						InterOperator	o1 = mInstructions[s1]->mOperator;
-						InterOperator	o2 = mInstructions[s2]->mOperator;
-
-						if (o2 == IA_SUBS || o2 == IA_SUBU)
-						{
-							if ((o0 == IA_ADDS || o0 == IA_ADDU || o0 == IA_SUBS || o0 == IA_SUBU && c0 == 0) && (o1 == IA_ADDS || o1 == IA_ADDU || o1 == IA_SUBS || o1 == IA_SUBU && c1 == 0))
-							{
-								int64 iconst =
-									((o1 == IA_ADDS || o1 == IA_ADDU) ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
-									((o0 == IA_ADDS || o0 == IA_ADDU) ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
-
-								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
-								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
-								mInstructions[s0]->mDst.mRange.Reset();
-								mInstructions[s0]->mOperator = IA_SUBS;
-								mInstructions[s2]->mOperator = IA_ADDS;
-								mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
-								mInstructions[s2]->mSrc[1].mTemp = -1;
-								mInstructions[s2]->mSrc[1].mIntConst = iconst;
-								changed = true;
-							}
-						}
-						else if (o2 == IA_ADDS ||o2 == IA_ADDU)
-						{
-							if ((o0 == IA_ADDS || o0 == IA_ADDU || o0 == IA_SUBS || o0 == IA_SUBU && c0 == 0) && (o1 == IA_ADDS || o1 == IA_ADDU || o1 == IA_SUBS || o1 == IA_SUBU && c1 == 0))
-							{
-								int64 iconst =
-									((o1 == IA_ADDS || o1 == IA_ADDU) ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
-									((o0 == IA_ADDS || o0 == IA_ADDU) ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
-
-								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
-								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
-								mInstructions[s0]->mDst.mRange.Reset();
-								mInstructions[s0]->mOperator = IA_ADDS;
-								mInstructions[s2]->mOperator = IA_ADDS;
-								mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
-								mInstructions[s2]->mSrc[1].mTemp = -1;
-								mInstructions[s2]->mSrc[1].mIntConst = iconst;
-								changed = true;
-							}
-						}
-					}
-				}
-			}
-#endif
-
-#if 1
-			// Postincrement artifact
-			if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY)
-			{
-				InterInstruction* mins = mInstructions[i];
-
-				int j = i + 1;
-				while (j + 1 < mInstructions.Size() &&
-					!mInstructions[j]->ReferencesTemp(mins->mDst.mTemp) &&
-					!mInstructions[j]->ReferencesTemp(mins->mSrc[0].mTemp))
-					j++;
-
-				if (j + 1 < mInstructions.Size())
-				{
-					InterInstruction* bins = mInstructions[j];
-					if (bins->mCode == IC_BINARY_OPERATOR &&
-						bins->mSrc[0].mTemp < 0 &&
-						mins->mSrc[0].mTemp == bins->mSrc[1].mTemp &&
-						mins->mSrc[0].mTemp == bins->mDst.mTemp)
-					{
-						int		ttemp = bins->mDst.mTemp;
-						int	k = j;
-						while (k + 2 < mInstructions.Size() &&
-							mInstructions[k + 1]->mCode != IC_RELATIONAL_OPERATOR &&
-							!mInstructions[k + 1]->ReferencesTemp(ttemp))
-						{
-							mInstructions[k] = mInstructions[k + 1];
-							k++;
-						}
-						if (k > j)
-						{
-							mInstructions[k] = bins;
-							changed = true;
-						}
-
-						j = i;
-						while (j + 1 < mInstructions.Size() &&
-							!mInstructions[j + 1]->ReferencesTemp(mins->mDst.mTemp) &&
-							!mInstructions[j + 1]->ReferencesTemp(mins->mSrc[0].mTemp))
-						{
-							mInstructions[j] = mInstructions[j + 1];
-							j++;
-						}
-						if (j > i)
-						{
-							mInstructions[j] = mins;
-							changed = true;
-						}
-					}
-				}
-			}
-
-			CheckFinalLocal();
-#endif
-		}
-#if 1
-		if (i + 2 < mInstructions.Size())
-		{
-			if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
-				IsIntegerType(mInstructions[i + 0]->mDst.mType) &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mSrc[1].mTemp &&
-				mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp &&
-				mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
-				mInstructions[i + 2]->mSrc[0].mTemp < 0)
-			{
-				if (
-					(mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
-					(mInstructions[i + 2]->mOperator == IA_CMPLES || mInstructions[i + 2]->mOperator == IA_CMPLS) &&
-					mInstructions[i + 1]->mSrc[0].mIntConst > 0 &&
-					mInstructions[i + 2]->mSrc[0].mIntConst + mInstructions[i + 1]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
-				{
-					mInstructions[i + 2]->mSrc[1] = mInstructions[i + 1]->mDst;
-					mInstructions[i + 2]->mSrc[1].mFinal = false;
-					mInstructions[i + 2]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
-					changed = true;
-				}
-			}
-		}
-#endif
-		if (i + 3 < mInstructions.Size())
-		{
-			if (
-				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_MULS || mInstructions[i + 1]->mOperator == IA_MULU) && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 2]->mOperator == IA_ADDS || mInstructions[i + 2]->mOperator == IA_ADDU) &&
-				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
-				mInstructions[i + 3]->mCode == IC_LEA && mInstructions[i + 3]->mSrc[1].mTemp < 0 &&
-				mInstructions[i + 3]->mSrc[0].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[0].mFinal)
-			{
-				int64	d = mInstructions[i + 0]->mSrc[0].mIntConst * mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 3]->mSrc[1].mIntConst += d;
-				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
-				mInstructions[i + 1]->mDst.mRange.mMinValue -= d; mInstructions[i + 1]->mDst.mRange.mMaxValue -= d;
-				mInstructions[i + 2]->mSrc[1].mRange.mMinValue -= d; mInstructions[i + 2]->mSrc[1].mRange.mMaxValue -= d;
-				mInstructions[i + 2]->mDst.mRange.mMinValue -= d; mInstructions[i + 2]->mDst.mRange.mMaxValue -= d;
-				mInstructions[i + 3]->mSrc[0].mRange.mMinValue -= d; mInstructions[i + 3]->mSrc[0].mRange.mMaxValue -= d;
-				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
-				mInstructions[i + 0]->mDst.mTemp = -1;
-				changed = true;
-			}
-		}
-
-
-#if 1
-		if (i + 1 < mInstructions.Size())
-		{
-			if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mIntConst < 0)
-			{
-				InterOperand	t0 = mInstructions[i + 0]->mDst;
-				InterOperand	t1 = mInstructions[i + 1]->mDst;
-
-				mInstructions[i + 0]->mDst = t1;
-				mInstructions[i + 1]->mDst = t0;
-				mInstructions[i + 1]->mSrc[1] = t1;
-				mInstructions[i + 0]->mSrc[1].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[0].mIntConst = -mInstructions[i + 1]->mSrc[0].mIntConst;
-				changed = true;
-			}
-			if (
-				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
-				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mIntConst < 0)
-			{
-				InterOperand	t0 = mInstructions[i + 0]->mDst;
-				InterOperand	t1 = mInstructions[i + 1]->mDst;
-
-				mInstructions[i + 0]->mDst = t1;
-				mInstructions[i + 1]->mDst = t0;
-				mInstructions[i + 1]->mSrc[1] = t1;
-				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 1]->mSrc[0].mIntConst = -mInstructions[i + 1]->mSrc[0].mIntConst;
-				changed = true;
-			}
-		}
-
-#endif
-#if 1
-		if (i + 1 < mInstructions.Size())
-		{
-			if (
-				mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[0].mFinal
-				)
-			{
-				mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
-				mInstructions[i + 1]->mSrc[0].mFinal = false;
-				changed = true;
-			}
-			else if (
-				mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[1].mFinal
-				)
-			{
-				mInstructions[i + 1]->mSrc[1].mTemp = mInstructions[i + 0]->mDst.mTemp;
-				mInstructions[i + 1]->mSrc[1].mFinal = false;
-				changed = true;
-			}
-		}
-#endif
-#if 1
-		if (i + 1 < mInstructions.Size())
-		{
-			if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
-				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 1]->mSrc[0].mMemory == IM_ABSOLUTE && mInstructions[i + 1]->mSrc[0].mIntConst == 0)
-			{
-				if (mInstructions[i + 0]->mSrc[1].mMemory != IM_ABSOLUTE)
-				{
-					if (mInstructions[i + 1]->mOperator == IA_CMPEQ)
-					{
-						mInstructions[i + 1]->mNumOperands = 0;
-						mInstructions[i + 1]->mCode = IC_CONSTANT;
-						mInstructions[i + 1]->mConst.mType = IT_BOOL;
-						mInstructions[i + 1]->mConst.mIntConst = 0;
-						changed = true;
-					}
-					else if (mInstructions[i + 1]->mOperator == IA_CMPNE)
-					{
-						mInstructions[i + 1]->mNumOperands = 0;
-						mInstructions[i + 1]->mCode = IC_CONSTANT;
-						mInstructions[i + 1]->mConst.mType = IT_BOOL;
-						mInstructions[i + 1]->mConst.mIntConst = 1;
-						changed = true;
-					}
-				}
-			}
-		}
-#endif
-#if 1
-		if (i + 1 < mInstructions.Size())
-		{
-			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_ADDS || mInstructions[i + 0]->mOperator == IA_ADDU) &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADDS || mInstructions[i + 1]->mOperator == IA_ADDU) &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
-				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				IsIntegerType(mInstructions[i + 0]->mDst.mType))
-			{
-				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
-				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
-				mInstructions[i + 1]->mDst.mTemp = -1;
-
-				changed = true;
-			}
-		}
-#endif
-#if 1
-		if (i + 1 < mInstructions.Size())
-		{
-			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[0].IsUByte() &&
-				mInstructions[i + 1]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[1].mIntConst))
-			{
-				int64 k = binlog(mInstructions[i + 1]->mSrc[1].mIntConst);
-				
-				if (mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp < 0)
-				{
-					int64 s = mInstructions[i + 0]->mSrc[1].mIntConst;
-					mInstructions[i + 0]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
-					mInstructions[i + 0]->mSrc[0].mTemp = -1;
-					mInstructions[i + 0]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[1].mRange.mMinValue;
-					mInstructions[i + 0]->mDst.mRange.SetLimit(0, mInstructions[i + 0]->mSrc[1].mRange.mMaxValue - mInstructions[i + 0]->mSrc[0].mIntConst);
-					mInstructions[i + 1]->mOperator = IA_SHR;
-					mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
-					int64 d = s - mInstructions[i + 0]->mSrc[0].mIntConst;
-					if (d < 0)
-						mInstructions[i + 1]->mSrc[1].mIntConst >>= -d;
-					else
-						mInstructions[i + 1]->mSrc[1].mIntConst <<= d;
-					changed = true;
-				}
-			}
-			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUBS || mInstructions[i + 0]->mOperator == IA_SUBU) &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
-				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[0].IsUByte() &&
-				mInstructions[i + 1]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[1].mIntConst))
-			{
-				int64 k = binlog(mInstructions[i + 1]->mSrc[1].mIntConst);
-
-				if (mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp < 0)
-				{
-					int64 s = mInstructions[i + 0]->mSrc[1].mIntConst;
-					mInstructions[i + 0]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
-					mInstructions[i + 0]->mSrc[0].mTemp = -1;
-					mInstructions[i + 0]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[1].mRange.mMinValue;
-					mInstructions[i + 0]->mDst.mRange.SetLimit(0, mInstructions[i + 0]->mSrc[1].mRange.mMaxValue - mInstructions[i + 0]->mSrc[0].mIntConst);
-					mInstructions[i + 1]->mOperator = IA_SHL;
-					mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
-					int64 d = s - mInstructions[i + 0]->mSrc[0].mIntConst;
-					if (d < 0)
-						mInstructions[i + 1]->mSrc[1].mIntConst <<= -d;
-					else
-						mInstructions[i + 1]->mSrc[1].mIntConst >>= d;
-					changed = true;
-				}
-			}
-		}
-
-
-#endif
+		if (PeepholeReplaceOptimizationIns(i, staticVars, staticProcs)) changed = true;
 	}
 
 	return changed;
