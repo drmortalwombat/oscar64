@@ -1163,8 +1163,6 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			{
 				dec->mSize = pdec->mSize;
 				dec->mFlags |= (pdec->mFlags & DTF_SIGNED) | DTF_ENUM_FIXED;
-				dec->mMinValue = dec->MinInteger();
-				dec->mMaxValue = dec->MaxInteger();
 				baseClass = true;
 
 				if (
@@ -1288,14 +1286,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 					else
 						break;
 				}
+				// Enumerator values constrain the optimiser's range for every enum.
+				dec->mMinValue = minValue;
+				dec->mMaxValue = maxValue;
 
-				// Fixed enums can hold every value of their underlying type, including unnamed
-				// values.
 				if ( ! baseClass)
 				{
-					dec->mMinValue = minValue;
-					dec->mMaxValue = maxValue;
-
 					if (minValue < 0)
 					{
 						dec->mFlags |= DTF_SIGNED;

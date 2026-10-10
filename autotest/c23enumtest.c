@@ -96,7 +96,7 @@ enum C23EnumUnsignedLong : unsigned long
 
 enum C23EnumForward : unsigned int;
 static volatile enum C23EnumForward c23Enum_forward = 50000u;
-enum C23EnumForward : unsigned int { c23Enum_forwardNamed = 1 };
+enum C23EnumForward : unsigned int { c23Enum_forwardNamed = 50000u };
 enum C23EnumForward : unsigned int;
 
 enum C23EnumAnonymous : const unsigned char { c23Enum_qualified = 7 };
@@ -154,7 +154,7 @@ int main(void)
 	assert(c23Enum_longUnsignedMaximum / 2UL == 2147483647UL);
 	assert(c23Enum_qualified == 7);
 	assert(c23Enum_anonymous == 9);
-	assert(c23Enum_forward == 50000u);
+	assert(c23Enum_forward == c23Enum_forwardNamed);
 	assert(c23Enum_forward > 40000u);
 	assert((enum C23EnumByte)200 == 200);
 	assert((enum C23EnumSignedByte)-100 == -100);
