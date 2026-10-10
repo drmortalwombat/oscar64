@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef ENUM_RANGE_WARNING_ERROR
+#pragma warning(error: 2017)
+#endif
+
 #if defined(C23_ENUM_BYTE_LOWER)
 enum C23EnumInvalid : signed char { c23Enum_invalid = -129 };
 #elif defined(C23_ENUM_BYTE_UPPER)

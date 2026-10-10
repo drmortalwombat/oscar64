@@ -1,5 +1,9 @@
 #include <assert.h>
 
+#ifdef ENUM_RANGE_WARNING_ERROR
+#pragma warning(error: 2017)
+#endif
+
 // Each selector isolates a C99 enum constraint violation on a 16-bit int target.
 enum
 {

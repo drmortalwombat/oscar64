@@ -1249,7 +1249,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 						if (cdec->mInteger < dec->MinInteger() || cdec->mInteger > dec->MaxInteger())
 							mErrors->Error(
 							    cdec->mLocation,
-							    EERR_INVALID_VALUE,
+							    EWARN_INVALID_VALUE_RANGE,
 							    "Enum constant is not representable in underlying type",
 							    cdec->mIdent
                             );
@@ -1265,7 +1265,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
                         )
 							mErrors->Error(
                                 cdec->mLocation,
-                                EERR_INVALID_VALUE,
+                                EWARN_INVALID_VALUE_RANGE,
 							    "C enum constant is not representable as int",
 							    cdec->mIdent
                             );
