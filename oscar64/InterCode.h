@@ -635,7 +635,7 @@ public:
 
 	// The memory referenced by lins may be writtne by sind
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
-	bool DestroyingMem(InterInstruction* lins, int from = 0, int to = INT_MAX) const;
+	bool DestroyingMem(InterInstruction* lins, int from = 0, int to = 65535) const;
 
 	// The two memory operations may have overlapping reads/writs and writes
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
