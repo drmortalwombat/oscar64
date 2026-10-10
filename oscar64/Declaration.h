@@ -140,7 +140,6 @@ static const uint64	DTF_MEMMAP					= (1ULL << 57);
 static const uint64 DTF_FPARAM_RANGE_LIMITED	= (1ULL << 58);
 static const uint64	DTF_PRECOMPILED				= (1ULL << 59);
 static const uint64 DTF_FUNC_DELETED			= (1ULL << 60);
-static const uint64 DTF_ENUM_FIXED			= (1ULL << 61);
 
 class Declaration;
 

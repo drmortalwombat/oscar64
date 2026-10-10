@@ -1161,17 +1161,23 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 
 			if (pdec->mType == DT_TYPE_INTEGER)
 			{
+				// Underlying types are unqualified, including types named by typedefs.
+				if (pdec->mFlags & (DTF_CONST | DTF_VOLATILE))
+				{
+					pdec = pdec->Clone();
+					pdec->mFlags &= ~(DTF_CONST | DTF_VOLATILE);
+				}
+				dec->mBase = pdec;
 				dec->mSize = pdec->mSize;
-				dec->mFlags |= (pdec->mFlags & DTF_SIGNED) | DTF_ENUM_FIXED;
+				dec->mFlags |= pdec->mFlags & DTF_SIGNED;
 				baseClass = true;
 
 				if (
 				    odec != nullptr
 				    && (
 						odec->mType != DT_TYPE_ENUM
-						|| ! (odec->mFlags & DTF_ENUM_FIXED)
-						|| odec->mSize != dec->mSize
-						|| (odec->mFlags & DTF_SIGNED) != (dec->mFlags & DTF_SIGNED)
+						|| odec->mBase == nullptr
+						|| !odec->mBase->IsSame(dec->mBase)
 					)
                 )
 					mErrors->Error(
@@ -1189,7 +1195,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
                 );
 		}
 
-		if (odec != nullptr && odec->mType == DT_TYPE_ENUM && (odec->mFlags & DTF_ENUM_FIXED))
+		if (odec != nullptr && odec->mType == DT_TYPE_ENUM && odec->mBase != nullptr)
 		{
 			dec = odec;
 			baseClass = true;

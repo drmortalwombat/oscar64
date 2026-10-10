@@ -61,6 +61,12 @@ enum C23EnumByte : C23EnumByteType
 	c23Enum_byteWrapped = (unsigned char)(c23Enum_byteMaximum + 1)
 };
 
+// Redeclarations compare the underlying type after ignoring both qualifiers.
+typedef const volatile unsigned char C23EnumQualifiedByteType;
+enum C23EnumByte : C23EnumQualifiedByteType;
+enum C23EnumByte : unsigned char const volatile;
+enum C23EnumByte : volatile const unsigned char;
+
 enum C23EnumSignedByte : signed char
 {
 	c23Enum_byteMinimum = -128,

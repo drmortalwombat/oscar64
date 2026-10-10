@@ -24,6 +24,22 @@ enum EnumConstantTypeSigned : int
 	enumConstantType_negative = -26
 };
 
+enum EnumConstantTypeOther : int
+{
+	enumConstantType_other = -26
+};
+
+/** @brief Distinguishes enum pointer types sharing an underlying integer type. */
+static int enumConstantType_identifyFixed(const EnumConstantTypeSigned* value)
+{
+	return *value == enumConstantType_negative ? 1 : 0;
+}
+
+static int enumConstantType_identifyFixed(const EnumConstantTypeOther* value)
+{
+	return *value == enumConstantType_other ? 2 : 0;
+}
+
 /** @brief Identifies the enum overload chosen for a word-sized enumerator. */
 static int enumConstantType_identify(EnumConstantTypeWord value)
 {
@@ -43,7 +59,11 @@ static int enumConstantType_identify(int value)
 int main(void)
 {
 	enum EnumConstantTypeWord wordScale = enumConstantType_scale;
+	EnumConstantTypeSigned signedValue = enumConstantType_negative;
+	EnumConstantTypeOther otherValue = enumConstantType_other;
 	volatile enum EnumConstantTypeSigned negative = enumConstantType_negative;
+	assert(enumConstantType_identifyFixed(&signedValue) == 1);
+	assert(enumConstantType_identifyFixed(&otherValue) == 2);
 	assert(sizeof(wordScale) == sizeof(EnumConstantTypeWord));
 	assert(enumConstantType_identify(wordScale) == 1);
 	assert(negative < 0);

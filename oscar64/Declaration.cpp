@@ -2818,7 +2818,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 			(mSize == dec->mSize || (mIdent && mType == DT_TYPE_STRUCT && !(mFlags & dec->mFlags & DTF_DEFINED)))))
 			return true;
 
-		if (dec->mBase)
+		if (mType == DT_TYPE_STRUCT && dec->mBase != nullptr)
 		{
 			Declaration* bcdec = dec->mBase;
 			while (bcdec)
