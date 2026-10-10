@@ -528,6 +528,9 @@ public:
 	void UpdateLocalIntegerRangeSetsForward(void);
 	void UpdateLocalIntegerRangeSetsBackward(void);
 
+	bool PropagateIntegerRangeConversionPair(InterInstruction* cins);
+	bool UpdateIntegerRangeConversionPairs(void);
+
 	bool UpdateLinearCombinations(void);
 
 	bool BuildGlobalIntegerRangeSets(bool initial);
@@ -632,20 +635,20 @@ public:
 
 	// The memory referenced by lins may be writtne by sind
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
-	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from , int to) const;
+	bool DestroyingMem(InterInstruction* lins, int from = 0, int to = INT_MAX) const;
 
 	// The two memory operations may have overlapping reads/writs and writes
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
-	bool CollidingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+	bool CollidingMem(InterInstruction* lins, int from, int to) const;
 	bool InvalidatedBy(const InterInstruction* ins, const InterInstruction* by) const;
 
 	// The two memory regions may be aliased but not just the same
 	bool AliasingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool AliasingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool AliasingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
-	bool AliasingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+	bool AliasingMem(InterInstruction* lins, int from, int to) const;
 
 	InterCodeBasicBlock* BuildPrefixBlock(InterCodeBasicBlock * from);
 
@@ -758,6 +761,8 @@ public:
 
 	bool DropUnreachable(void);
 	
+	bool PropagateGlobalLoadsForward(void);
+
 	void CollectByteIndexPointers(NumberSet& invtemps, NumberSet& inctemps, GrowingIntArray	& vartemps);
 	bool ReplaceByteIndexPointers(const NumberSet& inctemps, const GrowingIntArray& vartemps, int& spareTemps);
 	bool PropagateByteIndexPointers(void);

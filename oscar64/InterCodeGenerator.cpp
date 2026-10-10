@@ -3323,6 +3323,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
 						dtype = TheUnsignedLongTypeDeclaration;
+					else if (vl.mType->mSize == 1 && vr.mType->mSize == 1)
+						dtype = TheSignedIntTypeDeclaration;
 					else
 						dtype = TheUnsignedIntTypeDeclaration;
 				}
@@ -3432,11 +3434,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ains->mCode = IC_LEA;
 				ains->mSrc[1].mMemory = IM_INDIRECT;
 			}
-			else
+			else if (vl.mType->mFlags & DTF_SIGNED)
 			{
 				ains->mCode = IC_BINARY_OPERATOR;
 				ains->mOperator = IA_ADDS;
 			}
+			else
+			{
+				ains->mCode = IC_BINARY_OPERATOR;
+				ains->mOperator = IA_ADDU;
+			}
+
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
 			ains->mSrc[1].mType = ttype;
@@ -3501,11 +3509,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ains->mCode = IC_LEA;
 				ains->mSrc[1].mMemory = IM_INDIRECT;
 			}
-			else
+			else if (vl.mType->mFlags & DTF_SIGNED)
 			{
 				ains->mCode = IC_BINARY_OPERATOR;
 				ains->mOperator = IA_ADDS;
 			}
+			else
+			{
+				ains->mCode = IC_BINARY_OPERATOR;
+				ains->mOperator = IA_ADDU;
+			}
+
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
 			ains->mSrc[1].mType = ttype;
@@ -3515,16 +3529,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ains);
 
 			StoreValue(proc, exp, block, inlineMapper, vl, ExValue(vl.mType, ains->mDst.mTemp));
-#if 0
-			sins->mSrc[1].mMemory = IM_INDIRECT;
-			sins->mSrc[0].mType = ains->mDst.mType;
-			sins->mSrc[0].mTemp = ains->mDst.mTemp;
-			sins->mSrc[1].mType = IT_POINTER;
-			sins->mSrc[1].mTemp = vl.mTemp;
-			sins->mSrc[1].mOperandSize = vl.mType->mSize;
-			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
-			block->Append(sins);
-#endif
+
 			return ExValue(vdl.mType, vdl.mTemp);
 		}
 		break;

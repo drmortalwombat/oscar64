@@ -238,6 +238,7 @@ public:
 
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
+	bool ChangesAddressAndFlag(void) const;
 	bool ChangesFlagToAccu(void) const;
 	bool ChangesAddress(void) const;
 	bool UsesAddress(void) const;
@@ -771,6 +772,9 @@ public:
 	bool HasTailSTXInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 	bool HasTailSTYInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 
+	bool HasTailSameAY(void) const;
+	bool HasTailSameAX(void) const;
+
 	bool HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const;
 	bool HasTailAccuReg(int addr) const;
 
@@ -802,6 +806,7 @@ public:
 	bool IsARegZP(int at, int addr, int& index, NativeCodeBasicBlock*& block);
 
 	void MarkLiveBlockChain(int index, NativeCodeBasicBlock* block, uint32 live, uint32 reg);
+	void MarkLive(uint32 live, int from = 0, int to = 65535);
 
 	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);

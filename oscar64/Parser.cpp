@@ -10496,7 +10496,7 @@ Expression* Parser::ParseBinaryAndExpression(bool lhs)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseRelationalExpression(false);
-		nexp->mDecType = exp->mDecType;
+		nexp->mDecType = CombinedIntType(exp->mDecType, nexp->mRight->mDecType);
 
 		exp = nexp->ConstantFold(mErrors, mDataSection);
 
@@ -10521,7 +10521,8 @@ Expression* Parser::ParseBinaryXorExpression(bool lhs)
 			return ParseBinaryFoldExpression(nexp);
 
 		nexp->mRight = ParseBinaryAndExpression(false);
-		nexp->mDecType = exp->mDecType;
+		nexp->mDecType = CombinedIntType(exp->mDecType, nexp->mRight->mDecType);
+
 		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
@@ -10545,7 +10546,8 @@ Expression* Parser::ParseBinaryOrExpression(bool lhs)
 			return ParseBinaryFoldExpression(nexp);
 
 		nexp->mRight = ParseBinaryXorExpression(false);
-		nexp->mDecType = exp->mDecType;
+		nexp->mDecType = CombinedIntType(exp->mDecType, nexp->mRight->mDecType);
+
 		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
