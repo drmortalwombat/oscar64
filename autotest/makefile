@@ -2,7 +2,56 @@ SRCS=$(filter-out ambiguousoverload_trigger.c constconversionordertest_impl.c co
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES) diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+all: $(EXES) enumrangeconstraints c23enumconstraints diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+
+.PHONY: c23enumconstraints
+c23enumconstraints: c23enumtest.c
+	@set -e; \
+	for mode in -n -bc; do \
+		for selector in BYTE_LOWER BYTE_UPPER UNSIGNED_LOWER UNSIGNED_UPPER WORD_UPPER WORD_LOWER UNSIGNED_WORD_UPPER LONG_UPPER UNSIGNED_LONG_UPPER IMPLICIT_BYTE IMPLICIT_WORD IMPLICIT_LONG BASE_FLOAT BASE_ENUM BASE_POINTER MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED NON_STANDALONE; do \
+			case $$selector in \
+				BASE_*) diagnostic='error 3012: Enum base type must be an integer type'; policies=error ;; \
+				MISMATCH_*|PLAIN_TO_FIXED) diagnostic='error 3012: Enum underlying type does not match previous declaration'; policies=error ;; \
+				NON_STANDALONE) diagnostic='error 3006: Fixed enum declaration without enumerators must be standalone'; policies=error ;; \
+				*) diagnostic='Enum constant is not representable in underlying type'; policies='warning promoted' ;; \
+			esac; \
+			for policy in $$policies; do \
+				case $$policy in \
+					warning) expected_status=0; expected_diagnostic="warning 2017: $$diagnostic"; extra_define= ;; \
+					promoted) expected_status=20; expected_diagnostic="error 2017: $$diagnostic"; extra_define=-dENUM_RANGE_WARNING_ERROR ;; \
+					error) expected_status=20; expected_diagnostic="$$diagnostic"; extra_define= ;; \
+				esac; \
+				status=0; \
+				output="$$($(OSCAR64_CC) -g $$mode $$extra_define -dC23_ENUM_$$selector -o=c23enuminvalid.prg $< 2>&1)" || status=$$?; \
+				if [ $$status -ne $$expected_status ] || ! printf '%s\n' "$$output" | grep -Fq "$$expected_diagnostic"; then \
+					printf '%s\n' "$$output"; \
+					printf 'Expected fixed enum %s diagnostic for %s %s and exit status %s, got %s\n' "$$policy" "$$mode" "$$selector" "$$expected_status" "$$status"; \
+					exit 1; \
+				fi; \
+			done; \
+		done; \
+	done
+
+.PHONY: enumrangeconstraints
+enumrangeconstraints: enumrangecheck.c
+	@set -e; \
+	for mode in -n -bc; do \
+		for selector in EXPLICIT UPPER LOWER IMPLICIT WIDE; do \
+			for policy in warning promoted; do \
+				case $$policy in \
+					warning) expected_status=0; level=warning; extra_define= ;; \
+					promoted) expected_status=20; level=error; extra_define=-dENUM_RANGE_WARNING_ERROR ;; \
+				esac; \
+				status=0; \
+				output="$$($(OSCAR64_CC) -g $$mode $$extra_define -dENUM_RANGE_$$selector -o=enumrangeinvalid.prg $< 2>&1)" || status=$$?; \
+				if [ $$status -ne $$expected_status ] || ! printf '%s\n' "$$output" | grep -Fq "$$level 2017: C enum constant is not representable as int"; then \
+					printf '%s\n' "$$output"; \
+					printf 'Expected enum range %s diagnostic for %s %s and exit status %s, got %s\n' "$$policy" "$$mode" "$$selector" "$$expected_status" "$$status"; \
+					exit 1; \
+				fi; \
+			done; \
+		done; \
+	done
 
 DISK_FULL_RESOURCE=../samples/resources/blumba2.bin
 DISK_FULL_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18,-f=$(DISK_FULL_RESOURCE))

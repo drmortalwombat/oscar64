@@ -261,6 +261,27 @@ rem @echo off
 @call :test enumswitch.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test enum-promotion-tests.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test integerpromotiontest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test enumconstanttypetest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test enumrangecheck.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testenumrangeconstraints
+@if %errorlevel% neq 0 goto :error
+
+@call :test c23enumtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testc23enumconstraints
+@if %errorlevel% neq 0 goto :error
+
 @call :test incvector.c
 @if %errorlevel% neq 0 goto :error
 
@@ -380,6 +401,80 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testc23enumconstraints
+@for %%M in (-n -bc) do @for %%C in (BYTE_LOWER BYTE_UPPER UNSIGNED_LOWER UNSIGNED_UPPER WORD_UPPER WORD_LOWER UNSIGNED_WORD_UPPER LONG_UPPER UNSIGNED_LONG_UPPER IMPLICIT_BYTE IMPLICIT_WORD IMPLICIT_LONG) do @for %%P in (warning promoted) do (
+	@call :testc23enuminvalid %%M %%C %%P
+	@if errorlevel 1 @exit /b 1
+)
+@for %%M in (-n -bc) do @for %%C in (BASE_FLOAT BASE_ENUM BASE_POINTER MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED NON_STANDALONE) do (
+	@call :testc23enuminvalid %%M %%C error
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testc23enuminvalid
+@set enum_diagnostic=Enum constant is not representable in underlying type
+@for %%C in (BASE_FLOAT BASE_ENUM BASE_POINTER) do @if "%~2"=="%%C" @set enum_diagnostic=error 3012: Enum base type must be an integer type
+@for %%C in (MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED) do @if "%~2"=="%%C" @set enum_diagnostic=error 3012: Enum underlying type does not match previous declaration
+@if "%~2"=="NON_STANDALONE" @set enum_diagnostic=error 3006: Fixed enum declaration without enumerators must be standalone
+@set enum_expected_status=20
+@set enum_extra_define=
+@if "%~3"=="warning" (
+	@set enum_expected_status=0
+	@set enum_diagnostic=warning 2017: %enum_diagnostic%
+)
+@if "%~3"=="promoted" (
+	@set enum_extra_define=-dENUM_RANGE_WARNING_ERROR
+	@set enum_diagnostic=error 2017: %enum_diagnostic%
+)
+..\bin\oscar64 -g %~1 %enum_extra_define% -dC23_ENUM_%~2 -o=c23enuminvalid.prg c23enumtest.c > c23enumtest.log 2>&1
+@set enum_range_error=%errorlevel%
+@if %enum_range_error% neq %enum_expected_status% (
+	@type c23enumtest.log
+	@del c23enumtest.log
+	@exit /b 1
+)
+@findstr /c:"%enum_diagnostic%" c23enumtest.log > nul
+@if %errorlevel% neq 0 (
+	@type c23enumtest.log
+	@del c23enumtest.log
+	@exit /b 1
+)
+@del c23enumtest.log
+@exit /b 0
+
+:testenumrangeconstraints
+@for %%M in (-n -bc) do @for %%C in (EXPLICIT UPPER LOWER IMPLICIT WIDE) do @for %%P in (warning promoted) do (
+	@call :testenuminvalid %%M %%C %%P
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testenuminvalid
+@set enum_expected_status=0
+@set enum_diagnostic=warning 2017: C enum constant is not representable as int
+@set enum_extra_define=
+@if "%~3"=="promoted" (
+	@set enum_expected_status=20
+	@set enum_diagnostic=error 2017: C enum constant is not representable as int
+	@set enum_extra_define=-dENUM_RANGE_WARNING_ERROR
+)
+..\bin\oscar64 -g %~1 %enum_extra_define% -dENUM_RANGE_%~2 -o=enumrangeinvalid.prg enumrangecheck.c > enumrangecheck.log 2>&1
+@set enum_range_error=%errorlevel%
+@if %enum_range_error% neq %enum_expected_status% (
+	@type enumrangecheck.log
+	@del enumrangecheck.log
+	@exit /b 1
+)
+@findstr /c:"%enum_diagnostic%" enumrangecheck.log > nul
+@if %errorlevel% neq 0 (
+	@type enumrangecheck.log
+	@del enumrangecheck.log
+	@exit /b 1
+)
+@del enumrangecheck.log
+@exit /b 0
 
 :testd64
 ..\bin\oscar64 -d64=diskimaged64test.d64 -f=diskimagefixture.dat
