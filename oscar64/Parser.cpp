@@ -1166,7 +1166,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			}
 		}
 
-		int	nitem = 0;
+		int64	nitem = 0;
 		if (mScanner->mToken == TK_OPEN_BRACE)
 		{
 			if (odec)
@@ -1207,11 +1207,29 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 						mScanner->NextToken();
 						Expression* exp = ParseRExpression();
 						if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-							nitem = int(exp->mDecValue->mInteger);
+							nitem = exp->mDecValue->mInteger;
 						else
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_TYPE, "Integer constant expected");
 					}
 					cdec->mInteger = nitem++;
+
+					// C enumerators have type int, independently of enum storage.
+					if ( ! (mCompilerOptions & COPT_CPLUSPLUS))
+					{
+						cdec->mBase = TheSignedIntTypeDeclaration;
+
+						if (
+						    cdec->mInteger < cdec->mBase->MinInteger()
+						    || cdec->mInteger > cdec->mBase->MaxInteger()
+                        )
+							mErrors->Error(
+                                cdec->mLocation,
+                                EERR_INVALID_VALUE,
+							    "C enum constant is not representable as int",
+							    cdec->mIdent
+                            );
+					}
+
 					if (cdec->mInteger < minValue)
 						minValue = cdec->mInteger;
 					else if (cdec->mInteger > maxValue)
@@ -1276,6 +1294,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
 				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
 			}
+			else
+				dec = odec;
 		}
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");

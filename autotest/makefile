@@ -2,7 +2,22 @@ SRCS=$(filter-out ambiguousoverload_trigger.c constconversionordertest_impl.c co
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES) diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+all: $(EXES) enumrangeconstraints diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+
+.PHONY: enumrangeconstraints
+enumrangeconstraints: enumrangecheck.c
+	@set -e; \
+	for mode in -n -bc; do \
+		for selector in EXPLICIT UPPER LOWER IMPLICIT WIDE; do \
+			status=0; \
+			output="$$($(OSCAR64_CC) -g $$mode -dENUM_RANGE_$$selector -o=enumrangeinvalid.prg $< 2>&1)" || status=$$?; \
+			if [ $$status -ne 20 ] || ! printf '%s\n' "$$output" | grep -Fq 'error 3011: C enum constant is not representable as int'; then \
+				printf '%s\n' "$$output"; \
+				printf 'Expected enum range diagnostic for %s %s, got exit status %s\n' "$$mode" "$$selector" "$$status"; \
+				exit 1; \
+			fi; \
+		done; \
+	done
 
 DISK_FULL_RESOURCE=../samples/resources/blumba2.bin
 DISK_FULL_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18,-f=$(DISK_FULL_RESOURCE))

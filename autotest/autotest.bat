@@ -261,6 +261,18 @@ rem @echo off
 @call :test enumswitch.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test enum-promotion-tests.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test enumconstanttypetest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test enumrangecheck.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testenumrangeconstraints
+@if %errorlevel% neq 0 goto :error
+
 @call :test incvector.c
 @if %errorlevel% neq 0 goto :error
 
@@ -380,6 +392,30 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testenumrangeconstraints
+@for %%M in (-n -bc) do @for %%C in (EXPLICIT UPPER LOWER IMPLICIT WIDE) do (
+	@call :testenuminvalid %%M %%C
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testenuminvalid
+..\bin\oscar64 -g %~1 -dENUM_RANGE_%~2 -o=enumrangeinvalid.prg enumrangecheck.c > enumrangecheck.log 2>&1
+@set enum_range_error=%errorlevel%
+@if %enum_range_error% neq 20 (
+	@type enumrangecheck.log
+	@del enumrangecheck.log
+	@exit /b 1
+)
+@findstr /c:"error 3011: C enum constant is not representable as int" enumrangecheck.log > nul
+@if %errorlevel% neq 0 (
+	@type enumrangecheck.log
+	@del enumrangecheck.log
+	@exit /b 1
+)
+@del enumrangecheck.log
+@exit /b 0
 
 :testd64
 ..\bin\oscar64 -d64=diskimaged64test.d64 -f=diskimagefixture.dat
