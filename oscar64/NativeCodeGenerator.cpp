@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"SPage::navigate"
+#define CHECK_FUNC			"t1"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -45547,6 +45547,10 @@ bool NativeCodeBasicBlock::MoveLDAopTAXDown(int at)
 		else if (mIns[di - 1].mType == ASMIT_LDY || mIns[di - 1].mType == ASMIT_CLC || mIns[di - 1].mType == ASMIT_SEC)
 		{
 			di--;
+		}
+		else if (mIns[di - 2].mType == ASMIT_LDY && mIns[di - 1].mType == ASMIT_STY && (mIns[di - 1].mLive & LIVE_CPU_REG_Y))
+		{
+			di -= 2;
 		}
 	}
 
