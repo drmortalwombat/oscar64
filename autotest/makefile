@@ -38,7 +38,7 @@ warningstackconstraints: warningstacktest.c warningstacktest.h
 			if printf '%s\n' "$$output" | grep -Fq suppressed; then \
 				printf '%s\n' "$$output"; exit 1; \
 			fi; \
-			if [ "$$selector" = UNDERFLOW ] && ! printf '%s\n' "$$output" | grep -Fq 'error 3031: Warning stack underflow'; then \
+			if [ "$$selector" = UNDERFLOW ] && ! printf '%s\n' "$$output" | grep -Fq 'error 3063: Stack underflow'; then \
 				printf '%s\n' "$$output"; \
 				exit 1; \
 			fi; \

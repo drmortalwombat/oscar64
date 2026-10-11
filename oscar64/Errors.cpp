@@ -18,21 +18,6 @@ ErrorID	Errors::SetMinLevel(ErrorID id)
 	return pid;
 }
 
-void Errors::PushWarnings(void)
-{
-	mWarnings.push({ mDisabled, mWarnErrors });
-}
-
-bool Errors::PopWarnings(void)
-{
-	if (mWarnings.empty())
-		return false;
-	mDisabled = mWarnings.top().mDisabled;
-	mWarnErrors = mWarnings.top().mWarnErrors;
-	mWarnings.pop();
-	return true;
-}
-
 void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const Ident* info1, const Ident* info2)
 {
 	if (!info1)

@@ -450,7 +450,7 @@ exit /b %errorlevel%
 @findstr /c:"suppressed" warningstacktest.log > nul
 @if not errorlevel 1 goto :warningstackerror
 @if "%~2"=="UNDERFLOW" (
-	@findstr /c:"error 3031: Warning stack underflow" warningstacktest.log > nul
+	@findstr /c:"error 3063: Stack underflow" warningstacktest.log > nul
 	@if errorlevel 1 goto :warningstackerror
 )
 @del warningstacktest.log

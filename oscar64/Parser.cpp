@@ -14955,22 +14955,7 @@ void Parser::ParsePragma(void)
 		{
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
-
-			if (ConsumeIdentIf("push"))
-			{
-				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
-					mErrors->PushWarnings();
-			}
-			else if (ConsumeIdentIf("pop"))
-			{
-				if (mScanner->mToken == TK_CLOSE_PARENTHESIS && !mErrors->PopWarnings())
-					mErrors->Error(
-					    mScanner->mLocation,
-					    EERR_PRAGMA_PARAMETER,
-					    "Warning stack underflow"
-                    );
-			}
-			else if (ConsumeIdentIf("disable"))
+			if (ConsumeIdentIf("disable"))
 			{
 				ConsumeToken(TK_COLON);
 				do {

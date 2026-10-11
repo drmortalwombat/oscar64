@@ -1,7 +1,5 @@
 #pragma once
 
-#include <stack>
-
 #include "NumberSet.h"
 
 
@@ -149,21 +147,11 @@ enum ErrorID
 
 class Errors
 {
-protected:
-	struct WarningState
-	{
-		NumberSet	mDisabled, mWarnErrors;
-	};
-
-	std::stack<WarningState>	mWarnings;
-
 public:
 	Errors(void);
 	Errors(Errors * base);
 
 	ErrorID	SetMinLevel(ErrorID id);
-	void PushWarnings(void);
-	bool PopWarnings(void);
 
 	int		mErrorCount;
 	ErrorID	mMinLevel;
