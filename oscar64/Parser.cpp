@@ -7781,6 +7781,8 @@ Expression* Parser::ParseCastExpression(Expression* exp)
 				ConsumeToken(TK_CLOSE_PARENTHESIS);
 
 				nexp->mLeft = ParseCastExpression(nexp->mLeft);
+				// Complete the operand's postfix operators before applying the cast.
+				nexp->mLeft = ParsePostfixExpression(false, nexp->mLeft);
 			}
 			else
 				nexp->mLeft = ParsePrefixExpression(false);
@@ -9458,9 +9460,10 @@ Expression* Parser::ParseConstruction(Declaration* type)
 	return exp;
 }
 
-Expression* Parser::ParsePostfixExpression(bool lhs)
+Expression* Parser::ParsePostfixExpression(bool lhs, Expression* exp)
 {
-	Expression* exp = ParseSimpleExpression(lhs);
+	if (exp == nullptr)
+		exp = ParseSimpleExpression(lhs);
 
 	if (exp->mType == EX_LABEL)
 		return exp;

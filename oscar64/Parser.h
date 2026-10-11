@@ -148,7 +148,7 @@ protected:
 	Expression* ParseIdentExpression(const Location & eloc, Declaration* dec, bool lhs, bool tid = false);
 	Expression* ParseSimpleExpression(bool lhs, bool tid = false);
 	Expression* ParsePrefixExpression(bool lhs);
-	Expression* ParsePostfixExpression(bool lhs);
+	Expression* ParsePostfixExpression(bool lhs, Expression* exp = nullptr);
 	Expression* ParseMulExpression(bool lhs);
 	Expression* ParseAddExpression(bool lhs);
 	Expression* ParseShiftExpression(bool lhs);
