@@ -312,6 +312,9 @@ rem @echo off
 @call :test nestedviccasttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test gridcolumnconditionaltest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test castoperandtest.cpp
 @if %errorlevel% neq 0 goto :error
 
