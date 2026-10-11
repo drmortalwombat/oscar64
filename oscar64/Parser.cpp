@@ -608,6 +608,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 											alignment = mdec->mBase->mBase->mSize;
 
 										offset = (offset + alignment - 1) & ~(alignment - 1);
+										mdec->mOffset = offset;
+
 										offset += mdec->mBase->mSize;
 
 										if (alignment > dec->mAlignment)

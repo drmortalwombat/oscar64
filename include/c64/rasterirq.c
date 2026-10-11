@@ -440,7 +440,7 @@ void rirq_data(RIRQCode * ic, byte n, byte data)
 {
 	byte p = irqdi[n];
 //	ic->code[p] = data;	
-	(volatile char *)(ic->code)[p] = data;
+	((volatile byte *)(ic->code))[p] = data;
 }
 
 void rirq_write(RIRQCode * ic, byte n, void * addr, byte data)
