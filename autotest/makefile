@@ -2,7 +2,48 @@ SRCS=$(filter-out ambiguousoverload_trigger.c constconversionordertest_impl.c co
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES) enumrangeconstraints c23enumconstraints diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+all: $(EXES) warningstackconstraints enumrangeconstraints c23enumconstraints diskimaged64test diskimagefulltest diskimaged71test diskimaged81test
+
+.PHONY: warningstackconstraints
+warningstackconstraints: warningstacktest.c warningstacktest.h
+	@set -e; \
+	for mode in -n -bc; do \
+		for selector in DEFAULT DISABLED ERROR NESTED NESTED_ERROR INCLUDE UNDERFLOW; do \
+			case $$selector in \
+				DEFAULT|NESTED) expected_status=0; warnings=2; errors=0 ;; \
+				DISABLED) expected_status=0; warnings=0; errors=0 ;; \
+				ERROR|INCLUDE) expected_status=20; warnings=0; errors=2 ;; \
+				NESTED_ERROR) expected_status=20; warnings=2; errors=2 ;; \
+				UNDERFLOW) expected_status=20; warnings=0; errors=1 ;; \
+			esac; \
+			status=0; \
+			output="$$($(OSCAR64_CC) -g $$mode -dWARNING_STACK_$$selector -o=warningstackinvalid.prg $< 2>&1)" || status=$$?; \
+			actual_warnings=$$(printf '%s\n' "$$output" | grep -c ' : warning ' || true); \
+			actual_errors=$$(printf '%s\n' "$$output" | grep -c ' : error ' || true); \
+			if [ $$status -ne $$expected_status ] || [ $$actual_warnings -ne $$warnings ] || [ $$actual_errors -ne $$errors ]; then \
+				printf '%s\n' "$$output"; \
+				printf 'Warning stack %s %s: expected status %s, %s warnings and %s errors; got %s, %s and %s\n' "$$mode" "$$selector" "$$expected_status" "$$warnings" "$$errors" "$$status" "$$actual_warnings" "$$actual_errors"; \
+				exit 1; \
+			fi; \
+			for level in warning error; do \
+				case $$level in warning) count=$$warnings ;; error) count=$$errors ;; esac; \
+				if [ $$count -eq 2 ]; then \
+					for id in 2002 2017; do \
+						if ! printf '%s\n' "$$output" | grep -Fq "$$level $$id:"; then \
+							printf '%s\n' "$$output"; exit 1; \
+						fi; \
+					done; \
+				fi; \
+			done; \
+			if printf '%s\n' "$$output" | grep -Fq suppressed; then \
+				printf '%s\n' "$$output"; exit 1; \
+			fi; \
+			if [ "$$selector" = UNDERFLOW ] && ! printf '%s\n' "$$output" | grep -Fq 'error 3031: Warning stack underflow'; then \
+				printf '%s\n' "$$output"; \
+				exit 1; \
+			fi; \
+		done; \
+	done
 
 .PHONY: c23enumconstraints
 c23enumconstraints: c23enumtest.c

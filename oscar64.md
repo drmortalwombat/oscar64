@@ -358,6 +358,15 @@ Warnings can also be turned into errors using the warning pragma.
 
 	#pragma warning(error: 2000,2001)
 
+The current warning settings can be saved and restored with `push` and `pop`.  A push saves both disabled warnings and warnings promoted to errors.  A pop restores the most recently saved settings, rather than resetting them to their defaults.  Pushes can be nested, and the warning stack is shared across the compilation, including included files.  A pop without a matching push is an error.
+
+	#pragma warning(push)
+	#pragma warning(disable: 2001)
+	// Code or includes that require temporary suppression
+	#pragma warning(pop)
+
+These pragmas have the same global scope as the other warning pragmas; they do not change when a diagnostic is emitted.  Warnings emitted during later compilation stages use the settings active at that time.
+
 A message can be displayed during compilation with the message pragma.  The message can be a list of values, such as constant strings or numbers that can be compiled at compile time.
 
 	#pragma message("Hello User")

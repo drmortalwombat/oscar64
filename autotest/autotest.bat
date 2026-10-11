@@ -1,5 +1,11 @@
 rem @echo off
 
+@call :test warningstacktest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testwarningstackconstraints
+@if %errorlevel% neq 0 goto :error
+
 @call :test volatilebytecomparison.c
 @if %errorlevel% neq 0 goto :error
 
@@ -401,6 +407,50 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testwarningstackconstraints
+@for %%M in (-n -bc) do @for %%S in (DEFAULT DISABLED ERROR NESTED NESTED_ERROR INCLUDE UNDERFLOW) do (
+	@call :testwarningstack %%M %%S
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testwarningstack
+@set warning_stack_status=0
+@set warning_stack_warnings=0
+@set warning_stack_errors=0
+@for %%S in (DEFAULT NESTED NESTED_ERROR) do @if "%~2"=="%%S" @set warning_stack_warnings=2
+@for %%S in (ERROR INCLUDE NESTED_ERROR UNDERFLOW) do @if "%~2"=="%%S" @set warning_stack_status=20
+@for %%S in (ERROR INCLUDE NESTED_ERROR) do @if "%~2"=="%%S" @set warning_stack_errors=2
+@if "%~2"=="UNDERFLOW" @set warning_stack_errors=1
+..\bin\oscar64 -g %~1 -dWARNING_STACK_%~2 -o=warningstackinvalid.prg warningstacktest.c > warningstacktest.log 2>&1
+@set warning_stack_actual_status=%errorlevel%
+@for /f %%N in ('find /c " : warning " ^< warningstacktest.log') do @set warning_stack_actual_warnings=%%N
+@for /f %%N in ('find /c " : error " ^< warningstacktest.log') do @set warning_stack_actual_errors=%%N
+@if %warning_stack_actual_status% neq %warning_stack_status% goto :warningstackerror
+@if %warning_stack_actual_warnings% neq %warning_stack_warnings% goto :warningstackerror
+@if %warning_stack_actual_errors% neq %warning_stack_errors% goto :warningstackerror
+@if %warning_stack_warnings% equ 2 @for %%I in (2002 2017) do (
+	@findstr /c:"warning %%I:" warningstacktest.log > nul
+	@if errorlevel 1 goto :warningstackerror
+)
+@if %warning_stack_errors% equ 2 @for %%I in (2002 2017) do (
+	@findstr /c:"error %%I:" warningstacktest.log > nul
+	@if errorlevel 1 goto :warningstackerror
+)
+@findstr /c:"suppressed" warningstacktest.log > nul
+@if not errorlevel 1 goto :warningstackerror
+@if "%~2"=="UNDERFLOW" (
+	@findstr /c:"error 3031: Warning stack underflow" warningstacktest.log > nul
+	@if errorlevel 1 goto :warningstackerror
+)
+@del warningstacktest.log
+@exit /b 0
+
+:warningstackerror
+@type warningstacktest.log
+@del warningstacktest.log
+@exit /b 1
 
 :testc23enumconstraints
 @for %%M in (-n -bc) do @for %%C in (BYTE_LOWER BYTE_UPPER UNSIGNED_LOWER UNSIGNED_UPPER WORD_UPPER WORD_LOWER UNSIGNED_WORD_UPPER LONG_UPPER UNSIGNED_LONG_UPPER IMPLICIT_BYTE IMPLICIT_WORD IMPLICIT_LONG) do @for %%P in (warning promoted) do (
