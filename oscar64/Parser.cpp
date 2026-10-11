@@ -1338,8 +1338,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		}
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
-
 		dec->mFlags |= DTF_DEFINED;
+
+		if (flags & DTF_CONST)
+			dec = dec->ToConstType();
+
+		if (flags & DTF_VOLATILE)
+			dec = dec->ToVolatileType();
 		break;
 	}
 	case TK_STRUCT:

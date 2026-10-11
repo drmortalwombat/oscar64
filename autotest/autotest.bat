@@ -261,6 +261,9 @@ rem @echo off
 @call :test enumswitch.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test enumarrayconversiontest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test enum-promotion-tests.c
 @if %errorlevel% neq 0 goto :error
 
