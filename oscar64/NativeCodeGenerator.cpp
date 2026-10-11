@@ -32531,6 +32531,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						mIns[ns - 2].mType = ASMIT_LDX; mIns[ns - 2].mLive |= LIVE_CPU_REG_X;
 						mIns[ns - 1].mType = ASMIT_CPX; mIns[ns - 1].mLive |= LIVE_CPU_REG_A;
 						mIns.Insert(ns - 2, mTrueJump->mIns[ti]);
+						// Preserve the index needed by the comparison load across the hoisted load.
+						mIns[ns - 2].mLive |= mIns[ns - 1].NeedsLive();
 						mTrueJump->mIns.Remove(ti);
 						mFalseJump->mIns.Remove(fi);
 						while (ti > 0)
