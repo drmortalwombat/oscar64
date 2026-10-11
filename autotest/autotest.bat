@@ -306,6 +306,12 @@ rem @echo off
 @call :test structmembertest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test nestedviccasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test castoperandtest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test structarraycopy.c
 @if %errorlevel% neq 0 goto :error
 
