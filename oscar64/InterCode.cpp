@@ -2403,7 +2403,7 @@ InterOperand InterCodeBasicBlock::LoadConstantOperand(const InterInstruction* in
 		cop.mMemory = IM_ABSOLUTE;
 		cop.mLinkerObject = nullptr;
 
-		mProc->mModule->mErrors->Error(ins->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant index out of bounds");
+		mProc->mErrors->Error(ins->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant index out of bounds");
 	}
 
 	cop.mType = type;
@@ -2430,7 +2430,7 @@ void InterCodeBasicBlock::LoadConstantFold(InterInstruction* ins, InterInstructi
 
 	
 	if (offset < 0 || offset + stride * (InterTypeSize[ins->mDst.mType] - 1) >= lobj->mSize)
-		mProc->mModule->mErrors->Error(ins->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant index out of bounds");
+		mProc->mErrors->Error(ins->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant index out of bounds");
 
 	switch (ins->mDst.mType)
 	{
@@ -7037,7 +7037,7 @@ void InterCodeBasicBlock::BuildDominatorTree(InterCodeBasicBlock* from)
 	{
 		assert(mIndex != 0);
 
-		GrowingInterCodeBasicBlockPtrArray	d1(nullptr), d2(nullptr);
+		ExpandingInterCodeBasicBlockPtrArray	d1, d2;
 
 		InterCodeBasicBlock* b = mDominator;
 		while (b)
@@ -12849,7 +12849,7 @@ void InterCodeBasicBlock::BuildLocalVariableByteSet(const GrowingVariableArray& 
 		mExitProvidedStatics.Reset(bsize);
 
 		for (int i = 0; i < mInstructions.Size(); i++)
-			mInstructions[i]->FilterLocalVarsByteUsage(localVars, mLocalRequiredStatics, mLocalProvidedStatics, mProc->mModule->mErrors);
+			mInstructions[i]->FilterLocalVarsByteUsage(localVars, mLocalRequiredStatics, mLocalProvidedStatics, mProc->mErrors);
 
 		mEntryRequiredStatics = mLocalRequiredStatics;
 		mExitProvidedStatics = mLocalProvidedStatics;
@@ -12874,7 +12874,7 @@ void InterCodeBasicBlock::BuildStaticVariableByteSet(const GrowingVariableArray&
 		mExitProvidedStatics.Reset(bsize);
 
 		for (int i = 0; i < mInstructions.Size(); i++)
-			mInstructions[i]->FilterStaticVarsByteUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics, mProc->mModule->mErrors);
+			mInstructions[i]->FilterStaticVarsByteUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics, mProc->mErrors);
 
 		mEntryRequiredStatics = mLocalRequiredStatics;
 		mExitProvidedStatics = mLocalProvidedStatics;
@@ -16582,7 +16582,7 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 	return changed;
 }
 
-static void CollectDominatorPath(InterCodeBasicBlock* block, InterCodeBasicBlock* dom, GrowingInterCodeBasicBlockPtrArray& blocks)
+static void CollectDominatorPath(InterCodeBasicBlock* block, InterCodeBasicBlock* dom, ExpandingInterCodeBasicBlockPtrArray& blocks)
 {
 	if (blocks.IndexOf(block) != -1)
 		return;
@@ -16594,7 +16594,7 @@ static void CollectDominatorPath(InterCodeBasicBlock* block, InterCodeBasicBlock
 	}
 }
 
-static bool CanMoveInstructionBeforePath(const GrowingInterCodeBasicBlockPtrArray& blocks, const InterInstruction* ins)
+static bool CanMoveInstructionBeforePath(const ExpandingInterCodeBasicBlockPtrArray& blocks, const InterInstruction* ins)
 {
 	for (int i = 0; i < blocks.Size(); i++)
 		if (!blocks[i]->CanMoveInstructionBeforeBlock(blocks[i]->mInstructions.Size(), ins))
@@ -16763,7 +16763,7 @@ bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
 
 		if (mDominator)
 		{
-			GrowingInterCodeBasicBlockPtrArray	path(nullptr);
+			ExpandingInterCodeBasicBlockPtrArray	path;
 
 			CollectDominatorPath(this, mDominator, path);
 
@@ -27935,9 +27935,9 @@ void InterCodeBasicBlock::CheckNullptrDereference(void)
 		{
 			InterInstruction* ins = mInstructions[i];
 			if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_ABSOLUTE && ins->mSrc[0].mIntConst == 0 && !ins->mVolatile)
-				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+				mProc->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 			else if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_ABSOLUTE && ins->mSrc[1].mIntConst == 0 && !ins->mVolatile)
-				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+				mProc->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 		}
 
 		if (mTrueJump) mTrueJump->CheckNullptrDereference();
@@ -27957,7 +27957,7 @@ void InterCodeBasicBlock::CheckValueReturn(void)
 			if (ins->mCode == IC_ASSEMBLER || ins->mCode == IC_DISPATCH)
 				return;
 			else if (ins->mCode == IC_RETURN)
-				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
+				mProc->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
 		}
 
 		if (mTrueJump) mTrueJump->CheckValueReturn();
@@ -28140,7 +28140,7 @@ void InterCodeBasicBlock::WarnInvalidValueRanges(void)
 			{
 				if (ins->mSrc[j].mTemp >= 0 && ins->mSrc[j].mRange.IsInvalid())
 				{
-					mProc->mModule->mErrors->Error(ins->mLocation, EWARN_INVALID_VALUE_RANGE, "Invalid value range");
+					mProc->mErrors->Error(ins->mLocation, EWARN_INVALID_VALUE_RANGE, "Invalid value range");
 				}
 			}
 		}
@@ -28176,16 +28176,16 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 					if (potentialTemps[t])
 					{
 						if (k < mProc->mLocalVars.Size() && mProc->mLocalVars[k]->mIdent)
-							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized variable", mProc->mLocalVars[k]->mIdent);
+							mProc->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized variable", mProc->mLocalVars[k]->mIdent);
 						else
-							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized expression");
+							mProc->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized expression");
 					}
 					else
 					{
 						if (k < mProc->mLocalVars.Size() && mProc->mLocalVars[k]->mIdent)
-							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", mProc->mLocalVars[k]->mIdent);
+							mProc->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", mProc->mLocalVars[k]->mIdent);
 						else
-							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
+							mProc->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
 
 						if (ins->mCode == IC_LOAD_TEMPORARY)
 						{
@@ -28524,7 +28524,7 @@ void InterCodeBasicBlock::WarnUnreachable(void)
 		while (i < mInstructions.Size() && !IsObservable(mInstructions[i]->mCode))
 			i++;
 		if (i < mInstructions.Size())
-			mProc->mModule->mErrors->Error(mInstructions[i]->mLocation, EWARN_UNREACHABLE_CODE, "Unreachable code");
+			mProc->mErrors->Error(mInstructions[i]->mLocation, EWARN_UNREACHABLE_CODE, "Unreachable code");
 	}
 }
 
@@ -28653,10 +28653,10 @@ void InterCodeBasicBlock::DoSimplifyExtractCompareCascade(int temp, int shift)
 
 
 
-InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident, LinkerObject * linkerObject)
-	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), mNumBlocks(0),
+InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident, LinkerObject * linkerObject, Errors* errors)
+	: mTemporaries(IT_NONE), mLocation(location), mTempOffset(-1), mTempSizes(0), mNumBlocks(0),
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
-	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
+	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod), mErrors(errors),
 	mIdent(ident), mLinkerObject(linkerObject),
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
 	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false), mAssembled(false),
