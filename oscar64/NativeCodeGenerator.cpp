@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"bench_collatz"
+#define CHECK_FUNC			"SPage::navigate"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -37990,6 +37990,49 @@ bool NativeCodeBasicBlock::MoveCallingParamDown(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveCallingParamPairDown(int at)
+{
+	int i = at + 4;
+	int k = -1;
+	while (i < mIns.Size())
+	{
+		if (mIns[at].MayBeChangedOnAddress(mIns[i]) || mIns[at + 2].MayBeChangedOnAddress(mIns[i]))
+			break;
+
+		if (mIns[i].MayReference(mIns[at + 1]))
+		{
+			if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == mIns[at + 1].mAddress)
+				mIns[i].mAddress = mIns[at].mAddress;
+			else
+				break;
+		}
+		if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress >= BC_REG_FPARAMS && mIns[i].mAddress < BC_REG_FPARAMS_END && mIns[i].ChangesAddress())
+			break;
+
+		if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+				;
+			else
+				k = i + 1;
+		}
+
+		i++;
+	}
+
+	if (k > at + 2)
+	{
+		mIns.Insert(k, mIns[at]);
+		mIns.Insert(k + 1, mIns[at + 1]);
+		mIns.Insert(k + 2, mIns[at + 2]);
+		mIns.Insert(k + 3, mIns[at + 3]);
+		mIns.Remove(at, 4);
+		return true;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::MoveCallingParamsDown(void) 
 {
 	bool	changed = false;
@@ -38007,6 +38050,15 @@ bool NativeCodeBasicBlock::MoveCallingParamsDown(void)
 			{
 				if (MoveCallingParamDown(i))
 					changed = true;
+				else if (i + 3 < mIns.Size() &&
+					mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress + 1 &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1)
+				{
+					if (MoveCallingParamPairDown(i))
+						changed = true;
+				}
+
 			}
 			i--;
 		}
@@ -75238,7 +75290,7 @@ void NativeCodeGenerator::RegisterFunctionCall(NativeCodeBasicBlock* block, int 
 				sparam = false;
 				lat = i;
 			}
-			else if (block->mIns[i].mMode == ASMIM_ZERO_PAGE && isfparam(block->mIns[at], block->mIns[i]))
+			else if ((block->mIns[i].mMode == ASMIM_ZERO_PAGE || block->mIns[i].mMode == ASMIM_INDIRECT_Y) && isfparam(block->mIns[at], block->mIns[i]))
 				break;
 			else if (block->mIns[i].mType == ASMIT_JSR || block->mIns[i].mMode == ASMIM_RELATIVE)
 				break;

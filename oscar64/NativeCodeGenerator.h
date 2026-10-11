@@ -1005,6 +1005,7 @@ public:
 	bool MergeSameBranch(void);
 
 	bool MoveCallingParamDown(int at);
+	bool MoveCallingParamPairDown(int at);
 	bool MoveCallingParamsDown(void);
 
 	bool FinalCheckedSizeReduction(void);
