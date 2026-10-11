@@ -267,6 +267,9 @@ rem @echo off
 @call :test enumswitch.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test enumarrayconversiontest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test enum-promotion-tests.c
 @if %errorlevel% neq 0 goto :error
 
@@ -310,6 +313,12 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :test structmembertest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test nestedviccasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test castoperandtest.cpp
 @if %errorlevel% neq 0 goto :error
 
 @call :test structarraycopy.c

@@ -139,10 +139,10 @@ typedef InterCodeProcedure* InterCodeProcedurePtr;
 typedef GrowingArray<InterType>					GrowingTypeArray;
 typedef GrowingArray<int>						GrowingIntArray;
 typedef GrowingArray<InterInstructionPtr>		GrowingInstructionPtrArray;
-typedef GrowingArray<InterCodeBasicBlockPtr>	GrowingInterCodeBasicBlockPtrArray;
 typedef GrowingArray<InterInstruction *>		GrowingInstructionArray;
 typedef GrowingArray<InterCodeProcedurePtr	>	GrowingInterCodeProcedurePtrArray;
 
+typedef ExpandingArray<InterCodeBasicBlockPtr>	ExpandingInterCodeBasicBlockPtrArray;
 typedef ExpandingArray<InterInstructionPtr>		ExpandingInstructionPtrArray;
 
 
@@ -804,7 +804,7 @@ protected:
 public:
 	InterCodeBasicBlock				*	mEntryBlock;
 	int									mNumBlocks;
-	GrowingInterCodeBasicBlockPtrArray	mBlocks;
+	ExpandingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase, mNumRestricted;
@@ -817,6 +817,7 @@ public:
 	bool								mNoInline;
 
 	InterCodeModule					*	mModule;
+	Errors							*	mErrors;
 	int									mID;
 
 	int									mLocalSize, mNumLocals, mNumParams, mParamVarsSize;
@@ -834,7 +835,7 @@ public:
 	bool								mLoadsIndirect, mStoresIndirect, mGlobalsChecked;
 	NumberSet							mReferencedGlobals, mModifiedGlobals;
 
-	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
+	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject, Errors * errors);
 	~InterCodeProcedure(void);
 
 	int AddTemporary(InterType type);

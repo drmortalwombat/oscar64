@@ -4,10 +4,12 @@
 #include <stdlib.h>
 
 Errors::Errors(void)
-	: mErrorCount(0), mMinLevel(EINFO_GENERIC), mDisabled(EERR_GENERIC), mWarnErrors(EERR_GENERIC)
-{
+	: mBase(nullptr), mErrorCount(0), mMinLevel(EINFO_GENERIC), mDisabled(EWARN_MAX - EWARN_GENERIC), mWarnErrors(EWARN_MAX - EWARN_GENERIC)
+{}
 
-}
+Errors::Errors(Errors* base)
+	: mBase(base), mErrorCount(0), mMinLevel(base->mMinLevel), mDisabled(base->mDisabled), mWarnErrors(base->mWarnErrors)
+{}
 
 ErrorID	Errors::SetMinLevel(ErrorID id)
 {
@@ -41,17 +43,19 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const Iden
 		this->Error(loc, eid, msg, info1->mString, info2->mString);
 }
 
-
 void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char* info1, const char * info2) 
 {
-	if (eid >= mMinLevel && !(eid < EERR_GENERIC && mDisabled[eid]))
+	Errors* berr = this;
+	while (berr->mBase)
+		berr = berr->mBase;
+
+	if (eid >= mMinLevel && !(eid >= EWARN_GENERIC && eid < EWARN_MAX && mDisabled[eid - EWARN_GENERIC]))
 	{
 		const char* level = "info";
-		if (eid >= EERR_GENERIC || mWarnErrors[eid])
+		if (eid >= EERR_GENERIC || (eid >= EWARN_GENERIC && eid < EWARN_MAX && mWarnErrors[eid - EWARN_GENERIC]))
 		{
-
 			level = "error";
-			mErrorCount++;
+			berr->mErrorCount++;
 		}
 		else if (eid >= EWARN_GENERIC)
 		{
@@ -80,7 +84,7 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 				fprintf(stderr, "oscar64: %s %d: %s '%s' != '%s'\n", level, eid, msg, info1, info2);
 		}
 
-		if (mErrorCount > 10 || eid >= EFATAL_GENERIC)
+		if (berr->mErrorCount > 10 || eid >= EFATAL_GENERIC)
 			exit(20);
 	}
 }

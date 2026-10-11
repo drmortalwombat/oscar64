@@ -1674,6 +1674,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	Expression* fexp = fdec->mValue;
 	Declaration* ftype = fdec->mBase;
 
+	Errors* perrors = mErrors;
+	if (fdec->mErrors)
+		mErrors = fdec->mErrors;
+
 	proc->mCheckUnreachable = false;
 
 	InlineMapper	nmapper;
@@ -1865,6 +1869,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	// Uwind parameter passing stack
 	// UnwindDestructStack(ftype, proc, block, destack, nullptr, inlineMapper);
 
+
 	if (rdec)
 	{
 		InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
@@ -1881,14 +1886,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		ExValue rv(rdec->mBase, ins->mDst.mTemp, 1);
 		if (!rdec->mBase->IsReference() && rdec->mBase->mType != DT_TYPE_STRUCT)
 			rv = Dereference(proc, exp, block, inlineMapper, rv);
+
+		mErrors = perrors;
 		return rv;
 	}
 	else if (lrexp)
 	{
+		mErrors = perrors;
 		return *lrexp;
 	}
 	else
+	{
+		mErrors = perrors;
 		return ExValue(TheVoidTypeDeclaration);
+	}
 }
 
 InterInstruction* InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression * exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue vl, ExValue vr)
@@ -6420,7 +6431,11 @@ static InterCodeGenerator::DestructStack* FindBase(InterCodeGenerator::DestructS
 
 InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod, Expression* exp, Declaration * dec)
 {
-	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
+	Errors* perrors = mErrors;
+	if (dec->mErrors)
+		mErrors = dec->mErrors;
+
+	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment), mErrors);
 	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
@@ -6641,6 +6656,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	}
 
 	mCompilerOptions = outerCompilerOptions;
+
+	mErrors = perrors;
 
 	return proc;
 }

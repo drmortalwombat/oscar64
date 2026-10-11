@@ -5732,7 +5732,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			else
 			{
 				if (mAddress == 0 && !(mFlags & NCIF_VOLATILE))
-					block->mProc->mGenerator->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+					block->mProc->mInterProc->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 				block->PutByte(uint8(mAddress));
 			}
 			break;
@@ -5816,7 +5816,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			else
 			{
 				if (mAddress == 0 && !(mFlags & NCIF_VOLATILE))
-					block->mProc->mGenerator->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+					block->mProc->mInterProc->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 				block->PutWord(uint16(mAddress));
 			}
 			break;
@@ -6168,7 +6168,7 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure* proc, const Int
 		if (op.mMemory == IM_GLOBAL)
 		{
 			if (checkRange && (op.mIntConst < 0 || op.mIntConst > op.mLinkerObject->mSize))
-				proc->mModule->mErrors->Error(ins->mLocation, EWARN_UNDEFINED_POINTER_ARITHMETIC, "Undefined constant pointer arithmetic");
+				proc->mErrors->Error(ins->mLocation, EWARN_UNDEFINED_POINTER_ARITHMETIC, "Undefined constant pointer arithmetic");
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, op.mIntConst, op.mLinkerObject, NCIF_LOWER));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
@@ -71557,7 +71557,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	if (mInterProc->mInterrupt)
 	{
 		if (!mNoFrame || commonFrameSize > 0)
-			mGenerator->mErrors->Error(mLocation, ERRR_INTERRUPT_TO_COMPLEX, "Function to complex for interrupt");
+			mInterProc->mErrors->Error(mLocation, ERRR_INTERRUPT_TO_COMPLEX, "Function to complex for interrupt");
 
 		bool		yreg = false, xreg = false;
 		ZeroPageSet	zpLocal, zpGlobal;
@@ -71565,7 +71565,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal, yreg, xreg, true))
 			zpLocal |= zpGlobal;
 		else
-			mGenerator->mErrors->Error(mLocation, ERRR_INTERRUPT_TO_COMPLEX, "No recursive functions in interrupt");
+			mInterProc->mErrors->Error(mLocation, ERRR_INTERRUPT_TO_COMPLEX, "No recursive functions in interrupt");
 
 		if (proc->mHardwareInterrupt)
 		{
@@ -73702,7 +73702,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (cnt > 200)
 		{
 			changed = false;
-			mGenerator->mErrors->Error(mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mIdent);
+			mInterProc->mErrors->Error(mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mIdent);
 		}
 
 #if 1

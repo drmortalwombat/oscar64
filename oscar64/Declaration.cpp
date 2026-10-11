@@ -1443,7 +1443,8 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mFastCallBase2(0), mFastCallSize2(0), mVariadicSize(0),
 	mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
-	mShift(0), mBits(0), mOptFlags(0), mInlayRegion(nullptr)
+	mShift(0), mBits(0), mOptFlags(0), mInlayRegion(nullptr),
+	mErrors(nullptr)
 {
 	static uint32 gUID = 0;
 	mUID = gUID++;

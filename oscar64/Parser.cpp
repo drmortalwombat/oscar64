@@ -372,6 +372,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 								needVTable = true;
 
 							mdec->mType = DT_CONST_FUNCTION;
+							mdec->mErrors = mErrors;
 							mdec->mSection = mCodeSection;
 							mdec->mFlags |= DTF_GLOBAL;
 //							mdec->mBase->mFlags |= DTF_FUNC_THIS;
@@ -608,6 +609,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 											alignment = mdec->mBase->mBase->mSize;
 
 										offset = (offset + alignment - 1) & ~(alignment - 1);
+										mdec->mOffset = offset;
+
 										offset += mdec->mBase->mSize;
 
 										if (alignment > dec->mAlignment)
@@ -1338,8 +1341,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		}
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
-
 		dec->mFlags |= DTF_DEFINED;
+
+		if (flags & DTF_CONST)
+			dec = dec->ToConstType();
+
+		if (flags & DTF_VOLATILE)
+			dec = dec->ToVolatileType();
 		break;
 	}
 	case TK_STRUCT:
@@ -2869,7 +2877,12 @@ Expression* Parser::ParseConstInitExpression(Declaration* dtype, bool inner)
 				ndec->mSize = dtype->mSize;					
 
 				if (exp->mDecValue->mType == DT_CONST_INTEGER)
+				{
+					if (exp->mDecValue->mInteger < dtype->MinInteger() || exp->mDecValue->mInteger > dtype->MaxInteger())
+						mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+
 					ndec->mInteger = exp->mDecValue->mInteger;
+				}
 				else if (exp->mDecValue->mType == DT_CONST_FLOAT)
 					ndec->mInteger = int64(exp->mDecValue->mNumber);
 				else
@@ -3551,6 +3564,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -3592,6 +3606,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 			cdec->mIdent = ctorident;
 			cdec->mQualIdent = ctorqident;
@@ -3642,6 +3657,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -3865,6 +3881,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4090,6 +4107,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4270,6 +4288,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4448,6 +4467,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		PrependThisArgument(ctdec, vthis);
 
 		Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+		cdec->mErrors = mErrors;
 		cdec->mBase = ctdec;
 
 		cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4526,6 +4546,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		PrependThisArgument(ctdec, vthis);
 
 		Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+		cdec->mErrors = mErrors;
 		cdec->mBase = ctdec;
 
 		cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4613,6 +4634,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		PrependThisArgument(ctdec, vthis);
 
 		Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+		cdec->mErrors = mErrors;
 		cdec->mBase = ctdec;
 
 		cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4718,6 +4740,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		PrependThisArgument(ctdec, vthis);
 
 		Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+		cdec->mErrors = mErrors;
 		cdec->mBase = ctdec;
 
 		cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4823,6 +4846,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		PrependThisArgument(ctdec, vthis);
 
 		Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+		cdec->mErrors = mErrors;
 		cdec->mBase = ctdec;
 
 		cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -4928,6 +4952,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		PrependThisArgument(ctdec, vthis);
 
 		Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+		cdec->mErrors = mErrors;
 		cdec->mBase = ctdec;
 
 		cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -6120,6 +6145,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			PrependThisArgument(ctdec, pthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -6171,6 +6197,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			PrependThisArgument(ctdec, bthis);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -6214,6 +6241,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
 
 			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mErrors = mErrors;
 
 			PrependThisArgument(ctdec, pthis);
 
@@ -6557,6 +6585,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 				{
 					ndec->mType = DT_CONST_FUNCTION;
+					ndec->mErrors = mErrors;
 					ndec->mSection = mCodeSection;
 					ndec->mBase->mFlags |= typeFlags;
 
@@ -7421,6 +7450,7 @@ Expression* Parser::ParseLambdaExpression(void)
 	Declaration* cpdec = cdec->BuildConstPointer(mScanner->mLocation);
 
 	Declaration* fdec = new Declaration(mScanner->mLocation, DT_CONST_FUNCTION);
+	fdec->mErrors = mErrors;
 	fdec->mIdent = Ident::Unique("operator()");
 	fdec->mQualIdent = cdec->mScope->Mangle(fdec->mIdent);
 	fdec->mCompilerOptions = mCompilerOptions;
@@ -7776,6 +7806,8 @@ Expression* Parser::ParseCastExpression(Expression* exp)
 				ConsumeToken(TK_CLOSE_PARENTHESIS);
 
 				nexp->mLeft = ParseCastExpression(nexp->mLeft);
+				// Complete the operand's postfix operators before applying the cast.
+				nexp->mLeft = ParsePostfixExpression(false, nexp->mLeft);
 			}
 			else
 				nexp->mLeft = ParsePrefixExpression(false);
@@ -9453,9 +9485,10 @@ Expression* Parser::ParseConstruction(Declaration* type)
 	return exp;
 }
 
-Expression* Parser::ParsePostfixExpression(bool lhs)
+Expression* Parser::ParsePostfixExpression(bool lhs, Expression* exp)
 {
-	Expression* exp = ParseSimpleExpression(lhs);
+	if (exp == nullptr)
+		exp = ParseSimpleExpression(lhs);
 
 	if (exp->mType == EX_LABEL)
 		return exp;
@@ -13514,6 +13547,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
 
 				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+				adec->mErrors = mErrors;
 
 				adec->mBase = ctdec;
 				adec->mIdent = bdec->mTemplate->mIdent->PreMangle("+");
@@ -13531,6 +13565,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
 
 				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+				adec->mErrors = mErrors;
 
 				adec->mBase = ctdec;
 				adec->mIdent = bdec->mTemplate->mIdent->PreMangle("~");
@@ -13560,6 +13595,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 					mErrors->Error(ctdec->mLocation, EERR_WRONG_PARAMETER, "Cast operators can't have parameter");
 
 				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+				adec->mErrors = mErrors;
 				adec->mBase = ctdec;
 				
 				adec->mFlags |= adec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
@@ -13587,6 +13623,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
 
 				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+				adec->mErrors = mErrors;
 
 				adec->mBase = ctdec;
 				adec->mIdent = pthis->mBase->mIdent->PreMangle("+");
@@ -13638,6 +13675,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				adec->mBase->mFlags |= DTF_CONST;
 
 			adec->mType = DT_CONST_FUNCTION;
+			adec->mErrors = mErrors;
 			adec->mSection = mCodeSection;
 
 			if (mCompilerOptions & COPT_NATIVE)
@@ -14936,10 +14974,10 @@ void Parser::ParsePragma(void)
 			{
 				ConsumeToken(TK_COLON);
 				do {
-					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
+					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger >= EWARN_GENERIC && mScanner->mTokenInteger < EWARN_MAX)
 					{
-						mErrors->mDisabled += int(mScanner->mTokenInteger);
-						mErrors->mWarnErrors -= int(mScanner->mTokenInteger);
+						mErrors->mDisabled += int(mScanner->mTokenInteger) - EWARN_GENERIC;
+						mErrors->mWarnErrors -= int(mScanner->mTokenInteger) - EWARN_GENERIC;
 						mScanner->NextToken();
 					}
 				} while (ConsumeTokenIf(TK_COMMA));
@@ -14948,13 +14986,24 @@ void Parser::ParsePragma(void)
 			{
 				ConsumeToken(TK_COLON);
 				do {
-					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
+					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger >= EWARN_GENERIC && mScanner->mTokenInteger < EWARN_MAX)
 					{
-						mErrors->mDisabled -= int(mScanner->mTokenInteger);
-						mErrors->mWarnErrors += int(mScanner->mTokenInteger);
+						mErrors->mDisabled -= int(mScanner->mTokenInteger) - EWARN_GENERIC;
+						mErrors->mWarnErrors += int(mScanner->mTokenInteger) - EWARN_GENERIC;
 						mScanner->NextToken();
 					}
 				} while (ConsumeTokenIf(TK_COMMA));
+			}
+			else if (ConsumeIdentIf("push"))
+			{
+				mErrors = new Errors(mErrors);
+			}
+			else if (ConsumeIdentIf("pop"))
+			{
+				if (mErrors->mBase)
+					mErrors = mErrors->mBase;
+				else
+					mErrors->Error(mScanner->mLocation, ERRR_STACK_OVERFLOW, "Stack underflow");
 			}
 			else if (ConsumeToken(TK_DEFAULT))
 			{
@@ -14962,8 +15011,8 @@ void Parser::ParsePragma(void)
 				do {
 					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
 					{
-						mErrors->mDisabled -= int(mScanner->mTokenInteger);
-						mErrors->mWarnErrors -= int(mScanner->mTokenInteger);
+						mErrors->mDisabled -= int(mScanner->mTokenInteger) - EWARN_GENERIC;
+						mErrors->mWarnErrors -= int(mScanner->mTokenInteger) - EWARN_GENERIC;
 						mScanner->NextToken();
 					}
 				} while (ConsumeTokenIf(TK_COMMA));

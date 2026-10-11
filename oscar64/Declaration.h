@@ -324,8 +324,6 @@ public:
 
 	Expression*			mValue, * mReturn;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mFastCallBase2, mFastCallSize2, mStride, mStripe, mVariadicSize;
-	uint8				mShift, mBits;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags, mCompilerOptions, mOptFlags;
@@ -334,9 +332,13 @@ public:
 	LinkerRegion	*	mInlayRegion;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
-	int					mUseCount;
 	TokenSequence	*	mTokens;
 	Parser			*	mParser;
+	Errors			*	mErrors;
+
+	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mFastCallBase2, mFastCallSize2, mStride, mStripe, mVariadicSize;
+	int					mUseCount;
+	uint8				mShift, mBits;
 
 	int64 MinInteger(void) const;
 	int64 MaxInteger(void) const;

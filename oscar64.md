@@ -357,6 +357,13 @@ Warnings can be disabled, restored to their default level, or promoted to errors
 Warnings can also be turned into errors using the warning pragma.
 
 	#pragma warning(error: 2000,2001)
+	
+If you want to limit the warnings to a region, you can use push and pop
+
+	#pragma warning(push)
+	#pragma warning(disable: 2000,2001)
+	...
+	#pragma warning(pop)
 
 The current warning settings can be saved and restored with `push` and `pop`.  A push saves both disabled warnings and warnings promoted to errors.  A pop restores the most recently saved settings, rather than resetting them to their defaults.  Pushes can be nested, and the warning stack is shared across the compilation, including included files.  A pop without a matching push is an error.
 

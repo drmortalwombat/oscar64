@@ -1,5 +1,6 @@
 #include "string.h"
 
+#pragma warning(push)
 #pragma warning(disable: 2024)
 
 #if 1
@@ -407,4 +408,3 @@ void * memchr(const void * ptr, int ch, int size)
 	return nullptr; // not found
 }
 
-#pragma warning(default: 2024)
