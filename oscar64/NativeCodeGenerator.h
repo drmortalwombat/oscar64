@@ -592,6 +592,8 @@ public:
 	bool MoveLoadAddImmStoreUp(int at);
 	bool MoveLoadEorImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
+	bool MoveSECLoadSubInvZPStoreUp(int at);
+	bool MoveLoadSECSubInvZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
 	bool MoveLoadShiftStoreUp(int at);
@@ -660,6 +662,7 @@ public:
 	bool MoveSimpleADCToINCDECDown(int at);
 	bool MoveTAXADCSTADown(int at);
 
+	bool MoveLDXAbsXYStaZpDown(int at);
 	bool MoveLDAopTAXDown(int at);
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
