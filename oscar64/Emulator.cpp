@@ -726,9 +726,11 @@ int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange)
 			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 			mRegS += 2;
 		}
-		else if (mIP == 0xff81)
+		else if (mIP >= 0xff81 && mIP <= 0xffe7)
 		{
-			printf("------------------ CLEAR ---------------\n");
+			if (mIP == 0xff81)
+				printf("------------------ CLEAR ---------------\n");
+			mRegP &= ~STATUS_CARRY;
 			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 			mRegS += 2;
 		}
