@@ -58424,11 +58424,15 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				{
 					if (yimm && mIns[i].mAddress == yval)
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						mIns[i].mType = ASMIT_TYA;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
 					else if (ximm && mIns[i].mAddress == xval)
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						mIns[i].mType = ASMIT_TXA;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
@@ -58465,23 +58469,31 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				{
 					if (yimm && mIns[i].mAddress == yval)
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress -= 2;
 						mIns[i].mType = ASMIT_NOP;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
 					else if (yimm && mIns[i].mAddress == ((yval + 1) & 0xff))
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						yval = mIns[i].mAddress;
 						mIns[i].mType = ASMIT_INY;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
 					else if (yimm && mIns[i].mAddress == ((yval - 1) & 0xff))
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						yval = mIns[i].mAddress;
 						mIns[i].mType = ASMIT_DEY;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
 					else if (aimm && mIns[i].mAddress == aval)
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						mIns[i].mType = ASMIT_TAY;
 						mIns[i].mMode = ASMIM_IMPLIED;
 						yimm = true;
@@ -58521,18 +58533,24 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				{
 					if (ximm && mIns[i].mAddress == ((xval + 1) & 0xff))
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						xval = mIns[i].mAddress;
 						mIns[i].mType = ASMIT_INX;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
 					else if (ximm && mIns[i].mAddress == ((xval - 1) & 0xff))
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						xval = mIns[i].mAddress;
 						mIns[i].mType = ASMIT_DEX;
 						mIns[i].mMode = ASMIM_IMPLIED;
 					}
 					else if (aimm && mIns[i].mAddress == aval)
 					{
+						if (i > 0 && mIns[i - 1].mMode == ASMIM_RELATIVE && mIns[i - 1].mAddress > 0)
+							mIns[i - 1].mAddress--;
 						mIns[i].mType = ASMIT_TAX;
 						mIns[i].mMode = ASMIM_IMPLIED;
 						ximm = true;
