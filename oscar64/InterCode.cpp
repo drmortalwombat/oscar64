@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"dec"
+#define CHECK_FUNC			"foo"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -10657,6 +10657,48 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 1)
 						vr.mMaxValue /= ins->mSrc[0].mIntConst;
+					break;
+
+				case IA_DIVS:
+
+					if (ins->mSrc[1].mTemp >= 0)
+						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+					else
+						vr.SetConstant(ins->mSrc[1].mIntConst);
+
+					if (ins->mSrc[0].mTemp < 0)
+					{
+						if (ins->mSrc[0].mIntConst > 0)
+						{
+							vr.mMinValue /= ins->mSrc[0].mIntConst;
+							vr.mMaxValue /= ins->mSrc[0].mIntConst;
+						}
+						else if (ins->mSrc[0].mIntConst < 0)
+						{
+							int64	min = vr.mMinValue / ins->mSrc[0].mIntConst;
+							int64	max = vr.mMaxValue / ins->mSrc[0].mIntConst;
+
+							vr.mMinValue = max;
+							vr.mMaxValue = min;
+						}
+					}
+					else if (ins->mSrc[0].IsUnsigned())
+					{
+						if (ins->mSrc[0].mRange.mMinValue > 0)
+						{
+							vr.mMinValue /= ins->mSrc[0].mRange.mMaxValue;
+							vr.mMaxValue /= ins->mSrc[0].mRange.mMinValue;
+						}
+						else
+							vr.mMinValue = 0;
+
+					}
+					else
+					{
+						int64	mv = int64max(-vr.mMinValue, vr.mMaxValue);
+						vr.mMinValue = -mv;
+						vr.mMaxValue = mv;
+					}
 					break;
 
 				case IA_MODU:
