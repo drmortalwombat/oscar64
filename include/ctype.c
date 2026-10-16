@@ -35,7 +35,7 @@ bool isctrnl(char c)
 
 bool isprint(char c)
 {
-	return (c < 128) && _cinfo[c] != CC_CTRL;
+	return c >= 32 && c < 127;
 }
 
 bool isspace(char c)
