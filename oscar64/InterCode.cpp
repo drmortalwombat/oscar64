@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"pattern_fill_row"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -10019,7 +10019,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 
 						if (vrmax == IntegerValueRange::S_WEAK && vr.mMaxValue > max0 && vr.mMaxValue > max1)
 							vrmax = IntegerValueRange::S_UNBOUND;
-						if (vrmin == IntegerValueRange::S_WEAK && vr.mMinValue < min0 && vr.mMinValue < min1)
+						if (vrmin == IntegerValueRange::S_WEAK && (min0 < 0 || vr.mMinValue < min0) && (min1 < 0 || vr.mMinValue < min1))
 							vrmin = IntegerValueRange::S_UNBOUND;
 
 						if (vr.mMaxValue < vr.mMinValue || vr.mMinValue == 0 && vr.mMaxValue == m)
@@ -23208,6 +23208,49 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 					}
 				}
 			}
+#if 1
+			else if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+				cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+				cins->mSrc[0].mTemp < 0 &&
+				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[0].mTemp < 0 &&
+				cins->mOperator == IA_CMPNE)
+			{
+				InterInstruction* iins = pblock->FindTempOriginSinglePath(ains->mDst.mTemp);
+
+				if (iins && iins->mCode == IC_CONSTANT)
+				{
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{
+						if (ains->mSrc[0].mIntConst < 0 && iins->mConst.mIntConst > cins->mSrc[0].mIntConst && (iins->mConst.mIntConst - cins->mSrc[0].mIntConst) % -ains->mSrc[0].mIntConst == 0)
+						{
+							nloop = (iins->mConst.mIntConst - cins->mSrc[0].mIntConst) / -ains->mSrc[0].mIntConst;
+
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMin(cins->mSrc[0].mIntConst + 1);
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMax(iins->mConst.mIntConst);
+
+							nfixed = true;
+
+							return true;
+						}
+						else if (ains->mSrc[0].mIntConst > 0 && iins->mConst.mIntConst < cins->mSrc[0].mIntConst && (cins->mSrc[0].mIntConst - iins->mConst.mIntConst) % ains->mSrc[0].mIntConst == 0)
+						{
+							nloop = (cins->mSrc[0].mIntConst - iins->mConst.mIntConst) / ains->mSrc[0].mIntConst;
+
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMin(iins->mConst.mIntConst);
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMax(cins->mSrc[0].mIntConst + 1);
+
+							nfixed = true;
+
+							return true;
+						}
+					}
+				}
+			}
+#endif
 		}
 		else if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
 			mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
@@ -23241,6 +23284,47 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 						nfixed = true;
 
 						return true;
+					}
+				}
+			}
+			else if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+				cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+				cins->mSrc[0].mTemp < 0 &&
+				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[0].mTemp < 0 &&
+				cins->mOperator == IA_CMPNE)
+			{
+				InterInstruction* iins = pblock->FindTempOriginSinglePath(ains->mDst.mTemp);
+
+				if (iins && iins->mCode == IC_CONSTANT)
+				{
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{
+						if (ains->mSrc[0].mIntConst > 0 && iins->mConst.mIntConst > cins->mSrc[0].mIntConst && (iins->mConst.mIntConst - cins->mSrc[0].mIntConst) % ains->mSrc[0].mIntConst == 0)
+						{
+							nloop = (iins->mConst.mIntConst - cins->mSrc[0].mIntConst) / ains->mSrc[0].mIntConst;
+
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMin(cins->mSrc[0].mIntConst + 1);
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMax(iins->mConst.mIntConst);
+
+							nfixed = true;
+
+							return true;
+						}
+						else if (ains->mSrc[0].mIntConst < 0 && iins->mConst.mIntConst < cins->mSrc[0].mIntConst && (cins->mSrc[0].mIntConst - iins->mConst.mIntConst) % -ains->mSrc[0].mIntConst == 0)
+						{
+							nloop = (cins->mSrc[0].mIntConst - iins->mConst.mIntConst) / -ains->mSrc[0].mIntConst;
+
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMin(iins->mConst.mIntConst);
+							mProc->mLocalValueRange[ains->mDst.mTemp].LimitMax(cins->mSrc[0].mIntConst + 1);
+
+							nfixed = true;
+
+							return true;
+						}
 					}
 				}
 			}
