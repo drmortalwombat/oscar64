@@ -61,7 +61,7 @@ struct NativeRegisterDataSet
 
 	void Reset(void);
 	void ResetMask(void);
-	void ResetCall(const NativeCodeInstruction & ins, int fastCallBase);
+	void ResetCall(const NativeCodeInstruction & ins, int fastCallBase, bool final);
 
 	void ResetZeroPage(int addr);
 	void ResetZeroPageRange(int addr, int num);

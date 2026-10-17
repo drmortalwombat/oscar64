@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"inc"
+#define CHECK_FUNC			"input_line"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -205,7 +205,7 @@ void NativeRegisterDataSet::ResetMask(void)
 		mRegs[i].ResetMask();
 }
 
-void NativeRegisterDataSet::ResetCall(const NativeCodeInstruction& ins, int fastCallBase)
+void NativeRegisterDataSet::ResetCall(const NativeCodeInstruction& ins, int fastCallBase, bool final)
 {
 	if (!(ins.mFlags & NCIF_PRESERVE_CPU_REG_A))
 		mRegs[CPU_REG_A].Reset();
@@ -3794,7 +3794,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 
 	if (mType == ASMIT_JSR)
 	{
-		data.ResetCall(*this, fastCallBase);
+		data.ResetCall(*this, fastCallBase, final);
 
 		return false;
 	}
@@ -37952,7 +37952,7 @@ void NativeCodeBasicBlock::PropagateZPAbsolute(const NativeRegisterDataSet& data
 				mDataSet.Set(mIns[i].mAddress, mDataSet[CPU_REG_Y]);
 			else if (mIns[i].mType == ASMIT_JSR)
 			{
-				mDataSet.ResetCall(mIns[i], mProc->mFastCallBase);
+				mDataSet.ResetCall(mIns[i], mProc->mFastCallBase, false);
 				//				mDataSet.Reset();
 			}
 			else
@@ -48948,26 +48948,7 @@ void NativeCodeBasicBlock::ResetModifiedDataSet(NativeRegisterDataSet& data)
 			data.ResetAbsolute(ins.mLinkerObject, ins.mAddress);
 
 		if (ins.mType == ASMIT_JSR)
-		{
-			data.ResetWorkRegs();
-
-			if (!(ins.mFlags & NCIF_RUNTIME) && ins.mLinkerObject || (ins.mFlags & NCIF_FEXEC))
-			{
-				if (ins.mLinkerObject && ins.mLinkerObject->mProc)
-				{
-					for (int i = BC_REG_TMP; i < BC_REG_TMP + ins.mLinkerObject->mProc->mCallerSavedTemps; i++)
-						data.ResetZeroPage(i);
-				}
-				else
-				{
-					for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
-						data.ResetZeroPage(i);
-				}
-
-				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
-					data.ResetZeroPage(i);
-			}
-		}
+			data.ResetCall(ins, mProc->mFastCallBase, false);
 	}
 }
 

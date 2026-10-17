@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"foo"
+#define CHECK_FUNC			"pattern_fill_row"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -10686,11 +10686,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					{
 						if (ins->mSrc[0].mRange.mMinValue > 0)
 						{
-							vr.mMinValue /= ins->mSrc[0].mRange.mMaxValue;
-							vr.mMaxValue /= ins->mSrc[0].mRange.mMinValue;
+							vr.mMinValue = int64min(vr.mMinValue / ins->mSrc[0].mRange.mMaxValue, vr.mMinValue / ins->mSrc[0].mRange.mMinValue);
+							vr.mMaxValue = int64max(vr.mMaxValue / ins->mSrc[0].mRange.mMinValue, vr.mMaxValue / ins->mSrc[0].mRange.mMaxValue);
 						}
 						else
-							vr.mMinValue = 0;
+						{
+						
+							vr.mMinValue = int64min(0, vr.mMinValue);
+							vr.mMaxValue = int64max(0, vr.mMaxValue);
+						}
 
 					}
 					else
