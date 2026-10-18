@@ -35611,11 +35611,15 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoadStruct(const NativeCodeBasicB
 	bool	ok = true;
 	if (!mPatched)
 	{
-		if (at == 0)
-			mPatched = true;
-
 		if (this != block && !IsDominatedBy(block))
 			poisoned = true;
+
+		// A later path must not reuse a check entered after an overwrite or invalidation.
+		if (at == 0)
+		{
+			mPatched = true;
+			mPatchFail = cleared || poisoned;
+		}
 
 		bool	used = false;
 
@@ -35664,7 +35668,7 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoadStruct(const NativeCodeBasicB
 			mPatchUsed = used || (mTrueJump && mTrueJump->mPatchUsed) || (mFalseJump && mFalseJump->mPatchUsed);
 		}
 	}
-	else if (mPatchUsed && (poisoned || cleared))
+	else if (mPatchFail || (mPatchUsed && (poisoned || cleared)))
 		return false;
 
 	return true;
