@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"input_line"
+#define CHECK_FUNC			"p3"
 
 static bool CheckFunc;
 static bool CheckCase;

@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"p3"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -4618,6 +4618,7 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	mAliasing = false;
 	mMemmap = false;
 	mLockOrder = false;
+	mRemove = false;
 }
 
 void InterInstruction::Reset(void)
