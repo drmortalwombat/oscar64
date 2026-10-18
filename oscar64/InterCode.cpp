@@ -10128,12 +10128,18 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					int64	min0 = 0, min1 = 0, max0 = m, max1 = m;
 					IntegerValueRange::State	vrmax = IntegerValueRange::S_BOUND;
 					IntegerValueRange::State	vrmin = IntegerValueRange::S_BOUND;
+					bool						maxunknown = false, minunknown = false;
 
 					if (ins->mSrc[0].mTemp < 0)
 						min0 = max0 = ins->mSrc[0].mIntConst;
 					else
 					{
 						IntegerValueRange	vr0 = mProc->mLocalValueRange[ins->mSrc[0].mTemp];
+
+						if (vr0.mMaxState == IntegerValueRange::S_UNKNOWN)
+							maxunknown = true;
+						if (vr0.mMinState == IntegerValueRange::S_UNKNOWN)
+							minunknown = true;
 
 						if ((vr0.mMaxState == IntegerValueRange::S_BOUND || vr0.mMaxState == IntegerValueRange::S_WEAK) && vr0.mMaxValue != m)
 						{
@@ -10153,6 +10159,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					else
 					{
 						IntegerValueRange	vr1 = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+
+						if (vr1.mMaxState == IntegerValueRange::S_UNKNOWN)
+							maxunknown = true;
+						if (vr1.mMinState == IntegerValueRange::S_UNKNOWN)
+							minunknown = true;
 
 						if ((vr1.mMaxState == IntegerValueRange::S_BOUND || vr1.mMaxState == IntegerValueRange::S_WEAK) && vr1.mMaxValue != m)
 						{
@@ -10189,8 +10200,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 
 						if (vr.mMaxValue < vr.mMinValue || vr.mMinValue == 0 && vr.mMaxValue == m)
 						{
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+							vr.mMinState = minunknown ? IntegerValueRange::S_UNKNOWN : IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = maxunknown ? IntegerValueRange::S_UNKNOWN : IntegerValueRange::S_UNBOUND;
 						}
 						else
 						{
@@ -11806,11 +11817,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (s0 < 0)
 				{
 					mTrueValueRange[s1].LimitMax(cins->mSrc[0].mIntConst);
-					mTrueValueRange[s1].LimitMin(0);
+					mTrueValueRange[s1].LimitMinWeak(0);
 					if (s1c >= 0)
 					{
 						mTrueValueRange[s1c].LimitMax(cins->mSrc[0].mIntConst);
-						mTrueValueRange[s1c].LimitMin(0);
+						mTrueValueRange[s1c].LimitMinWeak(0);
 					}
 
 					if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && 
@@ -23107,7 +23118,122 @@ void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 	}
 }
 
-bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64& nloop, bool& nfixed)
+bool InterCodeBasicBlock::UpdateSimpleLoopIntegerRangeSets(void)
+{
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2)
+		{
+			InterCodeBasicBlock* tail;
+
+			if (mEntryBlocks[0] == mLoopPrefix)
+				tail = mEntryBlocks[1];
+			else
+				tail = mEntryBlocks[0];
+
+			int nins = tail->mInstructions.Size();
+			
+			if (nins >= 3 &&
+				tail->mInstructions[nins - 1]->mCode == IC_BRANCH &&
+				tail->mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				tail->mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && 
+				(tail->mInstructions[nins - 3]->mOperator == IA_ADDS || tail->mInstructions[nins - 3]->mOperator == IA_ADDU ||
+				 tail->mInstructions[nins - 3]->mOperator == IA_SUBS || tail->mInstructions[nins - 3]->mOperator == IA_SUBU))
+			{
+				InterInstruction* ains = tail->mInstructions[nins - 3];
+				InterInstruction* cins = tail->mInstructions[nins - 2];
+				InterInstruction* bins = tail->mInstructions[nins - 1];
+
+				if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+					cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+					ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+					ains->mSrc[0].mTemp < 0 &&
+					cins->mSrc[0].mTemp < 0 &&
+					!tail->IsTempModifiedInRange(0, nins - 3, ains->mDst.mTemp))
+				{
+					ExpandingArray<InterCodeBasicBlock*> lbody;
+					if (tail->CollectSingleHeadLoopBody(this, tail, lbody))
+					{
+						int ct = ains->mDst.mTemp;
+
+						int i = 0;
+						while (i < lbody.Size() && (lbody[i] == tail || !lbody[i]->IsTempModified(ct)))
+							i++;
+
+						if (i == lbody.Size())
+						{
+							InterInstruction* iins = mLoopPrefix->FindTempOriginSinglePath(ains->mDst.mTemp);
+
+							int64	ainc = (ains->mOperator == IA_ADDS || ains->mOperator == IA_ADDU) ? ains->mSrc[0].mIntConst : -ains->mSrc[0].mIntConst;
+							int64	alimit = cins->mSrc[0].mIntConst;
+
+							if (iins && iins->mCode == IC_CONSTANT)
+							{
+								int64	astart = iins->mConst.mIntConst;
+
+								if (ainc > 0 && astart < alimit)
+								{
+									if (cins->mOperator == IA_CMPLU || cins->mOperator == IA_CMPLS)
+									{
+										ains->mSrc[1].mRange.LimitMin(astart);
+										ains->mSrc[1].mRange.LimitMax(alimit - 1);
+									}
+									else if (cins->mOperator == IA_CMPLEU || cins->mOperator == IA_CMPLES)
+									{
+										ains->mSrc[1].mRange.LimitMin(astart);
+										ains->mSrc[1].mRange.LimitMax(alimit);
+									}
+									else if (cins->mOperator == IA_CMPNE)
+									{
+										if ((alimit - astart) % ainc == 0)
+										{
+											ains->mSrc[1].mRange.LimitMin(astart);
+											ains->mSrc[1].mRange.LimitMax(alimit - ainc);
+										}
+									}
+								}
+								else if (ainc < 0 && astart > alimit)
+								{
+									if (cins->mOperator == IA_CMPGU || cins->mOperator == IA_CMPGS)
+									{
+										ains->mSrc[1].mRange.LimitMin(alimit + 1);
+										ains->mSrc[1].mRange.LimitMax(astart);
+									}
+									else if (cins->mOperator == IA_CMPGEU || cins->mOperator == IA_CMPGES)
+									{
+										ains->mSrc[1].mRange.LimitMin(alimit);
+										ains->mSrc[1].mRange.LimitMax(astart);
+									}
+									else if (cins->mOperator == IA_CMPNE)
+									{
+										if ((astart - alimit) % -ainc == 0)
+										{
+											ains->mSrc[1].mRange.LimitMax(astart);
+											ains->mSrc[1].mRange.LimitMin(alimit - ainc);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->UpdateSimpleLoopIntegerRangeSets()) changed = true;
+		if (mFalseJump && mFalseJump->UpdateSimpleLoopIntegerRangeSets()) changed = true;
+	}
+
+	return changed;
+
+}
+
+
+bool InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64& nloop, bool& nfixed)
 {
 	if (mLoopHead && mEntryBlocks.Size() == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
 	{
@@ -30737,8 +30863,13 @@ void InterCodeProcedure::Close(void)
 	RebuildIntegerRangeSet();
 
 	ResetVisited();
+	mEntryBlock->UpdateSimpleLoopIntegerRangeSets();
+	DisassembleDebug("SimpleLoopIntegerRangeUpdate");
+
+	ResetVisited();
 	mEntryBlock->InnerLoopIntegerRangeUpdate();
 	DisassembleDebug("InnerLoopIntegerRangeUpdate");
+
 
 	RebuildIntegerRangeSet();
 

@@ -521,6 +521,8 @@ public:
 
 	bool TempIsUnsigned(int temp);
 
+	bool UpdateSimpleLoopIntegerRangeSets(void);
+
 	void RestartLocalIntegerRangeSets(int num);
 	void BuildLocalIntegerRangeSets(int num);
 	void UpdateLocalIntegerRangeSets(void);
