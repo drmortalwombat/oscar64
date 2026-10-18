@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"brick_hit"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -21406,22 +21406,31 @@ bool NativeCodeBasicBlock::MoveAccuTrainUp(int at, int end)
 		}
 	}
 
-	int live = mIns[0].mLive;
-	if (mIns[0].ReferencesXReg()) live |= LIVE_CPU_REG_X;
-	if (mIns[0].ReferencesYReg()) live |= LIVE_CPU_REG_Y;
-
-	for (int j = at; j < end; j++)
+	if (i < at)
 	{
-		NativeCodeInstruction	ins(mIns[j]);
-		ins.mLive |= live;
-		mIns.Remove(j);
-		mIns.Insert(i, ins);
-		i++;
+		int live = mIns[0].mLive;
+		if (mIns[0].ReferencesXReg()) live |= LIVE_CPU_REG_X;
+		if (mIns[0].ReferencesYReg()) live |= LIVE_CPU_REG_Y;
+
+		int tlive = mIns[end - 1].mLive;
+		for (int j = i; j < at; j++)
+			mIns[j].mLive |= tlive;
+
+		for (int j = at; j < end; j++)
+		{
+			NativeCodeInstruction	ins(mIns[j]);
+			ins.mLive |= live;
+			mIns.Remove(j);
+			mIns.Insert(i, ins);
+			i++;
+		}
+
+		CheckLive();
+
+		return true;
 	}
 
-	CheckLive();
-
-	return true;
+	return false;
 }
 
 bool NativeCodeBasicBlock::MoveAccuTrainsUp(int azero)
@@ -67740,7 +67749,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 			if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 6, yval, 0))
 			{
 				mProc->ResetPatched();
-				if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval))
+				if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 6, yval))
 				{
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 
