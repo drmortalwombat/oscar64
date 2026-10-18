@@ -330,6 +330,9 @@ rem @echo off
 @call :test structarraycopy.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test localstructurearraystride.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test randsumtest.c
 @if %errorlevel% neq 0 goto :error
 
