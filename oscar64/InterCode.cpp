@@ -17628,6 +17628,70 @@ void InterCodeBasicBlock::CollectParamVarsSize(int& size)
 	}
 }
 
+bool InterCodeBasicBlock::MergeInnerFrames(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int	ippush = -1, ippop = -1, ipush = -1;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->mCode == IC_PUSH_FRAME)
+			{
+				if (ipush >= 0)
+				{
+					ippush = i;
+					ippop = -1;
+					ipush = -1;
+				}
+
+				ipush = i;
+			}
+			else if (mInstructions[i]->mCode == IC_POP_FRAME)
+			{
+				if (ipush >= 0)
+				{
+					if (ippop >= 0)
+					{
+						if (mInstructions[ippush]->mConst.mIntConst < mInstructions[ipush]->mConst.mIntConst)
+							mInstructions[ippush]->mConst.mIntConst = mInstructions[ipush]->mConst.mIntConst;
+						mInstructions[i]->mConst.mIntConst = mInstructions[ippush]->mConst.mIntConst;
+						mInstructions[ippop]->mCode = IC_NONE;
+						mInstructions[ipush]->mCode = IC_NONE;
+					}
+					else
+						ippush = ipush;
+
+					ippop = i;
+					ipush = -1;
+				}
+				else
+				{
+					ippush = -1;
+					ippop = -1;
+				}
+			}
+			else if (mInstructions[i]->mCode == IC_STORE && mInstructions[i]->mSrc[1].mMemory == IM_FRAME)
+			{
+				if (ipush < 0)
+				{
+					ippush = -1;
+					ippop = -1;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MergeInnerFrames()) changed = true;
+		if (mFalseJump && mFalseJump->MergeInnerFrames()) changed = true;
+	}
+	
+	return changed;
+}
+
 void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler, bool &byteCodeCall)
 {
 	int i;
@@ -30521,6 +30585,7 @@ void InterCodeProcedure::Close(void)
 		}
 	}
 #endif
+
 	ResetVisited();
 	mEntryBlock->RemoveUnusedArgumentStoreInstructions();
 
@@ -31175,6 +31240,9 @@ void InterCodeProcedure::Close(void)
 	{
 		MoveConditionsOutOfLoop();
 	}
+
+	ResetVisited();
+	mEntryBlock->MergeInnerFrames();
 
 #if 1
 	ResetVisited();

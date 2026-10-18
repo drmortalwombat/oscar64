@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"p3"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -45511,11 +45511,13 @@ bool NativeCodeBasicBlock::EliminateDoubleStore(int at)
 		if (mIns[i].mAddress == a0)
 		{
 			mIns[i].mAddress = a1;
+			mIns[i].mLive |= LIVE_MEM;
 			return true;
 		}
 		if (mIns[i].mAddress == a1)
 		{
 			mIns[i].mAddress = a0;
+			mIns[i].mLive |= LIVE_MEM;
 			return true;
 		}
 	}
@@ -71141,9 +71143,6 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 		mPlaced = true;
 		mPlace = placement.Size();
 		placement.Push(this);
-
-		if (CheckFunc && mIndex == 5)
-			printf("doopsie");
 
 		if (mFalseJump)
 		{

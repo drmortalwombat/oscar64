@@ -613,6 +613,7 @@ public:
 	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler, bool& byteCodeCall);
 	bool RecheckOuterFrame(void);
 	void CollectParamVarsSize(int& size);
+	bool MergeInnerFrames(void);
 
 	bool IsLeafProcedure(void);
 	bool PreventsCallerStaticStack(void);
