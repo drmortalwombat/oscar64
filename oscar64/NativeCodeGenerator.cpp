@@ -18957,7 +18957,7 @@ bool NativeCodeBasicBlock::JoinXYCrossBlock(void)
 					}
 					else if (CanCombineSameYtoX(yins + 1, xins) && CanCombineSameYtoXCrossBlock(xins + 1))
 					{
-						ReplaceXRegWithYReg(yins, xins);
+						ReplaceYRegWithXReg(yins, xins);
 						for (int j = yins; j <= xins; j++)
 							mIns[j].mLive |= LIVE_CPU_REG_X;
 						if (CombineSameYtoXCrossBlock(xins + 1))
@@ -18980,7 +18980,7 @@ bool NativeCodeBasicBlock::JoinXYCrossBlock(void)
 					}
 					else if (CanCombineSameXtoY(xins + 1, yins) && CanCombineSameXtoYCrossBlock(yins + 1))
 					{
-						ReplaceYRegWithXReg(xins, yins);
+						ReplaceXRegWithYReg(xins, yins);
 						for (int j = xins; j <= yins; j++)
 							mIns[j].mLive |= LIVE_CPU_REG_Y;
 						if (CombineSameXtoYCrossBlock(yins + 1))
@@ -56021,12 +56021,14 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				lblock->mTrueJump = head->mTrueJump;
 				lblock->mFalseJump = head->mFalseJump;
 				lblock->mEntryRequiredRegs = tail->mTrueJump->mEntryRequiredRegs;
+				lblock->mExitRequiredRegs = lblock->mEntryRequiredRegs;
 
 				eblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_STX, ASMIM_ZERO_PAGE, zreg));
 				eblock->mBranch = ASMIT_JMP;
 				eblock->mTrueJump = tail->mFalseJump;
 				eblock->mFalseJump = nullptr;
 				eblock->mEntryRequiredRegs = tail->mFalseJump->mEntryRequiredRegs;
+				eblock->mExitRequiredRegs = eblock->mEntryRequiredRegs;
 
 				tail->mTrueJump = lblock;
 				tail->mFalseJump = eblock;
