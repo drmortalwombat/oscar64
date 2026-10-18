@@ -53704,7 +53704,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleFixLoop(void)
 					int i = 0;
 					while (i < sz)
 					{
-						if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
+						// Calls can change Y or access the pointers moved out of the loop.
+						if (mIns[i].mType == ASMIT_JSR)
+							break;
+						else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
 						{
 							if (ypred == -1)
 							{
