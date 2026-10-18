@@ -28267,7 +28267,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[0].mVarIndex;
 				else if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
-				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
+				else if (ins->mSrc[0].mMemory == IM_ABSOLUTE || ins->mSrc[0].mMemoryBase == IM_ABSOLUTE ||
+					ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				break;
 			case IC_STORE:
@@ -28281,7 +28282,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
-				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
+				else if (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemoryBase == IM_ABSOLUTE ||
+					ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
 			case IC_FILL:
@@ -28295,7 +28297,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
-				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
+				else if (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemoryBase == IM_ABSOLUTE ||
+					ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
 			case IC_COPY:
@@ -28304,7 +28307,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[0].mVarIndex;
 				else if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
-				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
+				else if (ins->mSrc[0].mMemory == IM_ABSOLUTE || ins->mSrc[0].mMemoryBase == IM_ABSOLUTE ||
+					ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
 				{
@@ -28316,7 +28320,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
-				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
+				else if (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemoryBase == IM_ABSOLUTE ||
+					ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
 			case IC_ASSEMBLER:
