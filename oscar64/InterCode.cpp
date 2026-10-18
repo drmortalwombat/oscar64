@@ -1328,7 +1328,8 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 
 						if (op.mTemp >= 0)
 						{
-							if (proc->mStoresIndirect)
+							if (proc->ModifiesIndirect() ||
+								((op.mMemoryBase == IM_ABSOLUTE || op.mMemoryBase == IM_NONE || op.mMemoryBase == IM_INDIRECT) && proc->ModifiesAbsolute()))
 								return true;
 						}
 						else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
@@ -15907,7 +15908,10 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 									if (proc->ModifiesGlobal(op.mVarIndex))
 										flush = true;
 								}
-								else if (proc->ModifiesIndirect())
+								else if (op.mMemoryBase == IM_ABSOLUTE)
+									flush = proc->ModifiesAbsolute();
+								else if (proc->ModifiesIndirect() ||
+									((op.mMemoryBase == IM_NONE || op.mMemoryBase == IM_INDIRECT) && proc->ModifiesAbsolute()))
 								{
 									if (op.mMemoryBase == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
 										;
@@ -15924,6 +15928,8 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 								if (proc->ModifiesGlobal(op.mVarIndex))
 									flush = true;
 							}
+							else if (op.mMemory == IM_ABSOLUTE)
+								flush = proc->ModifiesAbsolute();
 							else if (proc->ModifiesIndirect())
 							{
 								if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
@@ -28314,7 +28320,7 @@ void InterCodeBasicBlock::MarkAliasing(const NumberSet& aliasedParams)
 	}
 }
 
-void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool& storesIndirect, bool& loadsIndirect, bool& globalsChecked)
+void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool& storesIndirect, bool& loadsIndirect, InterMemoryEffects& absoluteEffects, bool& globalsChecked)
 {
 	if (!mVisited)
 	{
@@ -28331,6 +28337,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[0].mVarIndex;
 				else if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mMemory == IM_ABSOLUTE || ins->mSrc[0].mMemoryBase == IM_ABSOLUTE)
+					absoluteEffects.RecordRead();
 				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				break;
@@ -28345,6 +28353,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
+				else if (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemoryBase == IM_ABSOLUTE)
+					absoluteEffects.RecordWrite();
 				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
@@ -28359,6 +28369,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
+				else if (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemoryBase == IM_ABSOLUTE)
+					absoluteEffects.RecordWrite();
 				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
@@ -28368,6 +28380,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[0].mVarIndex;
 				else if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mMemory == IM_ABSOLUTE || ins->mSrc[0].mMemoryBase == IM_ABSOLUTE)
+					absoluteEffects.RecordRead();
 				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
@@ -28380,6 +28394,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
+				else if (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemoryBase == IM_ABSOLUTE)
+					absoluteEffects.RecordWrite();
 				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
@@ -28410,6 +28426,7 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 							storesIndirect = true;
 						if (proc->mLoadsIndirect)
 							loadsIndirect = true;
+						absoluteEffects.Merge(proc->mAbsoluteEffects);
 						referencedGlobals |= proc->mReferencedGlobals;
 						modifiedGlobals |= proc->mModifiedGlobals;
 					}
@@ -28431,6 +28448,7 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 								storesIndirect = true;
 							if (proc->mLoadsIndirect)
 								loadsIndirect = true;
+							absoluteEffects.Merge(proc->mAbsoluteEffects);
 							referencedGlobals |= proc->mReferencedGlobals;
 							modifiedGlobals |= proc->mModifiedGlobals;
 						}
@@ -28442,8 +28460,8 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 			}
 		}
 
-		if (mTrueJump) mTrueJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, globalsChecked);
-		if (mFalseJump) mFalseJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, globalsChecked);
+		if (mTrueJump) mTrueJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, absoluteEffects, globalsChecked);
+		if (mFalseJump) mFalseJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, absoluteEffects, globalsChecked);
 	}
 }
 
@@ -31839,6 +31857,7 @@ void InterCodeProcedure::Close(void)
 	mGlobalsChecked = true;
 	mStoresIndirect = false;
 	mLoadsIndirect = false;
+	mAbsoluteEffects = InterMemoryEffects();
 	mReferencedGlobals.Reset(mModule->mGlobalVars.Size());
 	mModifiedGlobals.Reset(mModule->mGlobalVars.Size());
 #if 1
@@ -31855,7 +31874,7 @@ void InterCodeProcedure::Close(void)
 
 #endif
 	ResetVisited();
-	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mGlobalsChecked);
+	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mAbsoluteEffects, mGlobalsChecked);
 
 	ResetVisited();
 	mEntryBlock->MarkAliasing(mParamAliasedSet);
@@ -32331,6 +32350,17 @@ bool InterCodeProcedure::ModifiesIndirect(void) const
 bool InterCodeProcedure::ReferencesIndirect(void) const
 {
 	return !mGlobalsChecked || mStoresIndirect || mLoadsIndirect;
+}
+
+// Unknown pointers may also access absolute memory, but absolute accesses do not alias globals.
+bool InterCodeProcedure::ModifiesAbsolute(void) const
+{
+	return !mGlobalsChecked || mAbsoluteEffects.mModified || mStoresIndirect;
+}
+
+bool InterCodeProcedure::ReferencesAbsolute(void) const
+{
+	return !mGlobalsChecked || mAbsoluteEffects.mReferenced || mLoadsIndirect || mStoresIndirect;
 }
 
 bool InterCodeProcedure::ReferencesGlobal(int varindex) const

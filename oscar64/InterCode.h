@@ -74,6 +74,28 @@ enum InterMemory : uint8
 	IM_FFRAME,		// Memory used to pass parameters in zp
 };
 
+struct InterMemoryEffects
+{
+	bool mReferenced = false;
+	bool mModified = false;
+
+	void RecordRead(void)
+	{
+		mReferenced = true;
+	}
+
+	void RecordWrite(void)
+	{
+		mReferenced = mModified = true;
+	}
+
+	void Merge(const InterMemoryEffects& effects)
+	{
+		mReferenced |= effects.mReferenced;
+		mModified |= effects.mModified;
+	}
+};
+
 enum InterOperator : uint8
 {
 	IA_NONE,
@@ -786,7 +808,7 @@ public:
 	void CheckValueReturn(void);
 	void CheckNullptrDereference(void);
 
-	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
+	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, InterMemoryEffects& absoluteEffects, bool & globalsChecked);
 	
 	void MarkAliasing(const NumberSet& aliasedParams);
 };
@@ -836,6 +858,8 @@ public:
 	uint64								mCompilerOptions;
 
 	bool								mLoadsIndirect, mStoresIndirect, mGlobalsChecked;
+	// Absolute accesses are separate from indirect accesses which may alias named globals.
+	InterMemoryEffects					mAbsoluteEffects;
 	NumberSet							mReferencedGlobals, mModifiedGlobals;
 
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject, Errors * errors);
@@ -861,6 +885,9 @@ public:
 
 	bool ReferencesIndirect(void) const;
 	bool ModifiesIndirect(void) const;
+
+	bool ReferencesAbsolute(void) const;
+	bool ModifiesAbsolute(void) const;
 
 	void MapVariables(void);
 	void ReduceTemporaries(bool final = false);
