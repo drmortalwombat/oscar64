@@ -81,6 +81,26 @@ static __noinline byte loadAbsoluteIndexed(byte index)
 	return ((byte*)CONDITIONAL_PANEL_COPY__SCREEN_ADDRESS)[index];
 }
 
+static __noinline void storeAbsoluteThroughCall(byte value)
+{
+	storeAbsolute(value);
+}
+
+static __noinline byte loadAbsoluteThroughCall(void)
+{
+	return loadAbsolute();
+}
+
+static __noinline void storeIndirect(byte* address, byte value)
+{
+	*address = value;
+}
+
+static __noinline byte loadIndirect(const byte* address)
+{
+	return *address;
+}
+
 static void checkAbsoluteCalls(void)
 {
 	byte* const screen = (byte*)CONDITIONAL_PANEL_COPY__SCREEN_ADDRESS;
@@ -97,6 +117,20 @@ static void checkAbsoluteCalls(void)
 	screen[1] = 0x85;
 	assert(loadAbsoluteIndexed(0) == 0x74);
 	assert(loadAbsoluteIndexed(1) == 0x85);
+
+	// Absolute side effects must propagate through intermediate calls.
+	screen[0] = 0;
+	storeAbsoluteThroughCall(0x96);
+	assert(screen[0] == 0x96);
+	screen[0] = 0xa7;
+	assert(loadAbsoluteThroughCall() == 0xa7);
+
+	// An unknown pointer can still refer to absolute memory.
+	screen[0] = 0;
+	storeIndirect(screen, 0xb8);
+	assert(screen[0] == 0xb8);
+	screen[0] = 0xc9;
+	assert(loadIndirect(screen) == 0xc9);
 }
 
 /**
