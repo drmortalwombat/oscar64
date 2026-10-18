@@ -30,6 +30,13 @@ static void localStructureStride_checkItem(const struct LocalStructureStrideItem
 	assert( ! item.flag);
 }
 
+static void localStructureStride_checkItemPtr(const struct LocalStructureStrideItem * item)
+{
+	assert(item->kind < localStructureStride_itemCount);
+	assert(item->first == item->second);
+	assert( ! item->flag);
+}
+
 /**
  * @brief Checks that native structure-array iteration advances by a complete item.
  *
@@ -46,5 +53,7 @@ int main(void)
 
 	for (uint8_t itemIndex = 0u; itemIndex < localStructureStride_itemCount; ++itemIndex)
 		localStructureStride_checkItem(items[itemIndex]);
+	for (uint8_t itemIndex = 0u; itemIndex < localStructureStride_itemCount; ++itemIndex)
+		localStructureStride_checkItemPtr(items + itemIndex);
 	return 0;
 }

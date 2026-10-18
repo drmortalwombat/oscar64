@@ -14,10 +14,6 @@ public:
 	Emulator(Linker * linker);
 	~Emulator(void);
 
-	uint8		mMemory[0x10000];
-	int			mCycles[0x10000];
-	bool		mCalls[0x100];
-
 	int		mIP, mExitIP;
 	uint8	mRegA, mRegX, mRegY, mRegS, mRegP;
 	bool	mJiffies, mUseIORange;
@@ -32,6 +28,10 @@ public:
 	}	mIORange;
 
 	Linker* mLinker;
+
+	bool		mCalls[0x100];
+	uint8		mMemory[0x10000];
+	int			mCycles[0x10000];
 
 	int Emulate(int startIP, int exitIP, int trace, bool iorange);
 	void DumpProfile(void);

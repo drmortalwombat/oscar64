@@ -588,7 +588,7 @@ ldiv_t ldiv(long int numer, long int denom)
 
 void exit(int status)
 {
-	__asm
+	__asm __preserves(axy)
 	{
 		lda	status
 		sta	accu + 0
