@@ -6461,6 +6461,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	proc->mNumLocals = dec->mNumVars;
 	proc->mNumParams = dec->mBase->mSize;
 	proc->mDeclaration = dec;
+	proc->mEndLocation = exp ? exp->mEndLocation : dec->mLocation;
 
 	if (dec->mFlags & DTF_NATIVE)
 		proc->mNativeProcedure = true;

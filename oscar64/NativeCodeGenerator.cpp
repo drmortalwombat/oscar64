@@ -72261,6 +72261,12 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mExitBlock->mLocked = true;
 	mBlocks.Push(mExitBlock);
 
+	// The epilogue is shared by all return statements, give it the location of
+	// the function's closing brace (as the implicit IC_RETURN at the end of the
+	// body has) instead of the location of whichever return is compiled first
+	if (proc->mEndLocation.mFileName)
+		mExitBlock->mBranchIns = new InterInstruction(proc->mEndLocation, IC_RETURN);
+
 	// Place a temporary RTS
 
 	uint32	rflags = 0;
