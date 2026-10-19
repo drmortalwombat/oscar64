@@ -4631,10 +4631,10 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			if (i + 1 < sblock->mInstructions.Size() && sblock->mInstructions[i + 1]->mCode == IC_BRANCH && sblock->mInstructions[i + 1]->mSrc[0].mFinal)
 			{
 				ByteCode code = RelationalOperator(iproc, ins, true);
-				// Compile the false successor first: see NativeCodeProcedure::CompileInterBlock,
+				// Compile the true successor first: see NativeCodeProcedure::CompileInterBlock,
 				// argument evaluation order is unspecified in C++.
-				ByteCodeBasicBlock* fblock = proc->CompileBlock(iproc, sblock->mFalseJump);
 				ByteCodeBasicBlock* tblock = proc->CompileBlock(iproc, sblock->mTrueJump);
+				ByteCodeBasicBlock* fblock = proc->CompileBlock(iproc, sblock->mFalseJump);
 				this->Close(tblock, fblock, code);
 				i++;
 				return;
@@ -4765,10 +4765,10 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 				lins.mRegisterFinal = ins->mSrc[0].mFinal;
 				mIns.Push(lins);
 
-				// Compile the false successor first: see NativeCodeProcedure::CompileInterBlock,
+				// Compile the true successor first: see NativeCodeProcedure::CompileInterBlock,
 				// argument evaluation order is unspecified in C++.
-				ByteCodeBasicBlock* fblock = proc->CompileBlock(iproc, sblock->mFalseJump);
 				ByteCodeBasicBlock* tblock = proc->CompileBlock(iproc, sblock->mTrueJump);
+				ByteCodeBasicBlock* fblock = proc->CompileBlock(iproc, sblock->mFalseJump);
 				this->Close(tblock, fblock, BC_BRANCHS_NE);
 			}
 			return;
