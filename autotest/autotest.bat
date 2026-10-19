@@ -327,6 +327,9 @@ rem @echo off
 @call :test nestedviccasttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test nestedcoordinatecopytest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test gridcolumnconditionaltest.c
 @if %errorlevel% neq 0 goto :error
 
