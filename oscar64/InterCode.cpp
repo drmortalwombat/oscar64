@@ -19895,6 +19895,8 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									int64	num = (ci->mSrc[0].mIntConst - si->mConst.mIntConst + ai->mSrc[0].mIntConst - 1) / ai->mSrc[0].mIntConst;
 									if (num > 255 && num < 32768)
 									{
+										// The replacement counter has a negative signed range.
+										ai->mOperator = IA_ADDS;
 										ai->mSrc[0].mIntConst = 1;
 
 										ci->mOperator = IA_CMPNE;
