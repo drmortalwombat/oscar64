@@ -75291,7 +75291,14 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				iblock->mInstructions[i + 2]->mCode == IC_BRANCH && iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp &&
 				iblock->mTrueJump->mLoopHead)
 			{
-				block->AddByteLoopTail(iproc, ins, iblock->mInstructions[i + 1], this, CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump));
+				// Compile the true successor first, it is the primary block exit: the
+				// order of the two CompileBlock calls must not be left to the C++
+				// compiler's (unspecified) argument evaluation order, it decides the
+				// native block order and which return statement the exit block's
+				// location comes from.
+				NativeCodeBasicBlock* tblock = CompileBlock(iproc, iblock->mTrueJump);
+				NativeCodeBasicBlock* fblock = CompileBlock(iproc, iblock->mFalseJump);
+				block->AddByteLoopTail(iproc, ins, iblock->mInstructions[i + 1], this, tblock, fblock);
 				return;
 			}
 
@@ -75593,7 +75600,14 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		case IC_RELATIONAL_OPERATOR:
 			if (i + 1 < iblock->mInstructions.Size() && iblock->mInstructions[i + 1]->mCode == IC_BRANCH && iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
 			{
-				block->RelationalOperator(iproc, ins, this, CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump));
+				// Compile the true successor first, it is the primary block exit: the
+				// order of the two CompileBlock calls must not be left to the C++
+				// compiler's (unspecified) argument evaluation order, it decides the
+				// native block order and which return statement the exit block's
+				// location comes from.
+				NativeCodeBasicBlock* tblock = CompileBlock(iproc, iblock->mTrueJump);
+				NativeCodeBasicBlock* fblock = CompileBlock(iproc, iblock->mFalseJump);
+				block->RelationalOperator(iproc, ins, this, tblock, fblock);
 				return;
 			}
 			else if (ins->mSrc[0].mType >= IT_INT8 && ins->mSrc[0].mType <= IT_INT32 && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 0 && ins->mSrc[1].IsInRange(0, 1) && ins->mOperator == IA_CMPNE)
@@ -75759,7 +75773,14 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 2));
 					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 3));
 				}
-				block->Close(ins, CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump), ASMIT_BNE);
+				// Compile the true successor first, it is the primary block exit: the
+				// order of the two CompileBlock calls must not be left to the C++
+				// compiler's (unspecified) argument evaluation order, it decides the
+				// native block order and which return statement the exit block's
+				// location comes from.
+				NativeCodeBasicBlock* tblock = CompileBlock(iproc, iblock->mTrueJump);
+				NativeCodeBasicBlock* fblock = CompileBlock(iproc, iblock->mFalseJump);
+				block->Close(ins, tblock, fblock, ASMIT_BNE);
 			}
 			return;
 
