@@ -81,7 +81,7 @@ protected:
 	Expression* ParseConstInitExpression(Declaration* dtype, bool inner = false);
 	Expression* ParseDeclarationExpression(Declaration* pdec);
 	Expression* DefaultInitExpression(Expression* vexp);
-	Expression* ParseVarInitExpression(Expression* lexp, bool inner = false);
+	Expression* ParseVarInitExpression(Expression* lexp, bool inner = false, Expression* prefix = nullptr);
 	Expression* CloneVarInitExpression(Expression* vexp, Expression* iexp, Expression * qexp);
 	Expression* CopyElision(Expression* vexp, Expression* rexp);
 

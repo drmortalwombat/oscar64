@@ -2100,12 +2100,20 @@ Expression * Parser::CopyElision(Expression* vexp, Expression* rexp)
 	return nullptr;
 }
 
-Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
+Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner, Expression* prefix)
 {
 	Expression* exp = nullptr;
 	Declaration* dtype = vexp->mDecType;
 
-	if (dtype->mType == DT_TYPE_ARRAY && mScanner->mToken == TK_STRING && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
+	// Distinguish a whole aggregate value from a brace-elided first member.
+	if (
+		!prefix && inner && dtype->IsStructOrUnion() && !dtype->HasConstructor()
+		&& mScanner->mToken != TK_OPEN_BRACE
+		&& mScanner->mToken != TK_DOT && mScanner->mToken != TK_STRING
+	)
+		prefix = ParseExpression(false);
+
+	if (!prefix && dtype->mType == DT_TYPE_ARRAY && mScanner->mToken == TK_STRING && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
 	{
 		int ds = dtype->mSize;
 		uint8* d = ParseStringLiteral(ds);
@@ -2136,9 +2144,10 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 		if (ds > dtype->mSize + 1)
 			mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
 	}
-	else if ((dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION) && (inner && !dtype->HasConstructor() || ConsumeTokenIf(TK_OPEN_BRACE)))
+	else if (dtype->IsStructOrUnion() && !(prefix && dtype->CanAssign(prefix->mDecType))
+		&& (inner && !dtype->HasConstructor() || !prefix && ConsumeTokenIf(TK_OPEN_BRACE)))
 	{
-		if (inner && ConsumeTokenIf(TK_OPEN_BRACE))
+		if (!prefix && inner && ConsumeTokenIf(TK_OPEN_BRACE))
 			inner = false;
 
 		NumberSet	fset(dtype->mSize * 8);
@@ -2183,7 +2192,8 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			qexp->mDecValue = edec;
 			qexp->mDecType = edec->mBase;
 
-			Expression* nexp = ParseVarInitExpression(qexp, edec->mFlags & DTF_INLINE);
+			Expression* nexp = ParseVarInitExpression(qexp, edec->mFlags & DTF_INLINE, prefix);
+			prefix = nullptr;
 			if (nexp->mType != EX_INITIALIZATION || nexp->mRight->mType != EX_CONSTANT)
 				isconst = false;
 
@@ -2280,9 +2290,9 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 		if (exp)
 			exp->mDecType = dtype;
 	}
-	else if (dtype->mType == DT_TYPE_ARRAY && (inner || ConsumeTokenIf(TK_OPEN_BRACE)))
+	else if (dtype->mType == DT_TYPE_ARRAY && (inner || !prefix && ConsumeTokenIf(TK_OPEN_BRACE)))
 	{
-		if (inner && ConsumeTokenIf(TK_OPEN_BRACE))
+		if (!prefix && inner && ConsumeTokenIf(TK_OPEN_BRACE))
 			inner = false;
 
 		int	index = 0, stride = dtype->mBase->mSize, size = dtype->mSize / stride, mindex = 0;
@@ -2342,7 +2352,8 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			qexp->mRight->mDecValue->mBase = TheUnsignedIntTypeDeclaration;
 			qexp->mDecType = dtype->mBase;
 
-			Expression* nexp = ParseVarInitExpression(qexp, true);
+			Expression* nexp = ParseVarInitExpression(qexp, true, prefix);
+			prefix = nullptr;
 			if (nexp->mType != EX_INITIALIZATION || nexp->mRight->mType != EX_CONSTANT)
 				isconst = false;
 			if (nexp->mRight->mType == EX_PACK)
@@ -2511,7 +2522,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 	}
 	else if (dtype->mType == DT_TYPE_AUTO || dtype->mType == DT_TYPE_REFERENCE)
 	{
-		exp = ParseRExpression();
+		exp = prefix ? prefix : ParseRExpression();
 	}
 	else if (dtype->mDefaultConstructor)
 	{
@@ -2522,7 +2533,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 
 		Declaration* mtype = dtype->ToMutableType();
 
-		Expression* rexp = ParseRExpression();
+		Expression* rexp = prefix ? prefix : ParseRExpression();
 		if (rexp->mDecType->IsSame(dtype))
 		{
 			exp = CopyElision(vexp, rexp);
@@ -2597,7 +2608,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 	}
 	else		
 	{		
-		Expression* rexp = ParseExpression(false);
+		Expression* rexp = prefix ? prefix : ParseExpression(false);
 		rexp = CoerceExpression(rexp, dtype);
 		exp = new Expression(rexp->mLocation, EX_INITIALIZATION);
 		exp->mToken = TK_ASSIGN;
