@@ -35620,16 +35620,17 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 bool NativeCodeBasicBlock::CheckSingleUseGlobalLoadStruct(const NativeCodeBasicBlock* block, const NativeCodeInstruction& rins, int at, const NativeCodeInstruction& ains, bool cleared, bool poisoned)
 {
 	bool	ok = true;
-	if (!mPatched)
+	if (!mPatched || mPatchFail && !cleared)
 	{
-		if (this != block && !IsDominatedBy(block))
+		if (mPatchFail || this != block && !IsDominatedBy(block))
 			poisoned = true;
 
 		// A later path must not reuse a check entered after an overwrite or invalidation.
 		if (at == 0)
 		{
 			mPatched = true;
-			mPatchFail = cleared || poisoned;
+			if (cleared)
+				mPatchFail = true;
 		}
 
 		bool	used = false;
@@ -35679,7 +35680,7 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoadStruct(const NativeCodeBasicB
 			mPatchUsed = used || (mTrueJump && mTrueJump->mPatchUsed) || (mFalseJump && mFalseJump->mPatchUsed);
 		}
 	}
-	else if (mPatchFail || (mPatchUsed && (poisoned || cleared)))
+	else if ((mPatchUsed && (poisoned || cleared)))
 		return false;
 
 	return true;
@@ -35703,6 +35704,8 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoadStruct(const NativeCodeBasicB
 			{
 				if (ins.mType == ASMIT_LDA || ins.mType == ASMIT_LDX || ins.mType == ASMIT_LDY)
 				{
+//					printf("Patching %s,%d\n", ins.mIns->mLocation.mFileName, ins.mIns->mLocation.mLine);
+
 					finat = i;
 					ins.CopyMode(ains);
 					changed = true;
