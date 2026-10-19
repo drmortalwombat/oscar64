@@ -765,6 +765,7 @@ public:
 
 	NativeCodeBasicBlock* AddDominatorBlock(NativeCodeProcedure* proc, NativeCodeBasicBlock* pblock);
 	bool JoinTailCodeSequences(bool loops);
+	void SharedReturnLocation(const NativeCodeBasicBlock* block, int offset);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 	bool HasTailSTA(int& addr, int& index) const;
 	bool HasTailSTX(int& addr, int& index) const;

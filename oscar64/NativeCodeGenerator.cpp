@@ -31511,6 +31511,48 @@ bool NativeCodeBasicBlock::JoinEntryLoadStoreZP(void)
 }
 
 
+static bool SameLine(const InterInstruction* ains, const InterInstruction* bins)
+{
+	if (ains == bins)
+		return true;
+	else if (ains && bins)
+		return ains->mLocation.mFileName == bins->mLocation.mFileName && ains->mLocation.mLine == bins->mLocation.mLine;
+	else
+		return false;
+}
+
+static const InterInstruction* RelocatedIns(const InterInstruction* ins, const Location& loc)
+{
+	InterInstruction* nins = ins->Clone();
+	nins->mLocation = loc;
+	return nins;
+}
+
+void NativeCodeBasicBlock::SharedReturnLocation(const NativeCodeBasicBlock* block, int offset)
+{
+	// The code of this block is the same as the tail of block from offset on,
+	// which is about to be replaced by a jump to this block.  If it leads to the
+	// function exit, it is part of the shared return sequence.  Where the two
+	// copies were generated for different statements (e.g. the store of the
+	// return values of two return statements), give it the location of the
+	// epilogue (the closing brace) instead of the one of only one statement,
+	// a debugger would otherwise show that statement on both paths.  Only the
+	// location changes, not the code.
+
+	const Location& loc(mProc->mInterProc->mEndLocation);
+
+	if (loc.mFileName && mProc->mExitBlock && mTrueJump == mProc->mExitBlock && !mFalseJump && block->mTrueJump == mTrueJump && !block->mFalseJump)
+	{
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mIns && !SameLine(mIns[i].mIns, block->mIns[i + offset].mIns))
+				mIns[i].mIns = RelocatedIns(mIns[i].mIns, loc);
+		}
+		if (mBranchIns && !SameLine(mBranchIns, block->mBranchIns))
+			mBranchIns = RelocatedIns(mBranchIns, loc);
+	}
+}
+
 bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 {
 	bool	changed = false;
@@ -32941,6 +32983,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						i++;
 					if (i == mFalseJump->mIns.Size())
 					{
+						mFalseJump->SharedReturnLocation(mTrueJump, offset);
 						if (mTrueJump->mTrueJump)
 							mTrueJump->mTrueJump->RemEntryBlock(mTrueJump);
 						mTrueJump->mTrueJump = mFalseJump;
@@ -32961,6 +33004,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						i++;
 					if (i == mTrueJump->mIns.Size())
 					{
+						mTrueJump->SharedReturnLocation(mFalseJump, offset);
 						if (mFalseJump->mTrueJump)
 							mFalseJump->mTrueJump->RemEntryBlock(mFalseJump);
 						mFalseJump->mTrueJump = mTrueJump;
