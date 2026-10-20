@@ -41,11 +41,12 @@ This is a list of the games written with Oscar64, have a look if you are not con
 
 [Veggies vs Undead](https://drmortalwombat.itch.io/veggies-vs-undead)
 
-[Minitris C64](https://ursimon.itch.io/minitris-c64)
-
 
 # Third Party Projects
 
 This is a link to third party projects using Oscar64 or providing libraries to use.  These links are being provided as a convenience and for informational purposes only.
+
+[Minitris C64](https://ursimon.itch.io/minitris-c64)
+
 
 []()
