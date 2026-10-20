@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"p3"
+#define CHECK_FUNC			"classify"
 
 static bool CheckFunc;
 static bool CheckCase;

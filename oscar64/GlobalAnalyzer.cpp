@@ -1193,6 +1193,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
 			}
 
+//			exp->mLocation = exp->mEndLocation = procDec->mValue->mEndLocation;
 			procDec->mFlags &= ~DTF_FUNC_NO_RETURN;
 		}
 		break;

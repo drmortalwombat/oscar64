@@ -67371,6 +67371,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 		return true;
 	}
 
+	if (
+		mIns[i + 0].mType == ASMIT_SEC &&
+		mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+		mIns[i + 2].mType == ASMIT_CMP && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+		mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x00 &&
+		mIns[i + 4].mType == ASMIT_ROL && mIns[i + 4].mMode == ASMIM_IMPLIED &&
+		mIns[i + 5].mType == ASMIT_EOR && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0x01)
+	{
+		mIns[i + 1].mAddress = (mIns[i + 1].mAddress + mIns[i + 2].mAddress) & 255;
+		mIns[i + 2].mAddress = 256 - mIns[i + 2].mAddress;
+		mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
 
 	return false;
 }
