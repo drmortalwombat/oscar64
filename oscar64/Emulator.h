@@ -16,7 +16,7 @@ public:
 
 	int		mIP, mExitIP;
 	uint8	mRegA, mRegX, mRegY, mRegS, mRegP;
-	bool	mJiffies, mUseIORange;
+	bool	mJiffies, mUseIORange, mFileIO;
 	int		mCycleCount;
 
 	struct IORange
@@ -33,7 +33,7 @@ public:
 	uint8		mMemory[0x10000];
 	int			mCycles[0x10000];
 
-	int Emulate(int startIP, int exitIP, int trace, bool iorange);
+	int Emulate(int startIP, int exitIP, int trace, bool iorange, bool fileio);
 	void DumpProfile(void);
 	bool EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles, bool cross, bool indexed);
 protected:
@@ -44,4 +44,20 @@ protected:
 
 	uint8 ReadMemory(uint16 addr);
 	void WriteMemory(uint16 addr, uint8 data);
+
+	void EmulateKernal(void);
+
+	// Kernal Variables
+
+	uint16		mFileNamePos;
+	uint8		mFileNameLength;
+	uint8		mLFSNum, mLFSDevice, mLFSChannel;
+	uint8		mInFile, mOutFile;
+
+	struct KernalFile
+	{
+		FILE	*	mFile;
+		uint8		mNum, mDevice, mChannel;
+		bool		mOpen;
+	}	mFiles[16];
 };

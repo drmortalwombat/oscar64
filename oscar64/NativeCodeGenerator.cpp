@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"brick_hit"
+#define CHECK_FUNC			"p98"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -794,7 +794,7 @@ void NativeCodeInstruction::Disassemble(FILE* file) const
 	char	buffer[160];
 	char	i = 0;
 
-	fprintf(file, "{%c%c%c%c%c%c} {%c%c} ",
+	fprintf(file, "{%c%c%c%c%c%c} {%c%c%c%c} ",
 		(mLive & LIVE_CPU_REG_A ? 'A' : '-'),
 		(mLive & LIVE_CPU_REG_X ? 'X' : '-'),
 		(mLive & LIVE_CPU_REG_Y ? 'Y' : '-'),
@@ -802,6 +802,8 @@ void NativeCodeInstruction::Disassemble(FILE* file) const
 		(mLive & LIVE_CPU_REG_Z ? 'Z' : '-'),
 		(mLive & LIVE_MEM ? 'M' : '-'),
 
+		(mFlags & NCIF_LOWER ? 'L' : '-'),
+		(mFlags & NCIF_UPPER ? 'U' : '-'),
 		(mFlags & NCIF_VOLATILE ? 'V' : '-'),
 		(mFlags & NCIF_MEMMAP ? 'M' : '-'));
 
@@ -3781,7 +3783,7 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	return changed;
 }
 
-bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool initial, bool final, int fastCallBase)
+bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool initial, bool final, bool immrop, int fastCallBase)
 {
 	bool	changed = false;
 
@@ -4799,7 +4801,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			break;
 		}
 	}
-	else if (final && mMode == ASMIM_IMMEDIATE)
+	else if (immrop && mMode == ASMIM_IMMEDIATE)
 	{
 #if 1
 		switch (mType)
@@ -15852,7 +15854,7 @@ void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 		fprintf(file, "\n");
 	}
 
-	fprintf(file, "%03d (%4d) {------} {--} [  -  ]  %s", mIns.Size(), mBranchIns ? mBranchIns->mLocation.mLine : 0, AsmInstructionNames[mBranch]);
+	fprintf(file, "%03d (%4d) {------} {----} [  -  ]  %s", mIns.Size(), mBranchIns ? mBranchIns->mLocation.mLine : 0, AsmInstructionNames[mBranch]);
 
 	if (mTrueJump)
 	{
@@ -38666,6 +38668,8 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 				mIns[i + 4].mType == ASMIT_SBC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0x01)
 			{
 				mIns[j + 0] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_CLC);
+				mIns[j + 1] = mIns[i + 1];
+				mIns[j + 2] = mIns[i + 2];
 				j += 3;
 				i += 5;
 				changed = true;
@@ -47415,6 +47419,10 @@ bool NativeCodeBasicBlock::ReverseBitFieldForwarding(void)
 				}
 				zused = false;
 				break;
+			case ASMIT_RTS:
+				if (mExitRegA)
+					aused = 0xff;
+				break;
 			}
 		}
 
@@ -48848,7 +48856,7 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool final)
+bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool final, bool immrop)
 {
 	bool	changed = false;
 
@@ -48891,7 +48899,7 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool
 				changed = true;
 			}
 #endif
-			if (mIns[i].ValueForwarding(mDataSet, carryop, true, final, proc->mFastCallBase))
+			if (mIns[i].ValueForwarding(mDataSet, carryop, true, final, immrop, proc->mFastCallBase))
 				changed = true;
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[i].mIns, carryop));
@@ -48939,9 +48947,9 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool
 			}
 		}
 
-		if (this->mTrueJump && this->mTrueJump->GlobalValueForwarding(proc, final))
+		if (this->mTrueJump && this->mTrueJump->GlobalValueForwarding(proc, final, immrop))
 			changed = true;
-		if (this->mFalseJump && this->mFalseJump->GlobalValueForwarding(proc, final))
+		if (this->mFalseJump && this->mFalseJump->GlobalValueForwarding(proc, final, immrop))
 			changed = true;
 	}
 
@@ -48972,7 +48980,7 @@ void NativeCodeBasicBlock::ResetModifiedDataSet(NativeRegisterDataSet& data)
 	}
 }
 
-bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final)
+bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final, bool immrop)
 {
 	bool	changed = false;
 
@@ -49281,7 +49289,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				changed = true;
 			}
 #endif
-			if (mIns[i].ValueForwarding(mNDataSet, carryop, !global, final, proc->mFastCallBase))
+			if (mIns[i].ValueForwarding(mNDataSet, carryop, !global, final, immrop, proc->mFastCallBase))
 				changed = true;
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[i].mIns, carryop));
@@ -49821,9 +49829,9 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 #endif
 		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
 
-		if (this->mTrueJump && this->mTrueJump->ValueForwarding(proc, mNDataSet, global, final))
+		if (this->mTrueJump && this->mTrueJump->ValueForwarding(proc, mNDataSet, global, final, immrop))
 			changed = true;
-		if (this->mFalseJump && this->mFalseJump->ValueForwarding(proc, mFDataSet, global, final))
+		if (this->mFalseJump && this->mFalseJump->ValueForwarding(proc, mFDataSet, global, final, immrop))
 			changed = true;
 
 
@@ -53583,6 +53591,9 @@ bool NativeCodeBasicBlock::OptimizeXYSimpleLoop(void)
 								for (int j = 0; j < sz; j++)
 									mIns[j].mLive |= LIVE_CPU_REG_X;
 
+								if (mIns[i].mLive & LIVE_CPU_REG_A)
+									mIns[i].mType = ASMIT_TXA;
+
 								mIns.Insert(sz - 2, NativeCodeInstruction(mIns[i - 3].mIns, ASMIT_INX));
 								sz++;
 								changed = true;
@@ -55142,7 +55153,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 		}
 	}
 #if 1
-	if (!changed && tails.Size() == 1 && CheckFunc)
+	if (!changed && tails.Size() == 1)
 	{
 		// check blocks in guaranteed path
 		ExpandingArray<NativeCodeBasicBlock*>	path;
@@ -55966,6 +55977,12 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 									i++;
 								if (i == lblocks.Size())
 								{
+									NativeCodeBasicBlock* exitBlock;
+									if (lblocks.Contains(tail->mTrueJump))
+										exitBlock = tail->mFalseJump;
+									else
+										exitBlock = tail->mTrueJump;
+
 									tail->mIns[tz - 3].mType = ASMIT_INX; tail->mIns[tz - 3].mMode = ASMIM_IMPLIED;
 									tail->mIns[tz - 2].mType = ASMIT_STX;
 									tail->mIns[tz - 1].mType = ASMIT_CPX;
@@ -55973,6 +55990,8 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 									prev->mIns.Push(mIns[ix]);
 									mIns.Remove(ix);
 									mIns.Insert(0, NativeCodeInstruction(tail->mIns[tz - 2].mIns, ASMIT_TXA));
+									if (exitBlock->mEntryRequiredRegs[CPU_REG_A])
+										exitBlock->mIns.Insert(0, NativeCodeInstruction(tail->mIns[tz - 2].mIns, ASMIT_TXA));
 
 									tail->mExitRequiredRegs += CPU_REG_X;
 									mEntryRequiredRegs += CPU_REG_X;
@@ -57580,8 +57599,8 @@ static bool CheckBlockCopySequence(const ExpandingArray<NativeCodeInstruction>& 
 
 		for (int i = 1; i < n; i++)
 		{
-			if (!(ins[si + 2 * i + 0].mType == ASMIT_LDA && ins[si + 2 * i + 0].mMode == ins[si + 0].mMode && ins[si + 2 * i + 0].mAddress == ins[si + 0].mAddress + i &&
-				  ins[si + 2 * i + 1].mType == ASMIT_STA && ins[si + 2 * i + 1].mMode == ins[si + 1].mMode && ins[si + 2 * i + 1].mAddress == ins[si + 1].mAddress + i))
+			if (!(ins[si + 2 * i + 0].mType == ASMIT_LDA && ins[si + 2 * i + 0].mMode == ins[si + 0].mMode && ins[si + 2 * i + 0].mAddress == ins[si + 0].mAddress + i && ins[si + 2 * i + 0].mLinkerObject == ins[si + 0].mLinkerObject &&
+				  ins[si + 2 * i + 1].mType == ASMIT_STA && ins[si + 2 * i + 1].mMode == ins[si + 1].mMode && ins[si + 2 * i + 1].mAddress == ins[si + 1].mAddress + i && ins[si + 2 * i + 1].mLinkerObject == ins[si + 1].mLinkerObject))
 				return false;
 			nflags |= ins[si + 2 * i + 0].mFlags | ins[si + 2 * i + 1].mFlags;
 		}
@@ -57656,8 +57675,8 @@ bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int
 
 			int i = 1;
 			while (si + 2 * i + 1 < mIns.Size() &&
-				mIns[si + 2 * i + 0].mType == ASMIT_LDA && mIns[si + 2 * i + 0].mMode == mIns[si + 0].mMode && mIns[si + 2 * i + 0].mAddress == mIns[si + 0].mAddress + i &&
-				mIns[si + 2 * i + 1].mType == ASMIT_STA && mIns[si + 2 * i + 1].mMode == mIns[si + 1].mMode && mIns[si + 2 * i + 1].mAddress == mIns[si + 1].mAddress + i &&
+				mIns[si + 2 * i + 0].mType == ASMIT_LDA && mIns[si + 2 * i + 0].mMode == mIns[si + 0].mMode && mIns[si + 2 * i + 0].mAddress == mIns[si + 0].mAddress + i && mIns[si + 2 * i + 0].mLinkerObject == mIns[si + 0].mLinkerObject &&
+				mIns[si + 2 * i + 1].mType == ASMIT_STA && mIns[si + 2 * i + 1].mMode == mIns[si + 1].mMode && mIns[si + 2 * i + 1].mAddress == mIns[si + 1].mAddress + i && mIns[si + 2 * i + 1].mLinkerObject == mIns[si + 1].mLinkerObject &&
 				!(mIns[si + 2 * i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 			{
 				flags = mIns[si + 2 * i + 0].mFlags | mIns[si + 2 * i + 1].mFlags;
@@ -57753,9 +57772,9 @@ bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int
 
 			int i = 1;
 			while (si + 3 * i + 2 < mIns.Size() &&
-				mIns[si + 3 * i + 0].mType == ASMIT_LDA && mIns[si + 3 * i + 0].mMode == mIns[si + 0].mMode && mIns[si + 3 * i + 0].mAddress == mIns[si + 0].mAddress + i &&
-				mIns[si + 3 * i + 1].mType == ASMIT_STA && mIns[si + 3 * i + 1].mMode == mIns[si + 1].mMode && mIns[si + 3 * i + 1].mAddress == mIns[si + 1].mAddress + i &&
-				mIns[si + 3 * i + 2].mType == ASMIT_STA && mIns[si + 3 * i + 2].mMode == mIns[si + 2].mMode && mIns[si + 3 * i + 2].mAddress == mIns[si + 2].mAddress + i &&
+				mIns[si + 3 * i + 0].mType == ASMIT_LDA && mIns[si + 3 * i + 0].mMode == mIns[si + 0].mMode && mIns[si + 3 * i + 0].mAddress == mIns[si + 0].mAddress + i && mIns[si + 3 * i + 0].mLinkerObject == mIns[si + 0].mLinkerObject &&
+				mIns[si + 3 * i + 1].mType == ASMIT_STA && mIns[si + 3 * i + 1].mMode == mIns[si + 1].mMode && mIns[si + 3 * i + 1].mAddress == mIns[si + 1].mAddress + i && mIns[si + 3 * i + 1].mLinkerObject == mIns[si + 1].mLinkerObject &&
+				mIns[si + 3 * i + 2].mType == ASMIT_STA && mIns[si + 3 * i + 2].mMode == mIns[si + 2].mMode && mIns[si + 3 * i + 2].mAddress == mIns[si + 2].mAddress + i && mIns[si + 3 * i + 2].mLinkerObject == mIns[si + 2].mLinkerObject &&
 				!(mIns[si + 3 * i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 			{
 				int flags = mIns[si + 3 * i + 0].mFlags | mIns[si + 3 * i + 1].mFlags | mIns[si + 3 * i + 2].mFlags;
@@ -60953,6 +60972,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 			if (at >= 0 && !ChangesZeroPage(mIns[at + 0].mAddress, at + 2, i) && !ChangesZeroPage(mIns[at + 2].mAddress, at + 3, i))
 			{
+				for (int j = at; j < i; j++)
+				{
+					if (mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at].mAddress)
+						mIns[j].mLive |= LIVE_MEM;
+				}
 				mIns[i + 0].CopyMode(mIns[at + 0]);
 				mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 				changed = true;
@@ -69272,7 +69296,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 #endif
 
 #if 1
-			if (i + 3 < mIns.Size() && pass == 0 &&
+			if (i + 3 < mIns.Size() && (pass == 0 || pass == 16) &&
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
 				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
@@ -69313,7 +69337,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 #if 1
 			if (i + 1 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_UPPER) &&
-				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 0].mAddress == 0)
 			{
 				mProc->ResetPatched();
 				if (CheckGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1))
@@ -73293,7 +73318,7 @@ void NativeCodeProcedure::Optimize(void)
 				ResetVisited();
 				NativeRegisterDataSet	data;
 
-				if (mEntryBlock->ValueForwarding(this, data, step > 0, step == 8))
+				if (mEntryBlock->ValueForwarding(this, data, step > 0, step == 8, false))
 				{
 					changed = true;
 				}
@@ -73306,7 +73331,7 @@ void NativeCodeProcedure::Optimize(void)
 					if (step > 1)
 					{
 						ResetVisited();
-						if (mEntryBlock->GlobalValueForwarding(this, step == 8))
+						if (mEntryBlock->GlobalValueForwarding(this, step == 8, false))
 						{
 							changed = true;
 						}
@@ -74679,7 +74704,7 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			NativeRegisterDataSet	data;
-			if (mEntryBlock->ValueForwarding(this, data, true, true))
+			if (mEntryBlock->ValueForwarding(this, data, true, true, true))
 			{
 				changed = true;
 			}
@@ -74690,7 +74715,7 @@ void NativeCodeProcedure::Optimize(void)
 				mEntryBlock->CheckVisited();
 
 				ResetVisited();
-				if (mEntryBlock->GlobalValueForwarding(this, true))
+				if (mEntryBlock->GlobalValueForwarding(this, true, true))
 					changed = true;
 #endif
 			}
@@ -74763,7 +74788,7 @@ void NativeCodeProcedure::Optimize(void)
 
 	ResetVisited();
 	NativeRegisterDataSet	data;
-	mEntryBlock->ValueForwarding(this, data, true, true);
+	mEntryBlock->ValueForwarding(this, data, true, true, true);
 
 	ResetVisited();
 	mEntryBlock->CrossBlockFlagsForwarding();
@@ -74810,7 +74835,7 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			NativeRegisterDataSet	data;
-			mEntryBlock->ValueForwarding(this, data, true, true);
+			mEntryBlock->ValueForwarding(this, data, true, true, true);
 
 			BuildDataFlowSets();
 			ResetVisited();
@@ -74834,6 +74859,10 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->RemoveUnusedResultInstructions();
 	}
 
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 4b");
+#endif
+
 	ResetVisited();
 	if (mEntryBlock->FinalCheckedSizeReduction())
 	{
@@ -74844,7 +74873,7 @@ void NativeCodeProcedure::Optimize(void)
 	}
 
 #if DISASSEMBLE_OPT
-	DisassembleDebug("Post Op 4b");
+	DisassembleDebug("Post Op 4c");
 #endif
 
 #if 1

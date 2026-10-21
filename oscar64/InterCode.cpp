@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"classify"
+#define CHECK_FUNC			"p72_param"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -25314,17 +25314,23 @@ bool InterCodeBasicBlock::ShortLeaMerge(int& spareTemps)
 								}
 								else
 								{
+									if (spareTemps + 2 >= mEntryRequiredTemps.Size() + 16)
+										return true;
+									int ttemp = spareTemps++;
+									mInstructions[0]->mSrc[0].mTemp = ttemp;
+									mInstructions[0]->mSrc[0].mType = IT_INT16;
+
 									for (int k = 0; k < mEntryBlocks.Size(); k++)
 									{
 										InterInstruction* sins = iins[k];
 										sins->mCode = IC_BINARY_OPERATOR;
 										sins->mOperator = IA_ADDS;
-										sins->mDst = sins->mSrc[0];
+										sins->mDst = mInstructions[0]->mSrc[0];
 										sins->mSrc[1].mTemp = -1;
 										sins->mSrc[1].mType = sins->mSrc[0].mType;
 										sins->mSrc[1].mIntConst -= minint;
 										sins->mDst.mRange.mMaxValue += sins->mSrc[1].mIntConst;
-										mEntryBlocks[k]->mExitRequiredTemps += sins->mDst.mTemp;
+//										mEntryBlocks[k]->mExitRequiredTemps += sins->mDst.mTemp;
 									}
 								}
 

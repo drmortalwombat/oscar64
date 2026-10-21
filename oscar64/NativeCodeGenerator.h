@@ -231,7 +231,7 @@ public:
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
 	bool BitFieldForwarding(NativeRegisterDataSet& data, AsmInsType& carryop);
-	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final, int fastCallBase);
+	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final, bool immrop, int fastCallBase);
 
 	void Simulate(NativeRegisterDataSet& data);
 	bool ApplySimulation(const NativeRegisterDataSet& data);
@@ -739,8 +739,8 @@ public:
 
 	bool CrossBlockShiftForwarding(const ValueReuseDataSet & data);
 
-	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final);
-	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);
+	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final, bool immrop);
+	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final, bool immrop);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitFieldForwarding(void);
 	int FindReverseBitFieldMask(int at, int xat, int yat);

@@ -8,12 +8,28 @@ Emulator::Emulator(Linker* linker)
 	for (int i = 0; i < 0x10000; i++)
 		mMemory[i] = 0;
 	mJiffies = true;
+
+	for (int i = 0; i < 16; i++)
+	{
+		mFiles[i].mFile = nullptr;
+		mFiles[i].mOpen = false;
+	}
+
+	mInFile = 0;
+	mOutFile = 0;
 }
 
 
 Emulator::~Emulator(void)
 {
-
+	for (int i = 0; i < 16; i++)
+	{
+		if (mFiles[i].mFile)
+		{
+			fclose(mFiles[i].mFile);
+			mFiles[i].mFile = nullptr;
+		}
+	}
 }
 
 static const uint8 STATUS_SIGN = 0x80;
@@ -652,9 +668,10 @@ void Emulator::WriteMemory(uint16 addr, uint8 data)
 		mMemory[addr] = data;
 }
 
-int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange)
+int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange, bool fileio)
 {
 	mUseIORange = iorange;
+	mFileIO = fileio;
 	mIORange.mCount0 = mIORange.mCount1 = 0;
 	mIORange.mMirror = 0;
 	mIORange.mScratch[0] = mIORange.mScratch[1] = mIORange.mScratch[2] =mIORange.mScratch[3] = 0;
@@ -710,27 +727,9 @@ int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange)
 			if (mMemory[BC_REG_ACCU + 1] & 0x80)
 				DumpCallstack();
 		}
-		else if (mIP == 0xffd2)
+		else if (mIP >= 0xff00 && mIP <= 0xffff)
 		{
-			if (mRegA == 13)
-				putchar('\n');
-			else
-				putchar(mRegA);
-			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
-			mRegS += 2;
-		}
-		else if (mIP == 0xffcf)
-		{
-			int ch = getchar();
-			mRegA = ch;
-			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
-			mRegS += 2;
-		}
-		else if (mIP == 0xff81)
-		{
-			printf("------------------ CLEAR ---------------\n");
-			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
-			mRegS += 2;
+			EmulateKernal();
 		}
 
 		uint8		opcode = mMemory[mIP];
@@ -895,4 +894,130 @@ int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange)
 	}
 
 	return -1;
+}
+
+void Emulator::EmulateKernal(void)
+{
+	switch (mIP)
+	{
+	case 0xffd2:
+	{
+		char	ch = mRegA;
+		if (ch == 13)
+			ch = '\n';
+		putchar(ch);
+
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+	}	break;
+
+	case 0xffcf:
+		mRegA = getchar();
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xff81:
+		printf("------------------ CLEAR ---------------\n");
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffbd:
+		// setnam
+		mFileNamePos = (mRegY << 8) | mRegX;
+		mFileNameLength = mRegA;
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffba:
+		// setlfs
+		mLFSNum = mRegA;
+		mLFSDevice = mRegX;
+		mLFSChannel = mRegY;
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffc6:
+		mInFile = mRegA;
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffc9:
+		mOutFile = mRegA;
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffcc:
+		// clearchn
+		mInFile = 0;
+		mOutFile = 0;
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffc0:
+		// open
+	{
+		mRegP &= ~STATUS_CARRY;
+
+		if (mFileNameLength < 32 && mLFSNum > 0 && mLFSDevice == 8)
+		{
+			int fi = 0;
+			while (fi < 16 && mFiles[fi].mOpen)
+				fi++;
+			if (fi < 16)
+			{
+				char	fname[64], fni = 0, fmode[4] = "rb";
+				for (int i = 0; i < mFileNameLength; i++)
+					fname[i] = mMemory[mFileNamePos + i];
+				fname[mFileNameLength] = 0;
+
+				if (fname[fni] == '@')
+					fni++;
+				if (fname[fni] >= '0' && fname[fni] <= '9' && fname[fni + 1] == ':')
+					fni += 2;
+				int fne = fni;
+				while (fname[fne] && fname[fne] != ',')
+					fne++;
+				if (fname[fne])
+				{
+					bool	seq = false;
+					fname[fne++] = 0;
+					if (fname[fne] == 's' || fname[fne] == 'S')
+						seq = true;
+					fne++;
+
+					if (fname[fne] == ',')
+					{
+						fne++;
+						if (fname[fne] == 'w' || fname[fne] == 'W')
+							fmode[0] = 'w';
+					}
+				}
+
+				if (mFileIO)
+				{
+					if (!fopen_s(&mFiles[fi].mFile, fname + fni, fmode))
+					{
+						mFiles[fi].mOpen = true;
+					}
+					else
+						mRegP |= STATUS_CARRY;
+				}
+			}
+			else
+				mRegP |= STATUS_CARRY;
+		}
+		else
+			mRegP |= STATUS_CARRY;
+
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+	}	break;
+	}
 }
