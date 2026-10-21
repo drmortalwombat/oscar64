@@ -679,6 +679,8 @@ public:
 	bool ForwardZpXIndex(bool full);
 	bool ForwardAXYReg(void);
 
+	bool FoldDoubleInc(void);
+
 	int InstructionRepeatCount(int at, AsmInsType type) const;
 
 	// Join sequences of TXA, CLC, ADC #xx into INX, TXA sequences if possible

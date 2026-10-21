@@ -18203,6 +18203,103 @@ bool NativeCodeBasicBlock::ForwardAXYReg(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::FoldDoubleInc(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+		
+		int	aload = -1, xload = -1, yload = -1;
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_INC && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+				mIns[i + 1].mType == ASMIT_INC && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
+			{
+				if (xload >= 0 && mIns[xload].SameEffectiveAddress(mIns[i + 0]))
+				{
+					bool	fail = false;
+
+					int k = i + 1;
+					if (mIns[k].mLive & LIVE_CPU_REG_X)
+					{
+						k++;
+						while (k < mIns.Size() && (mIns[k].mLive & LIVE_CPU_REG_X) && !fail)
+						{
+							if (mIns[k].ChangesXReg())
+								fail = true;
+							if (mIns[k].MayReference(mIns[i]))
+								fail = true;
+							k++;
+						}
+					}
+
+					if (k < mIns.Size() && !fail)
+					{
+						mIns.Insert(k + 1, NativeCodeInstruction(mIns[i].mIns, ASMIT_INX));
+						mIns.Insert(k + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_INX));
+						mIns.Insert(k + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_STX, mIns[i]));
+
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+						for (int j = xload; j < k; j++)
+							mIns[j].mLive |= LIVE_CPU_REG_X;
+					}
+				}
+			}
+			else if (mIns[i + 0].mType == ASMIT_DEC && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+				mIns[i + 1].mType == ASMIT_DEC && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
+			{
+				if (xload >= 0 && mIns[xload].SameEffectiveAddress(mIns[i + 0]))
+				{
+					bool	fail = false;
+
+					int k = i + 1;
+					if (mIns[k].mLive & LIVE_CPU_REG_X)
+					{
+						k++;
+						while (k < mIns.Size() && (mIns[k].mLive & LIVE_CPU_REG_X) && !fail)
+						{
+							if (mIns[k].ChangesXReg())
+								fail = true;
+							if (mIns[k].MayReference(mIns[i]))
+								fail = true;
+							k++;
+						}
+					}
+
+					if (k < mIns.Size() && !fail)
+					{
+						mIns.Insert(k + 1, NativeCodeInstruction(mIns[i].mIns, ASMIT_DEX));
+						mIns.Insert(k + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_DEX));
+						mIns.Insert(k + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_STX, mIns[i]));
+
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+						for (int j = xload; j < k; j++)
+							mIns[j].mLive |= LIVE_CPU_REG_X;
+					}
+				}
+			}
+			else if (mIns[i].mType == ASMIT_LDX)
+				xload = i;
+			else
+			{
+				if (mIns[i].ChangesXReg()) xload = -1;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->FoldDoubleInc()) changed = true;
+		if (mFalseJump && mFalseJump->FoldDoubleInc()) changed = true;
+	}
+
+	return changed;
+}
+
 int NativeCodeBasicBlock::InstructionRepeatCount(int at, AsmInsType type) const
 {
 	int i = 0;
@@ -66144,6 +66241,40 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 	}
 
 	if (
+		mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
+		mIns[i + 1].mType == ASMIT_CLC &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2 || mIns[i + 2].mAddress == 0xfe || mIns[i + 2].mAddress == 0xff) &&
+		mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 3].mMode) &&
+		mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+	{
+		mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+		switch (mIns[i + 2].mAddress)
+		{
+		case 0x01:
+			mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+			mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+			break;
+		case 0x02:
+			mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+			mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+			break;
+		case 0xff:
+			mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+			mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+			break;
+		case 0xfe:
+			mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+			mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+			break;
+		}
+		mIns[i + 3].mType = ASMIT_STY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+
+		mIns[i + 4].mType = ASMIT_NOP;
+
+		return true;
+	}
+
+	if (
 		mIns[i + 0].mType == ASMIT_CLC &&
 		mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
@@ -74414,6 +74545,13 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+		if (step == 20)
+		{
+			ResetVisited();
+			if (mEntryBlock->FoldDoubleInc())
+				changed = true;
+		}
+
 		if (step == 21)
 		{
 			ResetVisited();
@@ -74538,7 +74676,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->JoinCommonBranchBlocks())
 				changed = true;			
 		}
-
+		
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
