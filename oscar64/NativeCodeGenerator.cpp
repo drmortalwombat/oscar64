@@ -18289,7 +18289,7 @@ bool NativeCodeBasicBlock::FoldDoubleInc(void)
 				xload = i;
 			else
 			{
-				if (mIns[i].ChangesXReg()) xload = -1;
+				if (xload >= 0 && (mIns[i].ChangesXReg() || mIns[xload].MayBeChangedOnAddress(mIns[i]))) xload = -1;
 			}
 		}
 
