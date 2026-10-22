@@ -52,7 +52,7 @@ protected:
 	uint16		mFileNamePos;
 	uint8		mFileNameLength;
 	uint8		mLFSNum, mLFSDevice, mLFSChannel;
-	uint8		mInFile, mOutFile;
+	uint8		mInFile, mOutFile, mFileStatus;
 
 	struct KernalFile
 	{

@@ -115,6 +115,10 @@ The compiler is command line driven, and creates an executable .prg file.
 * -rt : alternative runtime library, replaces the crt.c (or empty for none)
 * -e : execute the result in the integrated emulator
 * -ep : execute and profile the result in the integrated emulator
+* -et : execute and trace
+* -ef : execute with file IO using kernal calls enabled
+* -ea : execute and dump call stack in case of an assertion
+* -ei : execute and enable IO space
 * -bc : create byte code for all functions
 * -n : create pure native code for all functions (now default)
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)

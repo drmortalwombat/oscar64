@@ -905,14 +905,48 @@ void Emulator::EmulateKernal(void)
 		char	ch = mRegA;
 		if (ch == 13)
 			ch = '\n';
-		putchar(ch);
+
+		if (mOutFile)
+		{
+			int fi = 0;
+			while (fi < 16 && mOutFile != mFiles[fi].mNum)
+				fi++;
+			if (fi < 16 && mFiles[fi].mFile)
+			{
+				mFileStatus = 0x00;
+				fputc(ch, mFiles[fi].mFile);
+			}
+		}
+		else
+			putchar(ch);
 
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 	}	break;
 
 	case 0xffcf:
-		mRegA = getchar();
+		if (mInFile)
+		{
+			int fi = 0;
+			while (fi < 16 && mInFile != mFiles[fi].mNum)
+				fi++;
+			if (fi < 16 && mFiles[fi].mFile)
+			{
+				int ch = fgetc(mFiles[fi].mFile);
+
+				if (ch < 0)
+					mRegA = 0;
+				else if (ch == '\n')
+					mRegA = 13;
+				else
+					mRegA = ch;
+				mFileStatus = 0x00;
+				if (feof(mFiles[fi].mFile))
+					mFileStatus |= 0x40;
+			}
+		}
+		else
+			mRegA = getchar();
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 		break;
@@ -927,6 +961,8 @@ void Emulator::EmulateKernal(void)
 		// setnam
 		mFileNamePos = (mRegY << 8) | mRegX;
 		mFileNameLength = mRegA;
+		mRegP &= ~STATUS_CARRY;
+
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 		break;
@@ -936,18 +972,26 @@ void Emulator::EmulateKernal(void)
 		mLFSNum = mRegA;
 		mLFSDevice = mRegX;
 		mLFSChannel = mRegY;
+		mRegP &= ~STATUS_CARRY;
+
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 		break;
 
 	case 0xffc6:
 		mInFile = mRegA;
+		mRegP &= ~STATUS_CARRY;
+		mFileStatus = 0;
+
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 		break;
 
 	case 0xffc9:
 		mOutFile = mRegA;
+		mRegP &= ~STATUS_CARRY;
+		mFileStatus = 0;
+
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 		break;
@@ -956,14 +1000,43 @@ void Emulator::EmulateKernal(void)
 		// clearchn
 		mInFile = 0;
 		mOutFile = 0;
+		mRegP &= ~STATUS_CARRY;
+		mFileStatus = 0;
+
 		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 		mRegS += 2;
 		break;
+
+	case 0xffb7:
+		mRegA = mFileStatus;
+		mRegP &= ~STATUS_CARRY;
+
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+		break;
+
+	case 0xffc3:
+	{
+		int fi = 0;
+		while (fi < 16 && mRegA != mFiles[fi].mNum)
+			fi++;
+		if (fi < 16 && mFiles[fi].mFile)
+		{
+			mFileStatus = 0x00;
+			fclose(mFiles[fi].mFile);
+			mFiles[fi].mFile = nullptr;
+			mFiles[fi].mOpen = false;
+		}
+
+		mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+		mRegS += 2;
+	}	break;
 
 	case 0xffc0:
 		// open
 	{
 		mRegP &= ~STATUS_CARRY;
+		mFileStatus = 0;
 
 		if (mFileNameLength < 32 && mLFSNum > 0 && mLFSDevice == 8)
 		{
@@ -972,6 +1045,10 @@ void Emulator::EmulateKernal(void)
 				fi++;
 			if (fi < 16)
 			{
+				mFiles[fi].mNum = mLFSNum;
+				mFiles[fi].mDevice = mLFSDevice;
+				mFiles[fi].mChannel = mLFSChannel;
+
 				char	fname[64], fni = 0, fmode[4] = "rb";
 				for (int i = 0; i < mFileNameLength; i++)
 					fname[i] = mMemory[mFileNamePos + i];
@@ -984,9 +1061,10 @@ void Emulator::EmulateKernal(void)
 				int fne = fni;
 				while (fname[fne] && fname[fne] != ',')
 					fne++;
+
+				bool	seq = false;
 				if (fname[fne])
 				{
-					bool	seq = false;
 					fname[fne++] = 0;
 					if (fname[fne] == 's' || fname[fne] == 'S')
 						seq = true;
@@ -1000,9 +1078,25 @@ void Emulator::EmulateKernal(void)
 					}
 				}
 
+				int i = 0;
+				while (fname[fni + i])
+				{
+					char ch = fname[fni + i];
+					if (ch == '\\' || ch == '/' || ch == ':')
+						ch = '_';
+					fname[i] = ch;
+					i++;
+				}
+				fname[i] = 0;
+
+				if (seq)
+					strcat_s(fname, ".seq");
+				else
+					strcat_s(fname, ".prg");
+
 				if (mFileIO)
 				{
-					if (!fopen_s(&mFiles[fi].mFile, fname + fni, fmode))
+					if (!fopen_s(&mFiles[fi].mFile, fname, fmode))
 					{
 						mFiles[fi].mOpen = true;
 					}
