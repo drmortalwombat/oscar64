@@ -1381,11 +1381,16 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 
 }
 
-Declaration* Parser::ParsePostfixDeclaration(bool autoBase)
+Declaration* Parser::ParsePostfixDeclaration(bool autoBase, bool parenthesized)
 {
 	Declaration* dec;
 
-	if (mScanner->mToken == TK_MUL)
+	if (parenthesized)
+	{
+		dec = ParsePostfixDeclaration(false);
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
+	}
+	else if (mScanner->mToken == TK_MUL)
 	{
 		mScanner->NextToken();
 
@@ -5949,7 +5954,7 @@ void Parser::ExpandStructuredBinding(Declaration* dec)
 	}
 }
 
-Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, bool member, Declaration* pthis, Declaration* ptempl)
+Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, bool member, Declaration* pthis, Declaration* ptempl, bool parenthesized)
 {
 	bool	definingType = false, destructor = false;
 	uint64	storageFlags = 0, typeFlags = 0;
@@ -6521,7 +6526,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 	for (;;)
 	{
-		Declaration* ndec = ParsePostfixDeclaration(bdec->IsAuto());
+		Declaration* ndec = ParsePostfixDeclaration(bdec->IsAuto(), parenthesized);
+		parenthesized = false;
 
 		ndec = ReverseDeclaration(ndec, bdec);
 
@@ -7228,12 +7234,12 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 	return rdec;
 }
 
-Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
+Expression* Parser::ParseDeclarationExpression(Declaration * pdec, bool parenthesized)
 {
 	Declaration* dec;
 	Expression* exp = nullptr, * rexp = nullptr;
 
-	dec = ParseDeclaration(pdec, true, true, false);
+	dec = ParseDeclaration(pdec, true, true, false, nullptr, nullptr, parenthesized);
 	if (dec->mType == DT_ANON && dec->mNext == 0)
 	{
 		exp = new Expression(dec->mLocation, EX_TYPE);
@@ -7975,23 +7981,42 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_UNSIGNED:
 	case TK_SIGNED:
 	case TK_CONST:
-		if (lhs)
+		dec = ParseBaseTypeDeclaration(0, true);
+		if (!tid && mScanner->mToken == TK_OPEN_PARENTHESIS)
 		{
-			Declaration* dec = ParseBaseTypeDeclaration(0, true);
-			if (mScanner->mToken != TK_OPEN_PARENTHESIS)
-				exp = ParseDeclarationExpression(dec);
+			mScanner->NextToken();
+			if (mScanner->mToken == TK_MUL)
+			{
+				mScanner->NextToken();
+				// An unnamed pointer declarator, unlike int(*p), has no operand.
+				bool declarator = mScanner->mToken == TK_CLOSE_PARENTHESIS ||
+					mScanner->mToken == TK_CONST || mScanner->mToken == TK_VOLATILE ||
+					mScanner->mToken == TK_MEMMAP;
+				mScanner->UngetToken(TK_MUL);
+				if (declarator)
+				{
+					exp = ParseDeclarationExpression(dec, true);
+					if (exp->mType != EX_TYPE)
+						mErrors->Error(exp->mLocation, EERR_SYNTAX, "Anonymous type expected");
+				}
+				else
+					exp = ParseConstruction(dec, true);
+			}
 			else
 			{
+				mScanner->UngetToken(TK_OPEN_PARENTHESIS);
 				exp = new Expression(mScanner->mLocation, EX_TYPE);
 				exp->mDecValue = nullptr;
 				exp->mDecType = ParseTypeID(tid, dec);
 			}
 		}
+		else if (lhs)
+			exp = ParseDeclarationExpression(dec);
 		else
 		{
 			exp = new Expression(mScanner->mLocation, EX_TYPE);
 			exp->mDecValue = nullptr;
-			exp->mDecType = ParseTypeID(tid);
+			exp->mDecType = ParseTypeID(tid, dec);
 		}
 		break;
 
@@ -9356,16 +9381,17 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 	return exp;
 }
 
-Expression* Parser::ParseConstruction(Declaration* type)
+Expression* Parser::ParseConstruction(Declaration* type, bool opened)
 {
-	Token	otk = mScanner->mToken == TK_OPEN_PARENTHESIS ? TK_CLOSE_PARENTHESIS : TK_CLOSE_BRACE;
+	Token	otk = opened || mScanner->mToken == TK_OPEN_PARENTHESIS ? TK_CLOSE_PARENTHESIS : TK_CLOSE_BRACE;
 
 	Expression* pexp = nullptr;
 	Expression* exp = nullptr;
 
 	Declaration* fcons = type->mScope ? type->mScope->Lookup(type->mIdent->PreMangle("+")) : nullptr;
 
-	mScanner->NextToken();
+	if (!opened)
+		mScanner->NextToken();
 	if (mScanner->mToken != otk)
 	{
 		pexp = ParseListExpression(false, fcons ? fcons->mBase->mParams->mNext : nullptr);
