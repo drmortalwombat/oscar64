@@ -309,6 +309,12 @@ rem @echo off
 @call :test structsplittest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test functionpointercasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test functioncastoperandtest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test funcvartest.c
 @if %errorlevel% neq 0 goto :error
 

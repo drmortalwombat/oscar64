@@ -73,19 +73,19 @@ protected:
 
 	Declaration* ParseBaseTypeQualify(bool qualified, Declaration* dec, const Ident *& pident);
 	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl = nullptr);
-	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, bool member, Declaration * pthis = nullptr, Declaration * ptempl = nullptr);
+	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, bool member, Declaration * pthis = nullptr, Declaration * ptempl = nullptr, bool parenthesized = false);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl = nullptr);
 	void AddAnonymousStructMembers(int offset, Declaration* pstruct, Declaration* panon);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
 	Expression* ParseConstInitExpression(Declaration* dtype, bool inner = false);
-	Expression* ParseDeclarationExpression(Declaration* pdec);
+	Expression* ParseDeclarationExpression(Declaration* pdec, bool parenthesized = false);
 	Expression* DefaultInitExpression(Expression* vexp);
 	Expression* ParseVarInitExpression(Expression* lexp, bool inner = false, Expression* prefix = nullptr);
 	Expression* CloneVarInitExpression(Expression* vexp, Expression* iexp, Expression * qexp);
 	Expression* CopyElision(Expression* vexp, Expression* rexp);
 
-	Declaration* ParsePostfixDeclaration(bool autoBase);
+	Declaration* ParsePostfixDeclaration(bool autoBase, bool parenthesized = false);
 	Declaration* ReverseDeclaration(Declaration* odec, Declaration* bdec);
 
 	Expression* ParseFunction(Declaration* dec);
@@ -142,7 +142,7 @@ protected:
 
 	Declaration* ParseTypeID(bool tid, Declaration * bdec = nullptr);
 
-	Expression* ParseConstruction(Declaration* type);
+	Expression* ParseConstruction(Declaration* type, bool opened = false);
 
 	Expression* ParseCastExpression(Expression* exp);
 	Expression* ParseIdentExpression(const Location & eloc, Declaration* dec, bool lhs, bool tid = false);
