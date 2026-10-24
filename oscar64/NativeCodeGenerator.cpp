@@ -54363,7 +54363,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 						}
 						else if (!yindex && (mIns[i].mType == ASMIT_STY || mIns[i].mType == ASMIT_TYA || mIns[i].mMode == ASMIM_ABSOLUTE_Y || mIns[i].mMode == ASMIM_INDIRECT_Y))
 							yother = true;
-						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+						else if (mIns[i].UsesZeroPage(zreg) && !(mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE))
 							yother = true;
 
 						if (mIns[i].mType == ASMIT_TAX)
@@ -54381,7 +54381,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 						}
 						else if (!xindex && (mIns[i].mType == ASMIT_STX || mIns[i].mType == ASMIT_TXA || mIns[i].mMode == ASMIM_ABSOLUTE_X || mIns[i].mMode == ASMIM_INDIRECT_X))
 							xother = true;
-						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+						else if (mIns[i].UsesZeroPage(zreg) && !(mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE))
 							xother = true;
 					}
 					if (yindex && yother)
@@ -54675,7 +54675,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 						}
 						else if (!yindex && (mIns[i].mType == ASMIT_STY || mIns[i].mType == ASMIT_TYA || mIns[i].mMode == ASMIM_ABSOLUTE_Y || mIns[i].mMode == ASMIM_INDIRECT_Y))
 							yother = true;
-						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+						else if (mIns[i].UsesZeroPage(zreg) && !(mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE))
 							yother = true;
 
 						if (mIns[i].mType == ASMIT_TAX)
@@ -54696,7 +54696,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 						}
 						else if (!xindex && (mIns[i].mType == ASMIT_STX || mIns[i].mType == ASMIT_TXA || mIns[i].mMode == ASMIM_ABSOLUTE_X))
 							xother = true;
-						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+						else if (mIns[i].UsesZeroPage(zreg) && !(mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE))
 							xother = true;
 					}
 
@@ -54902,7 +54902,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 						}
 						else if (!yindex && (mIns[i].mType == ASMIT_STY || mIns[i].mType == ASMIT_TYA || mIns[i].mMode == ASMIM_ABSOLUTE_Y || mIns[i].mMode == ASMIM_INDIRECT_Y))
 							yother = true;
-						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+						else if (mIns[i].UsesZeroPage(zreg) && !(mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE))
 							yother = true;
 
 						if (mIns[i].mType == ASMIT_INX || mIns[i].mType == ASMIT_DEX || mIns[i].mType == ASMIT_TAX)
@@ -54918,7 +54918,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 							xother = true;
 						else if (!xindex && (mIns[i].mType == ASMIT_STX || mIns[i].mType == ASMIT_TXA || mIns[i].mMode == ASMIM_ABSOLUTE_X || mIns[i].mMode == ASMIM_INDIRECT_X))
 							xother = true;
-						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+						else if (mIns[i].UsesZeroPage(zreg) && !(mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE))
 							xother = true;
 					}
 
