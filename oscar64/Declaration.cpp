@@ -634,6 +634,9 @@ Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataS
 					else
 					{
 						Expression* ex = new Expression(mLocation, EX_CONSTANT);
+						mdec = mdec->Clone();
+						mdec->mOffset = 0;
+
 						ex->mDecValue = mdec;
 						ex->mDecType = mDecType;
 						return ex;
