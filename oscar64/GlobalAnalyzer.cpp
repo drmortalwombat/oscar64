@@ -1319,8 +1319,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 		procDec->mComplexity += exp->mDecType->mSize * 10;
 
 		ldec = Analyze(exp->mLeft, procDec, 0);
-		RegisterProc(Analyze(exp->mRight->mLeft, procDec, flags));
+		rdec = Analyze(exp->mRight->mLeft, procDec, flags);
+		RegisterProc(rdec);
 		RegisterProc(Analyze(exp->mRight->mRight, procDec, flags));
+		return rdec;
 		break;
 	}
 

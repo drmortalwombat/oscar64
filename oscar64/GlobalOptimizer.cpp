@@ -1745,8 +1745,10 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		break;
 	case EX_CONDITIONAL:
 		ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
-		RegisterProc(Analyze(exp->mRight->mLeft, procDec, flags));
+		rdec = Analyze(exp->mRight->mLeft, procDec, flags);
+		RegisterProc(rdec);
 		RegisterProc(Analyze(exp->mRight->mRight, procDec, flags));
+		return rdec;
 		break;
 	}
 

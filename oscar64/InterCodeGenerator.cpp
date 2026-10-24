@@ -5288,6 +5288,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					dtype = dtype->mBase;
 					ttype = IT_POINTER;
 				}
+				else if (dtype->mType == DT_TYPE_FUNCTION)
+				{
+					vl = Dereference(proc, exp, block, inlineMapper, vl);
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
+
+					ttype = IT_POINTER;
+				}
 				else if (stypel == IT_POINTER || styper == IT_POINTER)
 				{
 					if (vl.mType->mType == DT_TYPE_ARRAY)
