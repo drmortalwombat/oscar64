@@ -6835,7 +6835,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent);
 							mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
 						}
-						else
+						else if (pdec->mType == DT_VARIABLE)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
 							{
@@ -6865,6 +6865,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 							ndec = pdec;
 
+						}
+						else
+						{
+							mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
+							mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
 						}
 					}
 				}
