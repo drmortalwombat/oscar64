@@ -1397,7 +1397,7 @@ void GlobalAnalyzer::RegisterProc(Declaration* to)
 		{
 			to->mFlags |= DTF_FUNC_VARIABLE;
 			mVariableFunctions.Push(to);
-			Declaration* pdec = to->mParams;
+			Declaration* pdec = to->mBase->mParams;
 			while (pdec)
 			{
 				pdec->mFlags |= DTF_FPARAM_NOCONST;
