@@ -345,6 +345,9 @@ rem @echo off
 @call :test conditionalpanelcopytest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test localoffsetpanelcopytest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test castoperandtest.cpp
 @if %errorlevel% neq 0 goto :error
 

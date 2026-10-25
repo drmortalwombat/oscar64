@@ -39417,6 +39417,14 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 					return true;
 				}
 			}
+			else if (
+				ins.mMode == ASMIM_INDIRECT_Y
+				&& (ins.UsesZeroPage(reg) || ins.UsesZeroPage(reg + 1))
+			)
+			{
+				// An overlapping pointer still needs the original bytes of this pair.
+				return false;
+			}
 
 			if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_IMMEDIATE)
 				yval = ins.mAddress;
