@@ -72465,7 +72465,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	bool	simpleProcedure = proc->mFastCallProcedure && !proc->mInterrupt && !proc->mDispatchedCall && mNoFrame && mStackExpand == 0 && commonFrameSize == 0 && proc->mTempSize <= BC_REG_TMP_SAVED - BC_REG_TMP && (mGenerator->mCompilerOptions & COPT_NATIVE);
 
-	if (proc->mLeafProcedure && simpleProcedure)
+	if (proc->mLeafProcedure && simpleProcedure && !proc->mFuncVariable)
 	{
 #if 1
 		if (proc->mParamVars.Size() == 1 && proc->mParamVars[0]->mSize == 1)

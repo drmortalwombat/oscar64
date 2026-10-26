@@ -181,6 +181,7 @@
     <ClCompile Include="DiskImage.cpp" />
     <ClCompile Include="Emulator.cpp" />
     <ClCompile Include="Errors.cpp" />
+    <ClCompile Include="FunctionSets.cpp" />
     <ClCompile Include="GlobalAnalyzer.cpp" />
     <ClCompile Include="GlobalOptimizer.cpp" />
     <ClCompile Include="Ident.cpp" />
@@ -211,6 +212,7 @@
     <ClInclude Include="DiskImage.h" />
     <ClInclude Include="Emulator.h" />
     <ClInclude Include="Errors.h" />
+    <ClInclude Include="FunctionSets.h" />
     <ClInclude Include="GlobalAnalyzer.h" />
     <ClInclude Include="GlobalOptimizer.h" />
     <ClInclude Include="Ident.h" />

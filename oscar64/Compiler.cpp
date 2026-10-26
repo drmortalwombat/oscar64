@@ -34,6 +34,7 @@ Compiler::Compiler(void)
 	mInterCodeModule = new InterCodeModule(mErrors, mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 	mGlobalOptimizer = new GlobalOptimizer(mErrors, mLinker);
+	mFunctionSets = new FunctionSets(mErrors, mLinker);
 
 	mCartridgeID = 0x0000;
 	mCartridgeSubType = 0x00;
@@ -966,6 +967,21 @@ bool Compiler::GenerateCode(void)
 		CheckOperatorNew();
 
 		PreCompileDeclaration(dcrtstart);
+	}
+
+	if (mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER)
+	{
+		mFunctionSets->AnalyzeAssembler(dcrtstart->mValue, nullptr);
+
+		for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+		{
+			Declaration* dec = mCompilationUnits->mReferenced[i];
+			if (dec->mType == DT_CONST_FUNCTION)
+				mFunctionSets->AnalyzeProcedure(dec->mValue, dec);
+			else
+				mFunctionSets->AnalyzeGlobalVariable(dec);
+		}
+		mFunctionSets->CompleteAnalyze();
 	}
 
 	if (mCompilerOptions & COPT_OPTIMIZE_GLOBAL)

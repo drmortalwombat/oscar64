@@ -892,6 +892,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		return this;
 	}
 #endif
+	else if (mType == EX_TYPECAST && mLeft->mDecType->IsSame(mDecType) && mDecType->IsPointerType())
+	{
+		return mLeft;
+	}
 	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
 	{
 		if (mDecType->mType == DT_TYPE_POINTER)
@@ -1439,7 +1443,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVectorMoveConstructor(nullptr), mVectorMoveAssignment(nullptr),
-	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr),
+	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr), mUnion(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mAlignment(1), mCallers(nullptr), mCalled(nullptr), mFriends(nullptr), mMayCall(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), 
 	mFastCallBase(0), mFastCallSize(0), 
@@ -1447,7 +1451,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
 	mShift(0), mBits(0), mOptFlags(0), mInlayRegion(nullptr),
-	mErrors(nullptr)
+	mErrors(nullptr), mReturnValue(nullptr)
 {
 	static uint32 gUID = 0;
 	mUID = gUID++;
@@ -3351,6 +3355,11 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
+
+bool Declaration::IsFunctionType(void) const
+{
+	return mType == DT_TYPE_FUNCTION || mType == DT_TYPE_POINTER && mBase->mType == DT_TYPE_FUNCTION;
+}
 
 bool Declaration::IsReference(void) const
 {

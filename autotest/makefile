@@ -1,4 +1,4 @@
-SRCS=$(filter-out ambiguousoverload_trigger.c constconversionordertest_impl.c constconversionordertest_later.c opp_part1.cpp opp_part2.cpp, $(wildcard *.c *.cpp))
+SRCS=$(filter-out ambiguousoverload_trigger.c constconversionordertest_impl.c constconversionordertest_later.c opp_part1.cpp opp_part2.cpp funcvarlib.c, $(wildcard *.c *.cpp))
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
@@ -245,6 +245,67 @@ variadic-macros: variadic_macros.c
 	$(OSCAR64_CC) -eai -g -O0 -n $<
 	$(OSCAR64_CC) -eai -g -Os -n $<
 	$(OSCAR64_CC) -eai -g -O3 -n $<
+
+# testf
+funcvaropt: funcvaropt.c
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+	$(OSCAR64_CC) -ea -g -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O2 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O0 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -Os -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O3 -Ofp -n $<
+
+opp_functional: opp_functional.cpp
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+	$(OSCAR64_CC) -ea -g -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O2 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O0 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -Os -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O3 -Ofp -n $<
+
+functionpointerparamtest: functionpointerparamtest.c
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+	$(OSCAR64_CC) -ea -g -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O2 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O0 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -Os -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O3 -Ofp -n $<
+
+functionpointercasttest: functionpointercasttest.c
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+	$(OSCAR64_CC) -ea -g -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O2 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O0 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -Os -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O3 -Ofp -n $<
+
+functioncastoperandtest: functioncastoperandtest.cpp
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+	$(OSCAR64_CC) -ea -g -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O2 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O0 -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -Os -Ofp -n $<
+	$(OSCAR64_CC) -ea -g -O3 -Ofp -n $<
 
 clean:
 	@$(RM) *.asm *.bcs *.d64 *.d71 *.d81 *.int *.lbl *.map *.prg

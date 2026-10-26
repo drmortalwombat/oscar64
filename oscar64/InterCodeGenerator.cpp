@@ -2481,7 +2481,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				vl = TranslateExpression(procType, proc, block, dec->mValue, destack, gotos, breakBlock, continueBlock, inlineMapper);
 				vl.mReference--;
-				vl.mType = exp->mDecType;
+				if (exp->mDecType->IsFunctionType())
+					vl.mType = dec->mBase;
+				else
+					vl.mType = exp->mDecType;
 				if (dec->mOffset)
 				{
 					vl = Dereference(proc, exp, block, inlineMapper, vl, 0);
@@ -2667,6 +2670,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
+			else if (exp->mDecType->IsFunctionType())
+			{
+				if (exp->mDecValue->mType == DT_VARIABLE_REF && exp->mDecValue->mBase->mBase->mType == DT_TYPE_ARRAY)
+					return ExValue(exp->mDecValue->mBase->mBase->mBase, ins->mDst.mTemp, ref, lbits, lshift);
+				else
+					return ExValue(exp->mDecValue->mBase, ins->mDst.mTemp, ref, lbits, lshift);
+			}
 			else
 				return ExValue(exp->mDecType, ins->mDst.mTemp, ref, lbits, lshift);
 		}
@@ -3060,6 +3070,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ains->mDst.mTemp, 2);
+			else if (exp->mDecType->IsFunctionType())
+				return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 			else
 				return ExValue(exp->mDecType, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 		}
@@ -4118,6 +4130,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 								((mCompilerOptions & COPT_OPTIMIZE_INLINE) || (exp->mLeft->mDecValue->mFlags & DTF_FORCE_INLINE)) &&
 								!(inlineMapper && inlineMapper->mDepth > 10) &&
 								!(exp->mLeft->mDecValue->mFlags & DTF_PREVENT_INLINE) &&
+								!(exp->mLeft->mDecValue->mBase->mFlags & DTF_VARIADIC) &&
 								exp->mType != EX_VCALL;
 			bool	doInline = false, inlineConstexpr = false;
 
@@ -5642,8 +5655,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_POINTER)
 			{
-				// no need for actual operation when casting pointer to pointer
-				return ExValue(exp->mDecType, vr.mTemp, vr.mReference);
+				if (exp->mDecType->mBase->mType == DT_TYPE_FUNCTION && vr.mType->mBase->mType == DT_TYPE_FUNCTION && exp->mDecType->mBase->IsSame(vr.mType->mBase))
+				{
+					Declaration* ptype = vr.mType->mBase->BuildPointer(exp->mDecType->mLocation);
+					ptype->mFlags |= exp->mDecType->mFlags & (DTF_CONST | DTF_VOLATILE);
+					return ExValue(ptype, vr.mTemp, vr.mReference);
+				}
+				else
+				{
+					// no need for actual operation when casting pointer to pointer
+					return ExValue(exp->mDecType, vr.mTemp, vr.mReference);
+				}
 			}
 			else if (exp->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_ARRAY)
 			{

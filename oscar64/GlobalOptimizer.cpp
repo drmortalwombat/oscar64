@@ -1466,7 +1466,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 				rex = exp->mRight;
 			}
 
-			Declaration* pdec = ldec->mBase->mParams;
+			Declaration* pdec = ldec->mBase ? ldec->mBase->mParams : nullptr;
 			while (rex)
 			{
 				Expression	*& pex(rex->mType == EX_LIST ? rex->mLeft : rex);

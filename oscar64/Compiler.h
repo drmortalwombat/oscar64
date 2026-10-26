@@ -10,6 +10,7 @@
 #include "GlobalOptimizer.h"
 #include "Linker.h"
 #include "CompilerTypes.h"
+#include "FunctionSets.h"
 
 class Compiler
 {
@@ -27,6 +28,7 @@ public:
 	InterCodeModule* mInterCodeModule;
 	GlobalAnalyzer* mGlobalAnalyzer;
 	GlobalOptimizer* mGlobalOptimizer;
+	FunctionSets* mFunctionSets;
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 

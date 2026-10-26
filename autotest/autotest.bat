@@ -1,12 +1,18 @@
 rem @echo off
 
+@call :test funcvaropt.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf funcvaropt.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test warningstacktest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :testwarningstackconstraints
 @if %errorlevel% neq 0 goto :error
 
-@call :test volatilebytecomparison.c
+@call :testi volatilebytecomparison.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test ambiguousoverload.c
@@ -91,6 +97,9 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :testn opp_functional.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :testf opp_functional.cpp
 @if %errorlevel% neq 0 goto :error
 
 @call :testh operatoroverload.cpp
@@ -318,13 +327,28 @@ rem @echo off
 @call :test functioncastoperandtest.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :testf functionpointerparamtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf functionpointercasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf functioncastoperandtest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test funcvartest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf funcvartest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test variadic_macros.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test funcarraycall.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf funcarraycall.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test structassigntest.c
@@ -755,6 +779,8 @@ exit /b %errorlevel%
 ..\bin\oscar64 -ea -g -O2 -Ox -n %~1
 @if %errorlevel% neq 0 goto :error
 
+@exit /b 0
+
 :testi
 ..\bin\oscar64 -eai -g -n %~1
 @if %errorlevel% neq 0 goto :error
@@ -778,6 +804,33 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\bin\oscar64 -eai -g -O2 -Ox -n %~1
+@if %errorlevel% neq 0 goto :error
+
+@exit /b 0
+
+:testf
+..\bin\oscar64 -ea -g -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O0 -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -Os -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O3 -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -xz -Oz -Ofp -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -Oo -Ofp -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -Ox -Ofp -n %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

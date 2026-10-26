@@ -61,12 +61,13 @@ enum DecType
 	DT_NAMESPACE,
 	DT_BASECLASS,
 	DT_CLABEL,
+	DT_RETURN_VALUE,
 
 	DT_BINDING,
 
 	DT_TEMPLATE,
 
-	DT_VTABLE
+	DT_VTABLE,
 };
 
 // TypeFlags
@@ -321,6 +322,7 @@ public:
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment, * mVectorMoveConstructor, * mVectorMoveAssignment;
 	Declaration		*	mVTable, * mClass, * mTemplate;
 	Declaration		*	mForwardParam, * mForwardCall;
+	Declaration		*	mUnion, * mReturnValue;
 
 	Expression*			mValue, * mReturn;
 	DeclarationScope*	mScope;
@@ -365,6 +367,7 @@ public:
 	bool IsNumericType(void) const;
 	bool IsSimpleType(void) const;
 	bool IsReference(void) const;
+	bool IsFunctionType(void) const;
 	bool IsIndexed(void) const;
 	bool ContainsArray(void) const;
 	bool IsShortIntStruct(void) const;

@@ -132,10 +132,11 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oa : optimize inline assembler (part of O2/O3)
 * -Oa : optimize inline assembler (part of O2/O3)
 * -Oz : enable auto placement of global variables in zero page (part of O3)
-* -Op : optimize constant parameters
+* -Op : optimize constant parameters (part of O2/O3)
 * -Oo : optimize size using "outliner" (extract repeated code sequences into functions)
 * -Ox : optimize pointer arithmetic by blocking shorter arrays to not cross page boundaries
 * -OM : enable generation of self modifying code
+* -Ofp : optimize function pointers
 * -g : create source level debug info and add source line numbers to asm listing
 * -gp : create source level debug info and add source line numbers to asm listing and static profile data
 * -tf : target format, may be prg, crt or bin
