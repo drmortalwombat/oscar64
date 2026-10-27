@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"p98"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -49279,6 +49279,21 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				changed = true;
 			}
 #endif
+
+#if 1
+			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE && 
+				mIns[i + 1].mMode == ASMIM_INDIRECT_Y && mNDataSet[mIns[i + 1].mAddress + 1].mMode == NRDM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+			{
+				int addr = (mNDataSet[mIns[i + 1].mAddress + 1].mValue << 8) + mIns[i].mAddress;
+
+				mIns[i].mMode = ASMIM_ZERO_PAGE;
+				mIns[i].mAddress = mIns[i + 1].mAddress;
+				mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+				mIns[i + 1].mAddress = addr;
+
+				changed = true;
+			}
+#endif
 #if 1
 			if (i + 1 < mIns.Size() && 
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
@@ -54383,6 +54398,12 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 							xother = true;
 						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
 							xother = true;
+
+						if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == zreg || mIns[i].mAddress + 1 == zreg)
+						{
+							yother = true;
+							xother = true;
+						}
 					}
 					if (yindex && yother)
 					{
@@ -54698,6 +54719,12 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 							xother = true;
 						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
 							xother = true;
+
+						if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == zreg || mIns[i].mAddress + 1 == zreg)
+						{
+							yother = true;
+							xother = true;
+						}
 					}
 
 					if (!yother)
@@ -54920,6 +54947,12 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 							xother = true;
 						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
 							xother = true;
+
+						if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == zreg || mIns[i].mAddress + 1 == zreg)
+						{
+							yother = true;
+							xother = true;
+						}
 					}
 
 					if (!yother && !lchanged)
