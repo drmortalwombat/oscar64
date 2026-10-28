@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"localOffsetPanelCopy_preserveBackground"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -39416,6 +39416,10 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 						return false;
 					return true;
 				}
+			}
+			else if (ins.mMode == ASMIM_INDIRECT_Y && (ins.mAddress + 1 == reg || ins.mAddress == reg + 1))
+			{
+				return false;
 			}
 
 			if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_IMMEDIATE)
