@@ -20241,6 +20241,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								}
 								else
 								{
+									ains->mDst.mRange.AddConstValue(IT_INT16, ains->mSrc[0].mIntConst);
 									tail->AppendBeforeBranch(ains);
 									if (post->mEntryRequiredTemps[lins->mDst.mTemp])
 									{
