@@ -1,6 +1,18 @@
 rem @echo off
 
-@call :test volatilebytecomparison.c
+@call :test funcvaropt.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf funcvaropt.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test warningstacktest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testwarningstackconstraints
+@if %errorlevel% neq 0 goto :error
+
+@call :testi volatilebytecomparison.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test ambiguousoverload.c
@@ -10,6 +22,9 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :test anonymousstructtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test structvoidcasttest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test array2dtest.c
@@ -22,6 +37,12 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :test loopunrolltest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test unsignedlooptest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test looppointeraliastest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test rolrortest.cpp
@@ -79,6 +100,9 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :testn opp_functional.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :testf opp_functional.cpp
 @if %errorlevel% neq 0 goto :error
 
 @call :testh operatoroverload.cpp
@@ -171,6 +195,9 @@ rem @echo off
 @call :test arrayinittest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test structurearrayinitialiser.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test arrayindexintrangecheck.c
 @if %errorlevel% neq 0 goto :error
 
@@ -213,6 +240,9 @@ rem @echo off
 @call :test loopboundtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test unsignedlooprangetest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test byteindextest.c
 @if %errorlevel% neq 0 goto :error
 
@@ -222,7 +252,16 @@ rem @echo off
 @call :testb bitshifttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testd64
+@if %errorlevel% neq 0 goto :error
+
 @call :testdiskfull
+@if %errorlevel% neq 0 goto :error
+
+@call :testd71
+@if %errorlevel% neq 0 goto :error
+
+@call :testd81
 @if %errorlevel% neq 0 goto :error
 
 @call :test arrparam.c
@@ -249,6 +288,30 @@ rem @echo off
 @call :test enumswitch.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test enumarrayconversiontest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test enum-promotion-tests.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test integerpromotiontest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test enumconstanttypetest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test enumrangecheck.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testenumrangeconstraints
+@if %errorlevel% neq 0 goto :error
+
+@call :test c23enumtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testc23enumconstraints
+@if %errorlevel% neq 0 goto :error
+
 @call :test incvector.c
 @if %errorlevel% neq 0 goto :error
 
@@ -258,7 +321,28 @@ rem @echo off
 @call :test structsplittest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test functionpointerparamtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test functionpointercasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test functioncastoperandtest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :testf functionpointerparamtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf functionpointercasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf functioncastoperandtest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test funcvartest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :testf funcvartest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test variadic_macros.c
@@ -267,13 +351,37 @@ rem @echo off
 @call :test funcarraycall.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testf funcarraycall.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test structassigntest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test structmembertest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test nestedviccasttest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test nestedcoordinatecopytest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test gridcolumnconditionaltest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test conditionalpanelcopytest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test localoffsetpanelcopytest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test castoperandtest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test structarraycopy.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test localstructurearraystride.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test randsumtest.c
@@ -357,11 +465,168 @@ rem @echo off
 @call :testn bitfieldstructinittest.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :test globalstructsnapshottest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test globalstoreordertest.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testwarningstackconstraints
+@for %%M in (-n -bc) do @for %%S in (DEFAULT DISABLED ERROR NESTED NESTED_ERROR INCLUDE UNDERFLOW) do (
+	@call :testwarningstack %%M %%S
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testwarningstack
+@set warning_stack_status=0
+@set warning_stack_warnings=0
+@set warning_stack_errors=0
+@for %%S in (DEFAULT NESTED NESTED_ERROR) do @if "%~2"=="%%S" @set warning_stack_warnings=2
+@for %%S in (ERROR INCLUDE NESTED_ERROR UNDERFLOW) do @if "%~2"=="%%S" @set warning_stack_status=20
+@for %%S in (ERROR INCLUDE NESTED_ERROR) do @if "%~2"=="%%S" @set warning_stack_errors=2
+@if "%~2"=="UNDERFLOW" @set warning_stack_errors=1
+..\bin\oscar64 -g %~1 -dWARNING_STACK_%~2 -o=warningstackinvalid.prg warningstacktest.c > warningstacktest.log 2>&1
+@set warning_stack_actual_status=%errorlevel%
+@for /f %%N in ('find /c " : warning " ^< warningstacktest.log') do @set warning_stack_actual_warnings=%%N
+@for /f %%N in ('find /c " : error " ^< warningstacktest.log') do @set warning_stack_actual_errors=%%N
+@if %warning_stack_actual_status% neq %warning_stack_status% goto :warningstackerror
+@if %warning_stack_actual_warnings% neq %warning_stack_warnings% goto :warningstackerror
+@if %warning_stack_actual_errors% neq %warning_stack_errors% goto :warningstackerror
+@if %warning_stack_warnings% equ 2 @for %%I in (2002 2017) do (
+	@findstr /c:"warning %%I:" warningstacktest.log > nul
+	@if errorlevel 1 goto :warningstackerror
+)
+@if %warning_stack_errors% equ 2 @for %%I in (2002 2017) do (
+	@findstr /c:"error %%I:" warningstacktest.log > nul
+	@if errorlevel 1 goto :warningstackerror
+)
+@findstr /c:"suppressed" warningstacktest.log > nul
+@if not errorlevel 1 goto :warningstackerror
+@if "%~2"=="UNDERFLOW" (
+	@findstr /c:"error 3063: Stack underflow" warningstacktest.log > nul
+	@if errorlevel 1 goto :warningstackerror
+)
+@del warningstacktest.log
+@exit /b 0
+
+:warningstackerror
+@type warningstacktest.log
+@del warningstacktest.log
+@exit /b 1
+
+:testc23enumconstraints
+@for %%M in (-n -bc) do @for %%C in (BYTE_LOWER BYTE_UPPER UNSIGNED_LOWER UNSIGNED_UPPER WORD_UPPER WORD_LOWER UNSIGNED_WORD_UPPER LONG_UPPER UNSIGNED_LONG_UPPER IMPLICIT_BYTE IMPLICIT_WORD IMPLICIT_LONG) do @for %%P in (warning promoted) do (
+	@call :testc23enuminvalid %%M %%C %%P
+	@if errorlevel 1 @exit /b 1
+)
+@for %%M in (-n -bc) do @for %%C in (BASE_FLOAT BASE_ENUM BASE_POINTER MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED NON_STANDALONE) do (
+	@call :testc23enuminvalid %%M %%C error
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testc23enuminvalid
+@set enum_diagnostic=Enum constant is not representable in underlying type
+@for %%C in (BASE_FLOAT BASE_ENUM BASE_POINTER) do @if "%~2"=="%%C" @set enum_diagnostic=error 3012: Enum base type must be an integer type
+@for %%C in (MISMATCH_SIZE MISMATCH_SIGN PLAIN_TO_FIXED) do @if "%~2"=="%%C" @set enum_diagnostic=error 3012: Enum underlying type does not match previous declaration
+@if "%~2"=="NON_STANDALONE" @set enum_diagnostic=error 3006: Fixed enum declaration without enumerators must be standalone
+@set enum_expected_status=20
+@set enum_extra_define=
+@if "%~3"=="warning" (
+	@set enum_expected_status=0
+	@set enum_diagnostic=warning 2017: %enum_diagnostic%
+)
+@if "%~3"=="promoted" (
+	@set enum_extra_define=-dENUM_RANGE_WARNING_ERROR
+	@set enum_diagnostic=error 2017: %enum_diagnostic%
+)
+..\bin\oscar64 -g %~1 %enum_extra_define% -dC23_ENUM_%~2 -o=c23enuminvalid.prg c23enumtest.c > c23enumtest.log 2>&1
+@set enum_range_error=%errorlevel%
+@if %enum_range_error% neq %enum_expected_status% (
+	@type c23enumtest.log
+	@del c23enumtest.log
+	@exit /b 1
+)
+@findstr /c:"%enum_diagnostic%" c23enumtest.log > nul
+@if %errorlevel% neq 0 (
+	@type c23enumtest.log
+	@del c23enumtest.log
+	@exit /b 1
+)
+@del c23enumtest.log
+@exit /b 0
+
+:testenumrangeconstraints
+@for %%M in (-n -bc) do @for %%C in (EXPLICIT UPPER LOWER IMPLICIT WIDE) do @for %%P in (warning promoted) do (
+	@call :testenuminvalid %%M %%C %%P
+	@if errorlevel 1 @exit /b 1
+)
+@exit /b 0
+
+:testenuminvalid
+@set enum_expected_status=0
+@set enum_diagnostic=warning 2017: C enum constant is not representable as int
+@set enum_extra_define=
+@if "%~3"=="promoted" (
+	@set enum_expected_status=20
+	@set enum_diagnostic=error 2017: C enum constant is not representable as int
+	@set enum_extra_define=-dENUM_RANGE_WARNING_ERROR
+)
+..\bin\oscar64 -g %~1 %enum_extra_define% -dENUM_RANGE_%~2 -o=enumrangeinvalid.prg enumrangecheck.c > enumrangecheck.log 2>&1
+@set enum_range_error=%errorlevel%
+@if %enum_range_error% neq %enum_expected_status% (
+	@type enumrangecheck.log
+	@del enumrangecheck.log
+	@exit /b 1
+)
+@findstr /c:"%enum_diagnostic%" enumrangecheck.log > nul
+@if %errorlevel% neq 0 (
+	@type enumrangecheck.log
+	@del enumrangecheck.log
+	@exit /b 1
+)
+@del enumrangecheck.log
+@exit /b 0
+
+:testd64
+..\bin\oscar64 -d64=diskimaged64test.d64 -f=diskimagefixture.dat
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged64test.d64 @exit /b 1
+@for %%I in (diskimaged64test.d64) do @if not "%%~zI"=="174848" (
+	@del diskimaged64test.d64
+	@exit /b 1
+)
+@del diskimaged64test.d64
+@exit /b 0
+
+:testd71
+..\bin\oscar64 -d71=diskimaged71test.d71 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged71test.d71 @exit /b 1
+@for %%I in (diskimaged71test.d71) do @if not "%%~zI"=="349696" (
+	@del diskimaged71test.d71
+	@exit /b 1
+)
+@del diskimaged71test.d71
+@exit /b 0
+
+:testd81
+..\bin\oscar64 -d81=diskimaged81test.d81 -f=..\samples\resources\blumba2.bin
+@if %errorlevel% neq 0 @exit /b 1
+@if not exist diskimaged81test.d81 @exit /b 1
+@for %%I in (diskimaged81test.d81) do @if not "%%~zI"=="819200" (
+	@del diskimaged81test.d81
+	@exit /b 1
+)
+@del diskimaged81test.d81
+@exit /b 0
 
 :testdiskfull
 ..\bin\oscar64 -d64=diskimagefulltest.d64 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin > diskimagefulltest.log 2>&1
@@ -520,6 +785,8 @@ exit /b %errorlevel%
 ..\bin\oscar64 -ea -g -O2 -Ox -n %~1
 @if %errorlevel% neq 0 goto :error
 
+@exit /b 0
+
 :testi
 ..\bin\oscar64 -eai -g -n %~1
 @if %errorlevel% neq 0 goto :error
@@ -543,6 +810,33 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\bin\oscar64 -eai -g -O2 -Ox -n %~1
+@if %errorlevel% neq 0 goto :error
+
+@exit /b 0
+
+:testf
+..\bin\oscar64 -ea -g -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O0 -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -Os -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O3 -n -Ofp %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -xz -Oz -Ofp -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -Oo -Ofp -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -Ox -Ofp -n %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

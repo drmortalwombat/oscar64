@@ -588,7 +588,7 @@ ldiv_t ldiv(long int numer, long int denom)
 
 void exit(int status)
 {
-	__asm
+	__asm __preserves(axy)
 	{
 		lda	status
 		sta	accu + 0
@@ -841,7 +841,7 @@ void * realloc(void * ptr, unsigned size)
 }
 
 static unsigned seed = 31232;
-static unsigned long seedl = 321432142412;
+static unsigned long seedl = 3604562508;
 
 unsigned int rand(void)
 {

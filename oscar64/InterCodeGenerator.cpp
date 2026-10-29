@@ -975,9 +975,21 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 
 		if (cexp->mAsmInsType != ASMIT_BYTE)
 		{
+			if (!HasAsmInstructionMode(cexp->mAsmInsType, cexp->mAsmInsMode))
+				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid addressing mode");
+
 			int	opcode = AsmInsOpcodes[cexp->mAsmInsType][cexp->mAsmInsMode];
 			d[offset++] = opcode;
 		}
+
+		uint32	rflags = 0, aflags = AsmInsFlags(cexp->mAsmInsType, cexp->mAsmInsMode);
+
+		if (aflags & ASMIFLG_CALL)
+			rflags |= LREF_CALL;
+		if (aflags & ASMIFLG_USES_MEMORY)
+			rflags |= LREF_LOAD;
+		if (aflags & ASMIFLG_CHANGES_MEMORY)
+			rflags |= LREF_STORE;
 
 		switch (cexp->mAsmInsMode)
 		{
@@ -1094,6 +1106,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			break;
 		case ASMIM_ZERO_PAGE:
 		case ASMIM_ZERO_PAGE_X:
+		case ASMIM_ZERO_PAGE_Y:
 		case ASMIM_INDIRECT_X:
 		case ASMIM_INDIRECT_Y:
 			if (!aexp)
@@ -1111,6 +1124,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					ref.mFlags |= rflags;
+
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else if (refvars)
@@ -1128,6 +1143,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mRefObject = dec->mLinkerObject;
 					ref.mRefOffset = j;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+
 					dec->mLinkerObject->AddReference(ref);
 
 					d[offset] = aexp->mOffset;
@@ -1148,6 +1164,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mRefObject = aexp->mLinkerObject;
 					ref.mRefOffset = 0;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					ref.mFlags |= rflags;
+
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else if (refvars)
@@ -1198,6 +1216,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = int(aexp->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1217,6 +1237,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset + int(aexp->mBase->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1234,6 +1256,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+				ref.mFlags |= rflags;
+
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1249,6 +1273,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mLinkerObject;
 					ref.mRefOffset = 0;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1265,6 +1291,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mFlags |= rflags;
+
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1282,6 +1310,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+				ref.mFlags |= rflags;
+
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1298,6 +1328,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+				ref.mFlags |= rflags;
+
 				ref.mRefObject = aexp->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
@@ -1314,21 +1346,27 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				int64 disp = 0;
 				if (aexp->mType == DT_LABEL_REF)
 				{
-					if (aexp->mBase->mBase)
+					if (aexp->mBase->mBase == adec)
 						disp = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
+					else if (aexp->mBase->mBase)
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mBase->mQualIdent);
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
 				}
 				else if (aexp->mType == DT_LABEL)
 				{
-					if (aexp->mBase)
+					if (aexp->mBase == adec)
 						disp = aexp->mInteger - offset - 1;
+					else if (aexp->mBase)
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mQualIdent);
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mQualIdent);
 				}
+				else
+					mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid branch target", aexp->mQualIdent);
 
 				if (disp < -128 || disp > 127)
-					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");
+					mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");
 
 				d[offset] = uint8(disp);
 			}
@@ -1636,6 +1674,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	Expression* fexp = fdec->mValue;
 	Declaration* ftype = fdec->mBase;
 
+	Errors* perrors = mErrors;
+	if (fdec->mErrors)
+		mErrors = fdec->mErrors;
+
 	proc->mCheckUnreachable = false;
 
 	InlineMapper	nmapper;
@@ -1827,6 +1869,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	// Uwind parameter passing stack
 	// UnwindDestructStack(ftype, proc, block, destack, nullptr, inlineMapper);
 
+
 	if (rdec)
 	{
 		InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
@@ -1843,14 +1886,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		ExValue rv(rdec->mBase, ins->mDst.mTemp, 1);
 		if (!rdec->mBase->IsReference() && rdec->mBase->mType != DT_TYPE_STRUCT)
 			rv = Dereference(proc, exp, block, inlineMapper, rv);
+
+		mErrors = perrors;
 		return rv;
 	}
 	else if (lrexp)
 	{
+		mErrors = perrors;
 		return *lrexp;
 	}
 	else
+	{
+		mErrors = perrors;
 		return ExValue(TheVoidTypeDeclaration);
+	}
 }
 
 InterInstruction* InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression * exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue vl, ExValue vr)
@@ -2432,7 +2481,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				vl = TranslateExpression(procType, proc, block, dec->mValue, destack, gotos, breakBlock, continueBlock, inlineMapper);
 				vl.mReference--;
-				vl.mType = exp->mDecType;
+				if (exp->mDecType->IsFunctionType())
+					vl.mType = dec->mBase;
+				else
+					vl.mType = exp->mDecType;
 				if (dec->mOffset)
 				{
 					vl = Dereference(proc, exp, block, inlineMapper, vl, 0);
@@ -2618,6 +2670,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
+			else if (exp->mDecType->IsFunctionType())
+			{
+				if (exp->mDecValue->mType == DT_VARIABLE_REF && exp->mDecValue->mBase->mBase->mType == DT_TYPE_ARRAY)
+					return ExValue(exp->mDecValue->mBase->mBase->mBase, ins->mDst.mTemp, ref, lbits, lshift);
+				else
+					return ExValue(exp->mDecValue->mBase, ins->mDst.mTemp, ref, lbits, lshift);
+			}
 			else
 				return ExValue(exp->mDecType, ins->mDst.mTemp, ref, lbits, lshift);
 		}
@@ -2780,7 +2839,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vr = CoerceType(proc, exp, block, inlineMapper, vr, TheSignedIntTypeDeclaration);
 
 						InterInstruction	*	mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-						mins->mOperator = IA_MUL;
+						mins->mOperator = IA_MULS;
 						mins->mSrc[0].mType = IT_INT16;
 						mins->mSrc[0].mTemp = vr.mTemp;
 						mins->mSrc[1].mType = IT_INT16;
@@ -2839,13 +2898,22 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						switch (exp->mToken)
 						{
 						case TK_ASSIGN_ADD:
-							oins->mOperator = IA_ADD;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins->mOperator = IA_ADDS;
+							else
+								oins->mOperator = IA_ADDU;
 							break;
 						case TK_ASSIGN_SUB:
-							oins->mOperator = IA_SUB;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins->mOperator = IA_SUBS;
+							else
+								oins->mOperator = IA_SUBU;
 							break;
 						case TK_ASSIGN_MUL:
-							oins->mOperator = IA_MUL;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins->mOperator = IA_MULS;
+							else
+								oins->mOperator = IA_MULU;
 							break;
 						case TK_ASSIGN_DIV:
 							if (vll.mType->mFlags & DTF_SIGNED)
@@ -2942,7 +3010,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(cins);
 
 			InterInstruction	*	mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-			mins->mOperator = IA_MUL;
+			mins->mOperator = IA_MULS;
 			mins->mSrc[0].mType = IT_INT16;
 			mins->mSrc[0].mTemp = vr.mTemp;
 			mins->mSrc[1].mType = IT_INT16;
@@ -3002,6 +3070,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ains->mDst.mTemp, 2);
+			else if (exp->mDecType->IsFunctionType())
+				return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 			else
 				return ExValue(exp->mDecType, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 		}
@@ -3072,7 +3142,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					InterInstruction	*	mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
 					mins->mCode = IC_BINARY_OPERATOR;
-					mins->mOperator = IA_MUL;
+					mins->mOperator = IA_MULS;
 					mins->mSrc[0].mType = IT_INT16;
 					mins->mSrc[0].mTemp = vr.mTemp;
 					mins->mSrc[1].mType = IT_INT16;
@@ -3129,7 +3199,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						block->Append(cins);
 
 						InterInstruction	*	sins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR), *	dins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-						sins->mOperator = IA_SUB;
+						sins->mOperator = IA_SUBS;
 						sins->mSrc[0].mType = IT_INT16;
 						sins->mSrc[0].mTemp = crins->mDst.mTemp;
 						sins->mSrc[1].mType = IT_INT16;
@@ -3190,7 +3260,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
 
 					InterInstruction* mins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
-					mins->mOperator = IA_MUL;
+					mins->mOperator = IA_MULS;
 					mins->mSrc[0].mType = IT_INT16;
 					mins->mSrc[0].mTemp = vl.mTemp;
 					mins->mSrc[1].mType = IT_INT16;
@@ -3236,7 +3306,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else if (exp->mToken == TK_LEFT_SHIFT || exp->mToken == TK_RIGHT_SHIFT)
 				{
-					if (vl.mType->mFlags & DTF_SIGNED)
+					if ((vl.mType->mFlags & DTF_SIGNED) || vl.mType->mSize < 2)
 					{
 						if (vl.mType->mSize == 4)
 							dtype = TheSignedLongTypeDeclaration;
@@ -3245,7 +3315,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
+						if (vl.mType->mSize == 4)
 							dtype = TheUnsignedLongTypeDeclaration;
 						else
 							dtype = TheUnsignedIntTypeDeclaration;
@@ -3276,6 +3346,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
 						dtype = TheUnsignedLongTypeDeclaration;
+					else if (vl.mType->mSize == 1 && vr.mType->mSize == 1)
+						dtype = TheSignedIntTypeDeclaration;
 					else
 						dtype = TheUnsignedIntTypeDeclaration;
 				}
@@ -3297,13 +3369,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				switch (exp->mToken)
 				{
 				case TK_ADD:
-					ins->mOperator = IA_ADD;
+					ins->mOperator = signedOP ? IA_ADDS : IA_ADDU;
 					break;
 				case TK_SUB:
-					ins->mOperator = IA_SUB;
+					ins->mOperator = signedOP ? IA_SUBS : IA_SUBU;
 					break;
 				case TK_MUL:
-					ins->mOperator = IA_MUL;
+					ins->mOperator = signedOP ? IA_MULS : IA_MULU;
 					break;
 				case TK_DIV:
 					ins->mOperator = signedOP ? IA_DIVS : IA_DIVU;
@@ -3385,11 +3457,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ains->mCode = IC_LEA;
 				ains->mSrc[1].mMemory = IM_INDIRECT;
 			}
+			else if (vl.mType->mFlags & DTF_SIGNED)
+			{
+				ains->mCode = IC_BINARY_OPERATOR;
+				ains->mOperator = IA_ADDS;
+			}
 			else
 			{
 				ains->mCode = IC_BINARY_OPERATOR;
-				ains->mOperator = IA_ADD;
+				ains->mOperator = IA_ADDU;
 			}
+
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
 			ains->mSrc[1].mType = ttype;
@@ -3454,11 +3532,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ains->mCode = IC_LEA;
 				ains->mSrc[1].mMemory = IM_INDIRECT;
 			}
+			else if (vl.mType->mFlags & DTF_SIGNED)
+			{
+				ains->mCode = IC_BINARY_OPERATOR;
+				ains->mOperator = IA_ADDS;
+			}
 			else
 			{
 				ains->mCode = IC_BINARY_OPERATOR;
-				ains->mOperator = IA_ADD;
+				ains->mOperator = IA_ADDU;
 			}
+
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
 			ains->mSrc[1].mType = ttype;
@@ -3468,16 +3552,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ains);
 
 			StoreValue(proc, exp, block, inlineMapper, vl, ExValue(vl.mType, ains->mDst.mTemp));
-#if 0
-			sins->mSrc[1].mMemory = IM_INDIRECT;
-			sins->mSrc[0].mType = ains->mDst.mType;
-			sins->mSrc[0].mTemp = ains->mDst.mTemp;
-			sins->mSrc[1].mType = IT_POINTER;
-			sins->mSrc[1].mTemp = vl.mTemp;
-			sins->mSrc[1].mOperandSize = vl.mType->mSize;
-			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
-			block->Append(sins);
-#endif
+
 			return ExValue(vdl.mType, vdl.mTemp);
 		}
 		break;
@@ -3495,7 +3570,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, exp, block, inlineMapper, vl);
 				if (!vl.mType->IsNumericType())
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric type");
-				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
+				else if (vl.mType->IsIntegerType() && vl.mType->mSize < 2)
 					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
 				ins->mCode = IC_LOAD_TEMPORARY;
 				break;
@@ -3503,7 +3578,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, exp, block, inlineMapper, vl);
 				if (!vl.mType->IsNumericType())
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric type");
-				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
+				else if (vl.mType->IsIntegerType() && vl.mType->mSize < 2)
 					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
 				ins->mOperator = IA_NEG;
 				break;
@@ -3511,7 +3586,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, exp, block, inlineMapper, vl);
 				if (!(vl.mType->mType == DT_TYPE_POINTER || vl.mType->IsNumericType()))
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric or pointer type");
-				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
+				else if (vl.mType->IsIntegerType() && vl.mType->mSize < 2)
 					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
 				ins->mOperator = IA_NOT;
 				break;
@@ -4055,6 +4130,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 								((mCompilerOptions & COPT_OPTIMIZE_INLINE) || (exp->mLeft->mDecValue->mFlags & DTF_FORCE_INLINE)) &&
 								!(inlineMapper && inlineMapper->mDepth > 10) &&
 								!(exp->mLeft->mDecValue->mFlags & DTF_PREVENT_INLINE) &&
+								!(exp->mLeft->mDecValue->mBase->mFlags & DTF_VARIADIC) &&
 								exp->mType != EX_VCALL;
 			bool	doInline = false, inlineConstexpr = false;
 
@@ -4987,6 +5063,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 
 					ExValue	rvr(procType->mBase, ains->mDst.mTemp, 1);
+					if (inlineMapper && inlineMapper->mResultExp)
+						rvr.mType = inlineMapper->mResultExp->mType;
 
 					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper, &rvr);
 
@@ -5221,6 +5299,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					tref = 1;
 					
 					dtype = dtype->mBase;
+					ttype = IT_POINTER;
+				}
+				else if (dtype->mType == DT_TYPE_FUNCTION)
+				{
+					vl = Dereference(proc, exp, block, inlineMapper, vl);
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
+
 					ttype = IT_POINTER;
 				}
 				else if (stypel == IT_POINTER || styper == IT_POINTER)
@@ -5570,8 +5655,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_POINTER)
 			{
-				// no need for actual operation when casting pointer to pointer
-				return ExValue(exp->mDecType, vr.mTemp, vr.mReference);
+				if (exp->mDecType->mBase->mType == DT_TYPE_FUNCTION && vr.mType->mBase->mType == DT_TYPE_FUNCTION && exp->mDecType->mBase->IsSame(vr.mType->mBase))
+				{
+					Declaration* ptype = vr.mType->mBase->BuildPointer(exp->mDecType->mLocation);
+					ptype->mFlags |= exp->mDecType->mFlags & (DTF_CONST | DTF_VOLATILE);
+					return ExValue(ptype, vr.mTemp, vr.mReference);
+				}
+				else
+				{
+					// no need for actual operation when casting pointer to pointer
+					return ExValue(exp->mDecType, vr.mTemp, vr.mReference);
+				}
 			}
 			else if (exp->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_ARRAY)
 			{
@@ -5590,7 +5684,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_VOID)
 			{
-				Dereference(proc, exp, block, inlineMapper, vr);
+				// The operand is already evaluated; aggregates need no scalar load.
+				if ( ! vr.mType->IsStructOrUnion())
+					Dereference(proc, exp, block, inlineMapper, vr);
 			}
 			else if (exp->mDecType->IsReference() && exp->mDecType->mBase->IsConstSame(vr.mType))
 			{
@@ -6364,7 +6460,11 @@ static InterCodeGenerator::DestructStack* FindBase(InterCodeGenerator::DestructS
 
 InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod, Expression* exp, Declaration * dec)
 {
-	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
+	Errors* perrors = mErrors;
+	if (dec->mErrors)
+		mErrors = dec->mErrors;
+
+	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment), mErrors);
 	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
@@ -6585,6 +6685,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	}
 
 	mCompilerOptions = outerCompilerOptions;
+
+	mErrors = perrors;
 
 	return proc;
 }

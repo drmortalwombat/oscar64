@@ -54,6 +54,8 @@ enum ErrorID
 	EWARN_INVALID_VOID_POINTER_ARITHMETIC,
 	EWARN_DIVISION_BY_ZERO,
 	EWARN_EXPAND_UNDEFINED_MACRO_IDENT,
+	EWARN_UNDEFINED_ASM_BEHAVIOUR,
+	EWARN_MAX,
 
 	EERR_GENERIC = 3000,
 	EERR_FILE_NOT_FOUND,
@@ -147,6 +149,7 @@ class Errors
 {
 public:
 	Errors(void);
+	Errors(Errors * base);
 
 	ErrorID	SetMinLevel(ErrorID id);
 
@@ -154,6 +157,8 @@ public:
 	ErrorID	mMinLevel;
 
 	NumberSet	mDisabled, mWarnErrors;
+
+	Errors* mBase;
 
 	void Error(const Location& loc, ErrorID eid, const char* msg, const Ident* info1, const Ident* info2 = nullptr);
 	void Error(const Location& loc, ErrorID eid, const char* msg, const char* info1 = nullptr, const char* info2 = nullptr);

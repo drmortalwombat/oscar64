@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 static const char qpow2tab[] = {
-	#for(i, 32) (char)floor(pow(2.0, float(i) / 32.0) * 256.0 + 0.5),
+	#for(i, 32) (char)floor(pow(2.0, float(i) / 32.0) * 256.0 + 0.5 - 256),
 };
 
 static const char qlog2tab[] = {

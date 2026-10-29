@@ -457,7 +457,7 @@ uint32 AsmInsFlags(AsmInsType type, AsmInsMode mode)
 		break;
 
 	case ASMIT_JMP:
-		flags |= ASMIFLG_CONTROL_FLOW;
+		flags |= ASMIFLG_CONTROL_FLOW | ASMIFLG_CALL;
 		break;
 
 	case ASMIT_CLC:
@@ -509,7 +509,7 @@ uint32 AsmInsFlags(AsmInsType type, AsmInsMode mode)
 		break;
 
 	case ASMIT_JSR:
-		flags |= ASMIFLG_USES_ALL | ASMIFLG_CHANGES_ALL | ASMIFLG_CONTROL_FLOW;
+		flags |= ASMIFLG_USES_ALL | ASMIFLG_CHANGES_ALL | ASMIFLG_CONTROL_FLOW | ASMIFLG_CALL;
 		break;
 
 	case ASMIT_RTS:

@@ -30,6 +30,11 @@ protected:
 
 	GrowingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions, mTopoFunctions;
 	GrowingArray<Declaration*>		mGlobalVariables;
+	Declaration					*	mCastDec;
+
+	Declaration* Find(Declaration* ldec);
+
+	void CheckFastcallBase(Declaration* procDec, int & nbase, int & nbase2);
 
 	void AnalyzeInit(Declaration* mdec);
 	int CallerInvokes(Declaration* called);

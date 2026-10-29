@@ -634,6 +634,9 @@ Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataS
 					else
 					{
 						Expression* ex = new Expression(mLocation, EX_CONSTANT);
+						mdec = mdec->Clone();
+						mdec->mOffset = 0;
+
 						ex->mDecValue = mdec;
 						ex->mDecType = mDecType;
 						return ex;
@@ -755,6 +758,13 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			switch (mToken)
 			{
 			case TK_ADD:
+				if (mLeft->mDecValue->mBase->mSize < 2)
+				{
+					Expression* ex = new Expression(mLocation, EX_CONSTANT);
+					ex->mDecValue = mLeft->mDecValue->ConstCast(TheSignedIntTypeDeclaration);
+					ex->mDecType = ex->mDecValue->mBase;
+					return ex;
+				}
 				return mLeft;
 			case TK_SUB:
 			{
@@ -882,6 +892,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		return this;
 	}
 #endif
+	else if (mType == EX_TYPECAST && mLeft->mDecType->IsSame(mDecType) && mDecType->IsPointerType())
+	{
+		return mLeft;
+	}
 	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
 	{
 		if (mDecType->mType == DT_TYPE_POINTER)
@@ -977,7 +991,12 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
 
 			Declaration* dtype = TheSignedIntTypeDeclaration;
-			if (mLeft->mDecValue->mBase->mSize > mRight->mDecValue->mBase->mSize)
+			if (mToken == TK_LEFT_SHIFT || mToken == TK_RIGHT_SHIFT)
+			{
+				if (mLeft->mDecValue->mBase->mSize >= 2)
+					dtype = mLeft->mDecValue->mBase;
+			}
+			else if (mLeft->mDecValue->mBase->mSize > mRight->mDecValue->mBase->mSize)
 				dtype = mLeft->mDecValue->mBase;
 			else if (mLeft->mDecValue->mBase->mSize < mRight->mDecValue->mBase->mSize)
 				dtype = mRight->mDecValue->mBase;
@@ -1424,14 +1443,15 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVectorMoveConstructor(nullptr), mVectorMoveAssignment(nullptr),
-	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr),
+	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr), mUnion(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mAlignment(1), mCallers(nullptr), mCalled(nullptr), mFriends(nullptr), mMayCall(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), 
 	mFastCallBase(0), mFastCallSize(0), 
 	mFastCallBase2(0), mFastCallSize2(0), mVariadicSize(0),
 	mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
-	mShift(0), mBits(0), mOptFlags(0), mInlayRegion(nullptr)
+	mShift(0), mBits(0), mOptFlags(0), mInlayRegion(nullptr),
+	mErrors(nullptr), mReturnValue(nullptr)
 {
 	static uint32 gUID = 0;
 	mUID = gUID++;
@@ -2818,7 +2838,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 			(mSize == dec->mSize || (mIdent && mType == DT_TYPE_STRUCT && !(mFlags & dec->mFlags & DTF_DEFINED)))))
 			return true;
 
-		if (dec->mBase)
+		if (mType == DT_TYPE_STRUCT && dec->mBase != nullptr)
 		{
 			Declaration* bcdec = dec->mBase;
 			while (bcdec)
@@ -3335,6 +3355,11 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
+
+bool Declaration::IsFunctionType(void) const
+{
+	return mType == DT_TYPE_FUNCTION || mType == DT_TYPE_POINTER && mBase->mType == DT_TYPE_FUNCTION;
+}
 
 bool Declaration::IsReference(void) const
 {

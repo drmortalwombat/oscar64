@@ -42,7 +42,7 @@ public:
 
 	int FindFirstClear(void) const;
 
-	int Size(void) { return size; }
+	int Size(void) const { return size; }
 };
 
 inline NumberSet& NumberSet::operator+=(int elem)

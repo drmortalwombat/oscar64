@@ -1,5 +1,7 @@
 #include "fixmath.h"
 
+#pragma warning(disable: 2024)
+
 unsigned long lmul16u(unsigned x, unsigned y)
 {
 	__asm
@@ -909,3 +911,5 @@ __native long ldiv16f16s(long x, long y)
 	else
 		return x;
 }
+
+#pragma warning(default: 2024)

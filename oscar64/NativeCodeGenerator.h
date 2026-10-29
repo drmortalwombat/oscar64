@@ -61,7 +61,7 @@ struct NativeRegisterDataSet
 
 	void Reset(void);
 	void ResetMask(void);
-	void ResetCall(const NativeCodeInstruction & ins, int fastCallBase);
+	void ResetCall(const NativeCodeInstruction & ins, int fastCallBase, bool final);
 
 	void ResetZeroPage(int addr);
 	void ResetZeroPageRange(int addr, int num);
@@ -231,13 +231,14 @@ public:
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
 	bool BitFieldForwarding(NativeRegisterDataSet& data, AsmInsType& carryop);
-	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final, int fastCallBase);
+	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final, bool immrop, int fastCallBase);
 
 	void Simulate(NativeRegisterDataSet& data);
 	bool ApplySimulation(const NativeRegisterDataSet& data);
 
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
+	bool ChangesAddressAndFlag(void) const;
 	bool ChangesFlagToAccu(void) const;
 	bool ChangesAddress(void) const;
 	bool UsesAddress(void) const;
@@ -591,6 +592,8 @@ public:
 	bool MoveLoadAddImmStoreUp(int at);
 	bool MoveLoadEorImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
+	bool MoveSECLoadSubInvZPStoreUp(int at);
+	bool MoveLoadSECSubInvZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
 	bool MoveLoadShiftStoreUp(int at);
@@ -648,11 +651,18 @@ public:
 	bool EliminateDoubleStore(int at);
 
 	bool FindAccuExitValue(int& at);
+	bool FindXRegExitValue(int& at);
+	bool FindYRegExitValue(int& at);
 	bool MoveLoadXAbsUpCrossBlock(int at);
+
+	bool FindAccuOrigin(int& at);
+	bool FindXRegOrigin(int& at);
+	bool FindYRegOrigin(int& at);
 
 	bool MoveSimpleADCToINCDECDown(int at);
 	bool MoveTAXADCSTADown(int at);
 
+	bool MoveLDXAbsXYStaZpDown(int at);
 	bool MoveLDAopTAXDown(int at);
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
@@ -668,6 +678,8 @@ public:
 	bool ForwardZpYIndex(bool full);
 	bool ForwardZpXIndex(bool full);
 	bool ForwardAXYReg(void);
+
+	bool FoldDoubleInc(void);
 
 	int InstructionRepeatCount(int at, AsmInsType type) const;
 
@@ -729,8 +741,8 @@ public:
 
 	bool CrossBlockShiftForwarding(const ValueReuseDataSet & data);
 
-	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final);
-	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);
+	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final, bool immrop);
+	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final, bool immrop);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitFieldForwarding(void);
 	int FindReverseBitFieldMask(int at, int xat, int yat);
@@ -765,6 +777,9 @@ public:
 	bool HasTailSTXInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 	bool HasTailSTYInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 
+	bool HasTailSameAY(void) const;
+	bool HasTailSameAX(void) const;
+
 	bool HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const;
 	bool HasTailAccuReg(int addr) const;
 
@@ -796,6 +811,7 @@ public:
 	bool IsARegZP(int at, int addr, int& index, NativeCodeBasicBlock*& block);
 
 	void MarkLiveBlockChain(int index, NativeCodeBasicBlock* block, uint32 live, uint32 reg);
+	void MarkLive(uint32 live, int from = 0, int to = 65535);
 
 	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);
@@ -934,6 +950,7 @@ public:
 	bool MoveAccuTrainsUp(int azero);
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
+	bool MoveAbsAccuTrainsDown(void);
 
 	bool MoveImmediateStoreUp(int at);
 	bool MoveImmediateStoreDown(int at);
@@ -942,7 +959,8 @@ public:
 	bool RecycleLoadStore(void);
 
 	void BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed, uint32 & flags);
-	bool CanExchangeSegments(int start, int mid, int end);
+	bool CanExchangeSegments(int start, int mid, int end, bool mem = false);
+	bool ExchangeSegments(int start, int mid, int end);
 	bool CanSwapInstructions(int at);
 
 	bool CrossBlockXYPreservation(void);
@@ -992,6 +1010,7 @@ public:
 	bool MergeSameBranch(void);
 
 	bool MoveCallingParamDown(int at);
+	bool MoveCallingParamPairDown(int at);
 	bool MoveCallingParamsDown(void);
 
 	bool FinalCheckedSizeReduction(void);
@@ -1082,6 +1101,8 @@ public:
 	int CalcBlockDiffX(void) const;
 
 	int SimpleLoopNumIterations(void);
+
+	bool ExpandCommonLoopTails(void);
 
 	bool FindSelfModSource(NativeCodeBasicBlock * block, int reg, NativeCodeBasicBlock*& sblock, int & sat);
 	bool CollectSelfModTargets(void);

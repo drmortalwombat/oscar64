@@ -3,7 +3,7 @@
 GlobalAnalyzer::GlobalAnalyzer(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr), mGlobalVariables(nullptr), mTopoFunctions(nullptr), mCompilerOptions(COPT_DEFAULT)
 {
-
+	mCastDec = new Declaration(Location(), DT_VARIABLE);
 }
 
 GlobalAnalyzer::~GlobalAnalyzer(void)
@@ -398,25 +398,33 @@ void GlobalAnalyzer::MarkRecursions(void)
 	}
 }
 
-void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
+Declaration* GlobalAnalyzer::Find(Declaration* ldec)
 {
-	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
+	if (ldec->mUnion)
 	{
-//		printf("CheckFastcall1 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
+		ldec->mUnion = Find(ldec->mUnion);
+		return ldec->mUnion;
+	}
+	return ldec;
+}
 
-		procDec->mFlags |= DTF_FUNC_ANALYZING;
-		int	nbase = 0, nbase2 = 0;
-		for (int i = 0; i < procDec->mCalled.Size(); i++)
+void GlobalAnalyzer::CheckFastcallBase(Declaration* procDec, int& nbase, int& nbase2)
+{
+	for (int i = 0; i < procDec->mCalled.Size(); i++)
+	{
+		Declaration* cf = procDec->mCalled[i];
+
+		if (cf->mType == DT_TYPE_FUNCTION)
 		{
-			Declaration* cf = procDec->mCalled[i];
+			Declaration* udec = Find(cf);
 
-			if (cf->mType == DT_TYPE_FUNCTION)
+			for (int i = 0; i < mVariableFunctions.Size(); i++)
 			{
-				for (int i = 0; i < mVariableFunctions.Size(); i++)
-				{
-					Declaration* vf = mVariableFunctions[i];
+				Declaration* vf = mVariableFunctions[i];
 
-					if (vf->mBase->IsSame(cf))
+				if (mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER)
+				{
+					if (Find(vf) == udec)
 					{
 						CheckFastcall(vf, false);
 
@@ -430,26 +438,81 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 						if (!procDec->mMayCall.Contains(vf))
 							procDec->mMayCall.Push(vf);
 					}
-
 				}
-				//				procDec->mFlags |= DTF_DYNSTACK;
+				else if (vf->mBase->IsSame(cf))
+				{
+					CheckFastcall(vf, false);
+
+					int n = vf->mBase->mFastCallSize;
+					if (n > nbase)
+						nbase = n;
+					int n2 = vf->mBase->mFastCallSize2;
+					if (n2 > nbase2)
+						nbase2 = n2;
+
+					if (!procDec->mMayCall.Contains(vf))
+						procDec->mMayCall.Push(vf);
+				}
+
 			}
-			else
-				CheckFastcall(cf, false);
+			//				procDec->mFlags |= DTF_DYNSTACK;
+		}
+		else
+			CheckFastcall(cf, false);
 
-			if (cf->mFlags & DTF_DYNSTACK)
-				procDec->mFlags |= DTF_DYNSTACK;
+		if (cf->mFlags & DTF_DYNSTACK)
+			procDec->mFlags |= DTF_DYNSTACK;
 
-			//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
-			//				procDec->mBase->mFlags |= DTF_STACKCALL;
+		//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
+		//				procDec->mBase->mFlags |= DTF_STACKCALL;
 
-			cf = cf->mBase;
-			int n = cf->mFastCallSize;
-			if (n > nbase)
-				nbase = n;
-			int n2 = cf->mFastCallSize2;
-			if (n2 > nbase2)
-				nbase2 = n2;
+		cf = cf->mBase;
+		int n = cf->mFastCallSize;
+		if (n > nbase)
+			nbase = n;
+		int n2 = cf->mFastCallSize2;
+		if (n2 > nbase2)
+			nbase2 = n2;
+	}
+
+}
+
+void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
+{
+	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
+	{
+//		printf("CheckFastcall1 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
+
+		ExpandingArray<Declaration*>	udecs;
+
+		procDec->mFlags |= DTF_FUNC_ANALYZING;
+		int	nbase = 0, nbase2 = 0, variadicSize = procDec->mVariadicSize;
+
+		if (procDec->mFlags & DTF_FUNC_VARIABLE)
+		{
+			procDec = Find(procDec);
+			Declaration* udec = Find(procDec);
+
+			for (int i = 0; i < mFunctions.Size(); i++)
+			{
+				Declaration* f = mFunctions[i];
+				if (Find(f) == udec)
+				{
+					CheckFastcallBase(f, nbase, nbase2);
+					udecs.Push(f);
+
+					if (f->mVariadicSize > variadicSize)
+						variadicSize = f->mVariadicSize;
+				}
+			}
+
+			for (int i = 0; i < udecs.Size(); i++)
+				udecs[i]->mVariadicSize = variadicSize;
+		}
+		else
+		{
+			CheckFastcallBase(procDec, nbase, nbase2);
+			udecs.Push(procDec);
 		}
 
 //		printf("CheckFastcall2 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
@@ -523,14 +586,18 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			return;
 		}
 
-		procDec->mFastCallBase = nbase;
-		procDec->mFastCallSize = nbase;
 		procDec->mBase->mFastCallBase = nbase;
 		procDec->mBase->mFastCallSize = nbase;
-		procDec->mFastCallBase2 = nbase2;
-		procDec->mFastCallSize2 = nbase2;
 		procDec->mBase->mFastCallBase2 = nbase2;
 		procDec->mBase->mFastCallSize2 = nbase2;
+
+		for (int i = 0; i < udecs.Size(); i++)
+		{
+			udecs[i]->mFastCallBase = nbase;
+			udecs[i]->mFastCallSize = nbase;
+			udecs[i]->mFastCallBase2 = nbase2;
+			udecs[i]->mFastCallSize2 = nbase2;
+		}
 
 		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
 
@@ -545,7 +612,11 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 //			if (head)
 				procDec->mBase->mFlags |= DTF_STACKCALL;
 		}
-		else if (/*!(procDec->mBase->mFlags & DTF_VARIADIC) &&*/ !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
+		else if (!(mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER) && (procDec->mFlags & DTF_FUNC_VARIABLE))
+		{
+			procDec->mBase->mFlags |= DTF_STACKCALL;
+		}
+		else if (!(procDec->mFlags & DTF_DYNSTACK))
 		{
 			int		nparams = nbase, nparams2 = nbase2;
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
@@ -617,16 +688,36 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 				if (procDec->mBase->mFlags & DTF_VARIADIC)
 					nparams2 += procDec->mVariadicSize;
 
-				procDec->mFastCallBase = nbase;
-				procDec->mFastCallSize = nparams;
-				procDec->mBase->mFastCallBase = nbase;
-				procDec->mBase->mFastCallSize = nparams;
-				procDec->mFastCallBase2 = nbase2;
-				procDec->mFastCallSize2 = nparams2;
-				procDec->mBase->mFastCallBase2 = nbase2;
-				procDec->mBase->mFastCallSize2 = nparams2;
+				for (int i = 0; i < udecs.Size(); i++)
+				{
+					Declaration* f = udecs[i];
 
-				procDec->mBase->mFlags |= DTF_FASTCALL;
+					f->mFastCallBase = nbase;
+					f->mFastCallSize = nparams;
+					f->mFastCallBase2 = nbase2;
+					f->mFastCallSize2 = nparams2;
+
+					f->mBase->mFastCallBase = nbase;
+					f->mBase->mFastCallSize = nparams;
+					f->mBase->mFastCallBase2 = nbase2;
+					f->mBase->mFastCallSize2 = nparams2;
+
+					if (f != procDec)
+					{
+						Declaration* up = f->mBase->mParams;
+						Declaration* pp = procDec->mBase->mParams;
+
+						while (pp)
+						{
+							up->mVarIndex = pp->mVarIndex;
+							up = up->mNext;
+							pp = pp->mNext;
+						}
+					}
+
+					f->mBase->mFlags |= DTF_FASTCALL;
+				}
+
 //				printf("FASTCALL %s\n", procDec->mQualIdent->mString);
 			}
 			else
@@ -1083,18 +1174,22 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 
 		if (exp->mRight)
 		{
+			Declaration* ftdec = ldec->mBase ? ldec->mBase : TheVoidTypeDeclaration;
+			if (ftdec->mType == DT_TYPE_POINTER)
+				ftdec = ftdec->mBase;
+
 			int	variadicSize = 0;
 
 			// Check for struct to struct forwarding
 			Expression* rex = exp->mRight;
-			Declaration* pdec = ldec->mBase->mParams;
+			Declaration* pdec = ftdec->mParams;
 			while (rex)
 			{
 				Expression* pex = rex->mType == EX_LIST ? rex->mLeft : rex;
 
 				procDec->mComplexity += 5 * pex->mDecType->mSize;
 
-				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
+				if (pdec && !(ftdec->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
 				{
 #if 1
 					if (mCompilerOptions & COPT_OPTIMIZE_CONST_PARAMS)
@@ -1148,7 +1243,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 
 				RegisterProc(Analyze(pex, procDec, (pdec && pdec->mBase->IsReference()) ? ANAFL_LHS : ANAFL_RHS));
 
-				if (!pdec && (ldec->mBase->mFlags & DTF_VARIADIC))
+				if (!pdec && (ftdec->mFlags & DTF_VARIADIC))
 				{
 					if (pex->mDecType->IsIntegerType() && pex->mDecType->mSize < 2)
 						variadicSize += 2;
@@ -1172,6 +1267,15 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 				if (variadicSize > ldec->mVariadicSize)
 					ldec->mVariadicSize = variadicSize;
 			}
+			else
+			{
+				Declaration* udec = Find(ldec);
+				if (udec && variadicSize > udec->mVariadicSize)
+					udec->mVariadicSize = variadicSize;
+			}
+
+			if (ldec->mReturnValue)
+				return ldec->mReturnValue;
 		}
 		break;
 	case EX_LIST:
@@ -1193,6 +1297,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
 			}
 
+//			exp->mLocation = exp->mEndLocation = procDec->mValue->mEndLocation;
 			procDec->mFlags &= ~DTF_FUNC_NO_RETURN;
 		}
 		break;
@@ -1277,8 +1382,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 	case EX_TYPE:
 		break;
 	case EX_TYPECAST:
-		return Analyze(exp->mLeft, procDec, flags);
-		break;
+		ldec = Analyze(exp->mLeft, procDec, flags);
+		return exp->mDecType;
+
 	case EX_LOGICAL_AND:
 		ldec = Analyze(exp->mLeft, procDec, 0);
 		rdec = Analyze(exp->mRight, procDec, 0);
@@ -1318,8 +1424,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 		procDec->mComplexity += exp->mDecType->mSize * 10;
 
 		ldec = Analyze(exp->mLeft, procDec, 0);
-		RegisterProc(Analyze(exp->mRight->mLeft, procDec, flags));
+		rdec = Analyze(exp->mRight->mLeft, procDec, flags);
+		RegisterProc(rdec);
 		RegisterProc(Analyze(exp->mRight->mRight, procDec, flags));
+		return rdec;
 		break;
 	}
 
@@ -1394,7 +1502,7 @@ void GlobalAnalyzer::RegisterProc(Declaration* to)
 		{
 			to->mFlags |= DTF_FUNC_VARIABLE;
 			mVariableFunctions.Push(to);
-			Declaration* pdec = to->mParams;
+			Declaration* pdec = to->mBase->mParams;
 			while (pdec)
 			{
 				pdec->mFlags |= DTF_FPARAM_NOCONST;

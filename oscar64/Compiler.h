@@ -10,6 +10,7 @@
 #include "GlobalOptimizer.h"
 #include "Linker.h"
 #include "CompilerTypes.h"
+#include "FunctionSets.h"
 
 class Compiler
 {
@@ -27,6 +28,7 @@ public:
 	InterCodeModule* mInterCodeModule;
 	GlobalAnalyzer* mGlobalAnalyzer;
 	GlobalOptimizer* mGlobalOptimizer;
+	FunctionSets* mFunctionSets;
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 
@@ -48,10 +50,10 @@ public:
 	bool BuildLZO(const char* targetPath);
 	bool ParseSource(void);
 	bool GenerateCode(void);
-	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
+	bool WriteOutputFile(const char* targetPath, DiskImage * diskImage);
 	bool WriteErrorFile(const char* targetPath);
 	bool RemoveErrorFile(const char* targetPath);
-	int ExecuteCode(bool profile, int trace, bool asserts, bool iorange);
+	int ExecuteCode(bool profile, int trace, bool asserts, bool iorange, bool fileio);
 
 	void AddDefine(const Ident* ident, const char* value);
 

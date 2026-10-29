@@ -115,6 +115,10 @@ The compiler is command line driven, and creates an executable .prg file.
 * -rt : alternative runtime library, replaces the crt.c (or empty for none)
 * -e : execute the result in the integrated emulator
 * -ep : execute and profile the result in the integrated emulator
+* -et : execute and trace
+* -ef : execute with file IO using kernal calls enabled
+* -ea : execute and dump call stack in case of an assertion
+* -ei : execute and enable IO space
 * -bc : create byte code for all functions
 * -n : create pure native code for all functions (now default)
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
@@ -128,18 +132,21 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oa : optimize inline assembler (part of O2/O3)
 * -Oa : optimize inline assembler (part of O2/O3)
 * -Oz : enable auto placement of global variables in zero page (part of O3)
-* -Op : optimize constant parameters
+* -Op : optimize constant parameters (part of O2/O3)
 * -Oo : optimize size using "outliner" (extract repeated code sequences into functions)
 * -Ox : optimize pointer arithmetic by blocking shorter arrays to not cross page boundaries
 * -OM : enable generation of self modifying code
+* -Ofp : optimize function pointers
 * -g : create source level debug info and add source line numbers to asm listing
 * -gp : create source level debug info and add source line numbers to asm listing and static profile data
 * -tf : target format, may be prg, crt or bin
 * -tm : target machine
 * -d64 : create a d64 disk image
+* -d71 : create a d71 disk image for a Commodore 1571 drive
+* -d81 : create a d81 disk image for a Commodore 1581 drive
 * -f : add a binary file to the disk image
 * -fz : add a compressed binary file to the disk image
-* -fi : sector skip for data files on disk image
+* -fi : sector skip for data files on disk image (default: 10 for D64/D71, 1 for D81)
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
 * -csub : cartridge sub type
@@ -318,11 +325,13 @@ Global variables have a name, a memory range and a typeid
 This file is generated when compiling with the -gp option and includes all source lines annotated with line number, start in memory and number of bytes of generated machine code.  This is a good place for part of your source that appear to use an unexpected amount of memory.
 
 
-### Creating a d64 disk file ".d64"
+### Creating a d64, d71, or d81 disk file
 
-The compiler can create a .d64 disk file, that includes the compiled .prg file as the first file in the directory and a series of additional resource files.  The name of the disk file is provided with the -d64 command line options, additional files with the -f or -fz option.
+The compiler can create a .d64 disk file for a Commodore 1541 drive, a .d71 disk file for a Commodore 1571 drive, or a .d81 disk file for a Commodore 1581 drive. The image includes the compiled .prg file as the first file in the directory and a series of additional resource files. The name of the disk file is provided with the -d64, -d71, or -d81 command line option, and additional files with the -f or -fz option.
 
 	oscar64 charsetload.c -d64=charsetload.d64 -fz=../resources/charset.bin
+	oscar64 charsetload.c -d71=charsetload.d71 -fz=../resources/charset.bin
+	oscar64 charsetload.c -d81=charsetload.d81 -fz=../resources/charset.bin
 	
 The compressed files can be loaded into memory and decompressed using the oscar_expand_lzo function from oscar.h or on the fly while reading from disk with the krnio_read_lzo function.
 
@@ -353,6 +362,13 @@ Warnings can be disabled, restored to their default level, or promoted to errors
 Warnings can also be turned into errors using the warning pragma.
 
 	#pragma warning(error: 2000,2001)
+	
+If you want to limit the warnings to a region, you can use push and pop
+
+	#pragma warning(push)
+	#pragma warning(disable: 2000,2001)
+	...
+	#pragma warning(pop)
 
 A message can be displayed during compilation with the message pragma.  The message can be a list of values, such as constant strings or numbers that can be compiled at compile time.
 
@@ -826,7 +842,7 @@ The __bankof operator returns the bank id of a function or constant placed into 
 
 ### Overlays
 
-The linker can generate overlay files that are stored as .prg in the .d64 when selected as target.
+The linker can generate overlay files that are stored as .prg in the .d64, .d71, or .d81 when selected as target.
 
 The mechanism uses the cartridge bank to denote up to 64 overlays.  Each bank can be associated with one overlay file, which will then contain the used content of this bank.
 
@@ -902,18 +918,20 @@ Inline assembler can be embedded inside of any functions, regardless of their co
 
 ### Accessing variables in assembler
 
-Access to local variables and parameters is done with zero page registers, global variables are accessed using absolute addressing.
+Read access to local variables and parameters is done with zero page registers, global variables are accessed using absolute addressing.
 
     void putchar(char c)
     {
         __asm {
             lda c
-            bne w1
+            bne .w1
             lda #13
-        w1:
+        .w1:
             jsr 0xffd2
         }
     }
+
+Local variables and function arguments cannot be changed from within an assembler block.
 
 A function return value can be provided in the zero page addresses ACCU (+0..+3).
 
@@ -948,6 +966,8 @@ Struct member offsets can be generated with the Type::Member syntax:
 
 
 Labels are defined with a colon after the name.  Pure assembler functions can be defined outside of the scope of a function and accessed using their name inside of other assembler function.  One can e.g. set up an interrupt.
+
+Local labels are preceded by a "dot".  The difference between a local and a global label is the scope of search.  A local label will only be searched in the scope of the __asm block, preventing accidental pick of an outside named object.
 
 
 ### Interrupt routines
@@ -1024,6 +1044,12 @@ The 6502 is an eight bit processor, all 16 bit operations are much more expensiv
 ## Prefer enums over defines
 
 An enum type has a limited value range, thus allowing various optimizations, which would not be possible with constants created by defines.
+
+### Explicit enum underlying types in C
+
+The C frontend accepts the C23 `enum Name : type` syntax using the same integer types
+supported by the C++ frontend: `char`, `short`, `int` and `long`, their signed and unsigned
+variants, and typedefs naming those types. Type qualifiers on the underlying type are ignored.
 
 ## Give the compiler hints
 
@@ -1140,7 +1166,7 @@ This sample will use the memory area starting from 0x0400 for the main code sect
 
 ### Dynamic overlays "overlay.c"
 
-When compiling for .d64 format, the linker will place code and data sections from virtual cartridge banks into overlay files.  These files can be loaded when needed and called using normal function calls.
+When compiling for .d64, .d71, or .d81 format, the linker will place code and data sections from virtual cartridge banks into overlay files. These files can be loaded when needed and called using normal function calls.
 
 
 ### Terminate stay resident "tsr.c"
@@ -1747,6 +1773,3 @@ The store is moved into the basic block that joins the two branches
 #### Peephole optimizations
 
 Various small and local optimizations are performed on the code on a per basic block level.
-
-
-

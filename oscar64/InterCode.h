@@ -74,12 +74,37 @@ enum InterMemory : uint8
 	IM_FFRAME,		// Memory used to pass parameters in zp
 };
 
+struct InterMemoryEffects
+{
+	bool mReferenced = false;
+	bool mModified = false;
+
+	void RecordRead(void)
+	{
+		mReferenced = true;
+	}
+
+	void RecordWrite(void)
+	{
+		mReferenced = mModified = true;
+	}
+
+	void Merge(const InterMemoryEffects& effects)
+	{
+		mReferenced |= effects.mReferenced;
+		mModified |= effects.mModified;
+	}
+};
+
 enum InterOperator : uint8
 {
 	IA_NONE,
-	IA_ADD,
-	IA_SUB,
-	IA_MUL,
+	IA_ADDU,
+	IA_ADDS,
+	IA_SUBU,
+	IA_SUBS,
+	IA_MULU,
+	IA_MULS,
 	IA_DIVU,
 	IA_DIVS,
 	IA_MODU,
@@ -136,10 +161,10 @@ typedef InterCodeProcedure* InterCodeProcedurePtr;
 typedef GrowingArray<InterType>					GrowingTypeArray;
 typedef GrowingArray<int>						GrowingIntArray;
 typedef GrowingArray<InterInstructionPtr>		GrowingInstructionPtrArray;
-typedef GrowingArray<InterCodeBasicBlockPtr>	GrowingInterCodeBasicBlockPtrArray;
 typedef GrowingArray<InterInstruction *>		GrowingInstructionArray;
 typedef GrowingArray<InterCodeProcedurePtr	>	GrowingInterCodeProcedurePtrArray;
 
+typedef ExpandingArray<InterCodeBasicBlockPtr>	ExpandingInterCodeBasicBlockPtrArray;
 typedef ExpandingArray<InterInstructionPtr>		ExpandingInstructionPtrArray;
 
 
@@ -438,6 +463,9 @@ public:
 	TempForwardingTable				mMergeForwardingTable;
 	NumberSet						mMergeTemps;
 
+	int								mMergeSrc, mMergeDst;
+	int64							mMergeOffset;
+
 	InterCodeBasicBlock(InterCodeProcedure * proc);
 	~InterCodeBasicBlock(void);
 
@@ -515,12 +543,17 @@ public:
 
 	bool TempIsUnsigned(int temp);
 
+	bool UpdateSimpleLoopIntegerRangeSets(void);
+
 	void RestartLocalIntegerRangeSets(int num);
 	void BuildLocalIntegerRangeSets(int num);
 	void UpdateLocalIntegerRangeSets(void);
 
 	void UpdateLocalIntegerRangeSetsForward(void);
 	void UpdateLocalIntegerRangeSetsBackward(void);
+
+	bool PropagateIntegerRangeConversionPair(InterInstruction* cins);
+	bool UpdateIntegerRangeConversionPairs(void);
 
 	bool UpdateLinearCombinations(void);
 
@@ -562,10 +595,13 @@ public:
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet& fsingle);
 	bool EliminateDeadBranches(void);
 
+	bool PerformSingleTempPointerForwarding(int at, int src, int dst, int64 offset);
+	bool PerformTempPointerForwarding(void);
+
 	bool EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue);
 
 	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
-	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
+	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps, bool loops);
 	bool SimplifyPointerOffsets(void);
 	bool EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue);
 
@@ -599,6 +635,7 @@ public:
 	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler, bool& byteCodeCall);
 	bool RecheckOuterFrame(void);
 	void CollectParamVarsSize(int& size);
+	bool MergeInnerFrames(void);
 
 	bool IsLeafProcedure(void);
 	bool PreventsCallerStaticStack(void);
@@ -623,20 +660,20 @@ public:
 
 	// The memory referenced by lins may be writtne by sind
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
-	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from , int to) const;
+	bool DestroyingMem(InterInstruction* lins, int from = 0, int to = 65535) const;
 
 	// The two memory operations may have overlapping reads/writs and writes
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
-	bool CollidingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+	bool CollidingMem(InterInstruction* lins, int from, int to) const;
 	bool InvalidatedBy(const InterInstruction* ins, const InterInstruction* by) const;
 
 	// The two memory regions may be aliased but not just the same
 	bool AliasingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool AliasingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool AliasingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
-	bool AliasingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+	bool AliasingMem(InterInstruction* lins, int from, int to) const;
 
 	InterCodeBasicBlock* BuildPrefixBlock(InterCodeBasicBlock * from);
 
@@ -676,6 +713,9 @@ public:
 	bool SplitSingleBranchUseConst(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+
+	bool PeepholeReplaceOptimizationIns(int i, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+
 	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 
 	int NumUnrollInstructions(int ireg);
@@ -749,6 +789,8 @@ public:
 
 	bool DropUnreachable(void);
 	
+	bool PropagateGlobalLoadsForward(void);
+
 	void CollectByteIndexPointers(NumberSet& invtemps, NumberSet& inctemps, GrowingIntArray	& vartemps);
 	bool ReplaceByteIndexPointers(const NumberSet& inctemps, const GrowingIntArray& vartemps, int& spareTemps);
 	bool PropagateByteIndexPointers(void);
@@ -766,7 +808,7 @@ public:
 	void CheckValueReturn(void);
 	void CheckNullptrDereference(void);
 
-	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
+	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, InterMemoryEffects& absoluteEffects, bool & globalsChecked);
 	
 	void MarkAliasing(const NumberSet& aliasedParams);
 };
@@ -782,11 +824,12 @@ protected:
 
 	void ResetVisited(void);
 	void ResetPatched(void);
+	void ResetEntered(void);
 	void ResetEntryBlocks(void);
 public:
 	InterCodeBasicBlock				*	mEntryBlock;
 	int									mNumBlocks;
-	GrowingInterCodeBasicBlockPtrArray	mBlocks;
+	ExpandingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase, mNumRestricted;
@@ -799,6 +842,7 @@ public:
 	bool								mNoInline;
 
 	InterCodeModule					*	mModule;
+	Errors							*	mErrors;
 	int									mID;
 
 	int									mLocalSize, mNumLocals, mNumParams, mParamVarsSize;
@@ -814,9 +858,11 @@ public:
 	uint64								mCompilerOptions;
 
 	bool								mLoadsIndirect, mStoresIndirect, mGlobalsChecked;
+	// Absolute accesses are separate from indirect accesses which may alias named globals.
+	InterMemoryEffects					mAbsoluteEffects;
 	NumberSet							mReferencedGlobals, mModifiedGlobals;
 
-	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
+	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject, Errors * errors);
 	~InterCodeProcedure(void);
 
 	int AddTemporary(InterType type);
@@ -834,8 +880,14 @@ public:
 
 	void MapCallerSavedTemps(void);
 
-	bool ReferencesGlobal(int varindex);
-	bool ModifiesGlobal(int varindex);
+	bool ReferencesGlobal(int varindex) const;
+	bool ModifiesGlobal(int varindex) const;
+
+	bool ReferencesIndirect(void) const;
+	bool ModifiesIndirect(void) const;
+
+	bool ReferencesAbsolute(void) const;
+	bool ModifiesAbsolute(void) const;
 
 	void MapVariables(void);
 	void ReduceTemporaries(bool final = false);
@@ -862,7 +914,7 @@ protected:
 	void PushSinglePathResultInstructions(void);
 	void CollectVariables(InterMemory paramMemory);
 	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
-	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
+	void SimplifyIntegerNumeric(FastNumberSet& activeSet, bool loops);
 	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerToByte(FastNumberSet& activeSet);
 	void SingleBlockLoopSinking(FastNumberSet& activeSet);
@@ -900,6 +952,8 @@ protected:
 	void ForwardSingleAssignmentBools(void);
 	void LimitLoopIndexIntegerRangeSets(void);
 
+	void CollectAssemblerReferences(LinkerObject* lo);
+
 	bool PropagateByteIndexPointers(void);
 	bool ReplaceByteIndexPointers(FastNumberSet& activeSet);
 
@@ -911,6 +965,7 @@ protected:
 	void CheckBlocks(void);
 
 	void DisassembleDebug(const char* name, bool dumpSets = false);
+
 };
 
 class InterCodeModule

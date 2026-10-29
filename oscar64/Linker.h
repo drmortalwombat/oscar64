@@ -113,6 +113,10 @@ static const uint32	LREF_LOWBYTE_OFFSET	=	0x00000010;
 static const uint32 LREF_BREAKPOINT		=	0x00000020;
 static const uint32 LREF_SELFMOD		=	0x00000040;
 
+static const uint32	LREF_LOAD			=	0x00000080;
+static const uint32	LREF_STORE			=	0x00000100;
+static const uint32	LREF_CALL			=	0x00000200;
+
 class LinkerReference
 {
 public:
@@ -214,6 +218,7 @@ public:
 	LinkerSection					*	mStackSection;
 	LinkerObject					*	mPrefix, * mSuffix;
 	int									mSuffixReference;
+	NumberSet							mReferencedGlobals, mModifiedGlobals;
 
 	ExpandingArray<LinkerObjectRange>	mRanges;
 	ExpandingArray<CodeLocation>		mCodeLocations, mCodeOrigins;

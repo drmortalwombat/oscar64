@@ -62,6 +62,7 @@ static const uint32 ASMIFLG_CHANGES_STACK	= 0x00004000;
 static const uint32 ASMIFLG_CHANGES_ALL		= 0x0000ff00;
 
 static const uint32 ASMIFLG_CONTROL_FLOW	= 0x00010000;
+static const uint32 ASMIFLG_CALL			= 0x00020000;
 
 
 extern AsmInsData	DecInsData[256];

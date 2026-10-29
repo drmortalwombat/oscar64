@@ -34,6 +34,7 @@ Compiler::Compiler(void)
 	mInterCodeModule = new InterCodeModule(mErrors, mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 	mGlobalOptimizer = new GlobalOptimizer(mErrors, mLinker);
+	mFunctionSets = new FunctionSets(mErrors, mLinker);
 
 	mCartridgeID = 0x0000;
 	mCartridgeSubType = 0x00;
@@ -968,6 +969,21 @@ bool Compiler::GenerateCode(void)
 		PreCompileDeclaration(dcrtstart);
 	}
 
+	if (mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER)
+	{
+		mFunctionSets->AnalyzeAssembler(dcrtstart->mValue, nullptr);
+
+		for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+		{
+			Declaration* dec = mCompilationUnits->mReferenced[i];
+			if (dec->mType == DT_CONST_FUNCTION)
+				mFunctionSets->AnalyzeProcedure(dec->mValue, dec);
+			else
+				mFunctionSets->AnalyzeGlobalVariable(dec);
+		}
+		mFunctionSets->CompleteAnalyze();
+	}
+
 	if (mCompilerOptions & COPT_OPTIMIZE_GLOBAL)
 	{
 		mGlobalOptimizer->mCompilerOptions = mCompilerOptions;
@@ -1390,7 +1406,7 @@ bool Compiler::WriteErrorFile(const char* targetPath)
 	return true;
 }
 
-bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
+bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * diskImage)
 {
 	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200], cszPath[200];
 	char	basePath[200];
@@ -1469,18 +1485,19 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	}
 
 
-	if (d64)
+	if (diskImage != nullptr)
 	{
 		ptrdiff_t	i = strlen(prgPath);
+
 		while (i > 0 && prgPath[i - 1] != '.')
 			i--;
+
 		if (i > 0)
 			prgPath[i - 1] = 0;
 
 		while (i > 0 && prgPath[i - 1] != '/' && prgPath[i - 1] != '\\')
 			i--;
-
-		mLinker->WritePrgFile(d64, prgPath + i);
+		mLinker->WritePrgFile(diskImage, prgPath + i);
 	}
 
 	if (mCompilerOptions & COPT_VERBOSE)
@@ -1519,7 +1536,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	return true;
 }
 
-int Compiler::ExecuteCode(bool profile, int trace, bool asserts, bool iorange)
+int Compiler::ExecuteCode(bool profile, int trace, bool asserts, bool iorange, bool fileio)
 {
 	Location	loc;
 
@@ -1539,12 +1556,12 @@ int Compiler::ExecuteCode(bool profile, int trace, bool asserts, bool iorange)
 		if (asserts)
 			oexit = mLinker->FindObjectByName("exit");
 
-		ecode = emu->Emulate(2061, (oexit ? oexit->mAddress : 0x0000),  trace, iorange);
+		ecode = emu->Emulate(2061, (oexit ? oexit->mAddress : 0x0000),  trace, iorange, fileio);
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT)
 	{
 		memcpy(emu->mMemory + 0x8000, mLinker->mMemory + 0x0800, 0x4000);
-		ecode = emu->Emulate(0x8009, 0x0000, trace, iorange);
+		ecode = emu->Emulate(0x8009, 0x0000, trace, iorange, fileio);
 	}
 
 	printf("Emulation result %d\n", ecode);

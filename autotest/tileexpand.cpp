@@ -14,11 +14,11 @@
 #define PTR_FONTCHARSET         ((char *)0xd800)
 
 const char TitleMap[1024] = {
-#for(i, 1024) i * 17,
+#for(i, 1024) (i * 17) & 255,
 };
 
 const char TitleTiles[4096] = {
-#for(i, 4096) i * 31,
+#for(i, 4096) (i * 31) & 255,
 };
 
 // Custom screen address

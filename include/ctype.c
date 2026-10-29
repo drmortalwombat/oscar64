@@ -1,91 +1,69 @@
 #include "ctype.h"
 #include "conio.h"
 
-#define CC_CTRL		0x00
-#define CC_BREAK	0x01
-#define CC_SPACE	0x02
-#define CC_DIGIT	0x04
-#define CC_LOWER	0x08
-#define CC_UPPER	0x10
-#define CC_HEX		0x20
-#define CC_PUNCT	0x40
-
-static const char _cinfo[128] = {
-	[0 ... 8] = CC_CTRL,
-	[9] = CC_SPACE,
-	[10 ... 13] = CC_BREAK,
-	[14 ... 31] = CC_CTRL,
-	[32] = CC_SPACE,
-	[33 ... 47] = CC_PUNCT,
-	[48 ... 57] = CC_DIGIT,
-	[58 ... 64] = CC_PUNCT,
-	[65 ... 70] = CC_UPPER | CC_HEX,
-	[71 ... 90] = CC_UPPER,
-	[91 ... 96] = CC_PUNCT,
-	[97 ... 102] = CC_LOWER | CC_HEX,
-	[103 ... 122] = CC_LOWER,
-	[123 ... 126] = CC_PUNCT,
-	[127] = CC_CTRL
-};
+static inline bool isin(char a, char l, char h)
+{
+	return (char)(a - l) <= (char)(h - l);
+}
 
 bool isctrnl(char c)
 {
-	return (c < 128) && _cinfo[c] == CC_CTRL;
+	return c == 0x7f || isin(c, 0x00, 0x1f);
 }
 
 bool isprint(char c)
 {
-	return (c < 128) && _cinfo[c] != CC_CTRL;
+	return isin(c, 0x20, 0x7e);
 }
 
 bool isspace(char c)
 {
-	return (c < 128) && (_cinfo[c] & (CC_SPACE | CC_BREAK));
+	return c == 0x20 || isin(c, 0x09, 0x0d);
 }
 
 bool isblank(char c)
 {
-	return (c < 128) && (_cinfo[c] & CC_SPACE);
+	return c == 0x20 || c == 0x09;
 }
 
 bool isgraph(char c)
 {
-	return (c < 128) && (_cinfo[c] & (CC_LOWER | CC_UPPER | CC_DIGIT | CC_PUNCT));
+	return isin(c, 0x21, 0x7e);
 }
 
 bool ispunct(char c)
 {
-	return (c < 128) && (_cinfo[c] & CC_PUNCT);
+	return isin(c, 0x21, 0x2f) || isin(c, 0x3a, 0x40) || isin(c, 0x5b, 0x60) || isin(c, 0x7b, 0x7e);
 }
 
 bool isalnum(char c)
 {
-	return (c < 128) && (_cinfo[c] & (CC_LOWER | CC_UPPER | CC_DIGIT));
+	return isin(c, '0', '9') || isin(c, 'A', 'Z') || isin(c, 'a', 'z');
 }
 
 bool isalpha(char c)
 {
-	return (c < 128) && (_cinfo[c] & (CC_LOWER | CC_UPPER));
+	return isin(c, 'A', 'Z') || isin(c, 'a', 'z');
 }
 
 bool isupper(char c)
 {
-	return (c < 128) && (_cinfo[c] & CC_UPPER);
+	return isin(c, 'A', 'Z');
 }
 
 bool islower(char c)
 {
-	return (c < 128) && (_cinfo[c] & CC_LOWER);
+	return isin(c, 'a', 'z');
 }
 
 bool isdigit(char c)
 {
-	return (c < 128) && (_cinfo[c] & CC_DIGIT);
+	return isin(c, '0', '9');
 }
 
 bool isxdigit(char c)
 {
-	return (c < 128) && (_cinfo[c] & CC_HEX);
+	return isin(c, '0', '9') || isin(c, 'A', 'F') || isin(c, 'a', 'f');
 }
 
 char tolower(char c)
