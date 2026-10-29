@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"cab"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -16484,7 +16484,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstr
 {
 
 #if 1
-	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || ins->mCode == IC_FILL ||
+	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || ins->mCode == IC_FILL ||
 		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH || ins->mCode == IC_BREAKPOINT)
 		return false;
 
@@ -22091,6 +22091,8 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 						{
 							InterInstruction* pins = nins->Clone();
 							pins->mLocation.mFrom = &(ins->mLocation);
+							if (pins->mSrc[0].mTemp >= 0)
+								pins->mSrc[0].mTemp = tmap[pins->mSrc[0].mTemp];
 							if (pins->mDst.mTemp >= 0)
 								pins->mDst.mTemp = ntemps;
 							mInstructions.Insert(i, pins);
@@ -22250,6 +22252,21 @@ bool InterCodeBasicBlock::PullStoreUpToConstAddress(void)
 			{
 				int j = 0;
 				while (j < mEntryBlocks.Size() && (cins = mEntryBlocks[j]->FindTempOriginSinglePath(ins->mSrc[1].mTemp)) && cins->mCode == IC_CONSTANT)
+					j++;
+
+				if (j == mEntryBlocks.Size())
+				{
+					for (int j = 0; j < mEntryBlocks.Size(); j++)
+						mEntryBlocks[j]->AppendBeforeBranch(ins->Clone());
+					changed = true;
+					mInstructions.Remove(i);
+					i--;
+				}
+			}
+			else if ((ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE) && ins->mSrc[0].mTemp >= 0 && CanMoveInstructionBeforeBlock(i))
+			{
+				int j = 0;
+				while (j < mEntryBlocks.Size() && (cins = mEntryBlocks[j]->FindTempOriginSinglePath(ins->mSrc[0].mTemp)) && cins->mCode == IC_CONSTANT)
 					j++;
 
 				if (j == mEntryBlocks.Size())
@@ -31843,6 +31860,10 @@ void InterCodeProcedure::Close(void)
 			case IC_CALL_NATIVE:
 				if (ins->mSrc[0].mTemp < 0)
 					ncalls++;
+#if 1
+				else if (mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER)
+					ncalls++;
+#endif
 				else
 					nother++;
 				break;

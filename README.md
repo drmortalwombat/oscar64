@@ -48,5 +48,6 @@ This is a link to third party projects using Oscar64 or providing libraries to u
 
 [Minitris C64](https://ursimon.itch.io/minitris-c64)
 
+[The Necklace of Rodney](https://doobiesteintortoise.itch.io/the-necklace-of-rodney)
 
 []()
