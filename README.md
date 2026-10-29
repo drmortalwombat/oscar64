@@ -47,6 +47,7 @@ This is a list of the games written with Oscar64, have a look if you are not con
 This is a link to third party projects using Oscar64 or providing libraries to use.  These links are being provided as a convenience and for informational purposes only.
 
 [Minitris C64](https://ursimon.itch.io/minitris-c64)
+
 [DIGGER](https://github.com/zmetzing/digger-x16-patchbuild) port to the Commander X16
 
 [The Necklace of Rodney](https://doobiesteintortoise.itch.io/the-necklace-of-rodney)
