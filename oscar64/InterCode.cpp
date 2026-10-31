@@ -23679,6 +23679,76 @@ bool InterCodeBasicBlock::SingleBlockLoopIndexReduction(int& spareTemps)
 
 				int itemp = ains->mDst.mTemp;
 
+				// Keep short constant-address loops indexable with an eight-bit offset.
+				if (mProc->mNativeProcedure && mTrueJump == this && !pblock->mFalseJump &&
+					ains->mOperator == IA_ADDU && ains->mDst.mType == IT_INT16 &&
+					ains->mSrc[1].mTemp == itemp && ains->mSrc[0].mTemp < 0 && ains->mSrc[0].mIntConst == 1 &&
+					cins->mOperator == IA_CMPLU && cins->mSrc[1].mTemp == itemp && cins->mSrc[0].mTemp < 0 &&
+					cins->mSrc[0].mType == IT_INT16 && cins->mDst.mTemp != itemp &&
+					bins->mSrc[0].mTemp == cins->mDst.mTemp && !eblock->mEntryRequiredTemps[itemp])
+				{
+					InterInstruction* sins = pblock->FindTempOriginSinglePath(itemp);
+					if (sins && sins->mCode == IC_CONSTANT && sins->mConst.mType == IT_INT16)
+					{
+						int64 start = sins->mConst.mIntConst, end = cins->mSrc[0].mIntConst;
+						if (start >= 256 && end > start && end <= 65535 && end - start <= 256)
+						{
+							bool valid = true, used = false;
+							int accesses = 0;
+							for (int j = 0; j < nins - 3; j++)
+							{
+								InterInstruction* lins = mInstructions[j];
+								if (lins->mCode == IC_LOAD || lins->mCode == IC_STORE)
+									accesses++;
+								// Do not expose a rebased index through a live derived value.
+								if (lins->mDst.mTemp >= 0 && eblock->mEntryRequiredTemps[lins->mDst.mTemp])
+									valid = false;
+								if (lins->ReferencesTemp(itemp))
+								{
+									used = true;
+									if (lins->mCode != IC_LEA || lins->mDst.mTemp == itemp ||
+										lins->mSrc[0].mTemp != itemp || lins->mSrc[1].mTemp >= 0 ||
+										(lins->mSrc[1].mMemory != IM_ABSOLUTE && lins->mSrc[1].mMemory != IM_GLOBAL))
+										valid = false;
+								}
+							}
+							// A single access already has a cheaper loop form.
+							if (valid && used && accesses >= 2)
+							{
+								int64 count = end - start;
+								InterInstruction* zins = new InterInstruction(sins->mLocation, IC_CONSTANT);
+								zins->mConst.mType = IT_INT16;
+								zins->mConst.mIntConst = 0;
+								zins->mDst = ains->mDst;
+								zins->mDst.mRange.SetLimit(0, 0);
+								pblock->AppendBeforeBranch(zins);
+
+								for (int j = 0; j < nins - 3; j++)
+								{
+									InterInstruction* lins = mInstructions[j];
+									if (lins->ReferencesTemp(itemp))
+									{
+										lins->mSrc[1].mIntConst += start;
+										lins->mSrc[0].mRange.SetLimit(0, count - 1);
+									}
+								}
+								ains->mSrc[1].mRange.SetLimit(0, count - 1);
+								ains->mDst.mRange.SetLimit(1, count);
+								cins->mSrc[0].mIntConst = count;
+								cins->mSrc[0].mRange.SetLimit(count, count);
+								cins->mSrc[1].mRange.SetLimit(1, count);
+								if (mEntryValueRange.Size())
+									mEntryValueRange[itemp].SetLimit(0, count - 1);
+								if (mTrueValueRange.Size())
+									mTrueValueRange[itemp].SetLimit(0, count - 1);
+								if (mFalseValueRange.Size())
+									mFalseValueRange[itemp].SetLimit(count, count);
+								changed = true;
+							}
+						}
+					}
+				}
+
 				if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
 					cins->mSrc[1].mTemp == itemp &&
 					cins->mSrc[0].mTemp >= 0 &&
