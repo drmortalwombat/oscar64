@@ -45,6 +45,9 @@ rem @echo off
 @call :test looppointeraliastest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test looppointerrangetest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test rolrortest.cpp
 @if %errorlevel% neq 0 goto :error
 
