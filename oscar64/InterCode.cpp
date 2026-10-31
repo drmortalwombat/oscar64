@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"cab"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -345,7 +345,7 @@ void IntegerValueRange::LimitMinWeak(int64 value)
 
 void IntegerValueRange::AddConstValue(InterType type, int64 value)
 {
-	if (value > 0 && IntegerValueRange::S_WEAK)
+	if (value > 0 && mMaxState == S_WEAK)
 		mMaxState = S_UNBOUND;
 	else if (value < 0 && mMinState == S_WEAK)
 		mMinState = S_UNBOUND;
@@ -9906,14 +9906,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					else
 					{
 						if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0 ||
-							vr.mMinState != IntegerValueRange::S_BOUND)
+							vr.mMinState <= IntegerValueRange::S_UNBOUND)
 						{
 							vr.mMaxState = IntegerValueRange::S_BOUND;
 							vr.mMaxValue = 255;
 							vr.mMinState = IntegerValueRange::S_BOUND;
 							vr.mMinValue = 0;
 						}
-						if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 255)
+						if (vr.mMinState <= IntegerValueRange::S_UNBOUND || vr.mMinValue < 0 || vr.mMinValue > 255)
 						{
 							vr.mMinState = IntegerValueRange::S_BOUND;
 							vr.mMinValue = 0;
@@ -9923,14 +9923,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 				case IA_EXT16TO32U:
 					vr = ins->mSrc[0].mRange;
 					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 65535 || vr.mMinValue < 0 ||
-						vr.mMinState != IntegerValueRange::S_BOUND)
+						vr.mMinState <= IntegerValueRange::S_UNBOUND)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 65535;
 						vr.mMinState = IntegerValueRange::S_BOUND;
 						vr.mMinValue = 0;
 					}
-					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 65535)
+					if (vr.mMinState <= IntegerValueRange::S_UNBOUND || vr.mMinValue < 0 || vr.mMinValue > 65535)
 					{
 						vr.mMinState = IntegerValueRange::S_BOUND;
 						vr.mMinValue = 0;
@@ -11427,11 +11427,39 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 							int64	m = UnsignedTypeMax(tempChain[i].mType);
 							int64	v = r.mMaxValue & m;
 							int64	vmin = v, vmax = v;
-							for (int j = 0; j < nloop - 1; j++)
+
+							if (tempChain[i].mOffset == 1 || nloop > 256)
 							{
-								v = (v + tempChain[i].mOffset) & m;
-								if (v < vmin) vmin = v;
-								if (v > vmax) vmax = v;
+								v += (nloop - 1) * tempChain[i].mOffset;
+								if (tempChain[i].mOffset < 0)
+								{
+									if (v < 0)
+									{
+										vmax = m;
+										vmin = 0;
+									}
+									else
+										vmin = v;
+								}
+								else
+								{
+									if (v >= m)
+									{
+										vmax = m;
+										vmin = 0;
+									}
+									else
+										vmax = v;
+								}
+							}
+							else
+							{
+								for (int j = 0; j < nloop - 1; j++)
+								{
+									v = (v + tempChain[i].mOffset) & m;
+									if (v < vmin) vmin = v;
+									if (v > vmax) vmax = v;
+								}
 							}
 
 							mProc->mLocalValueRange[i].LimitMin(vmin);
@@ -11776,9 +11804,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 								mFalseValueRange[s1c].LimitMin(cins->mSrc[0].mIntConst);
 							}
 
-							if (cins->mSrc[0].mIntConst > 0 && cins->mSrc[0].mIntConst < SignedTypeMax(cins->mSrc[1].mType))
-								mTrueValueRange[s1].LimitMin(0);
-							else
+//							if (cins->mSrc[0].mIntConst > 0 && cins->mSrc[0].mIntConst < SignedTypeMax(cins->mSrc[1].mType))
+//								mTrueValueRange[s1].LimitMin(0);
+//							else
 								mTrueValueRange[s1].LimitMinWeak(0);
 
 /*							if (cins->mSrc[1].mType == IT_INT8)
@@ -16873,7 +16901,7 @@ bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
 							}
 
 							int k = j;
-							while (k <= i && CanMoveInstructionBeforeBlock(j, mInstructions[k]) && CanMoveInstructionBeforePath(path, mInstructions[k]))
+							while (k <= i && !HasSideEffect(mInstructions[k]->mCode) && CanMoveInstructionBeforeBlock(j, mInstructions[k]) && CanMoveInstructionBeforePath(path, mInstructions[k]))
 								k++;
 
 							if (k > i)
@@ -20231,6 +20259,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mType = IT_INT16;
 								ains->mSrc[0].mIntConst = indexScale[lins->mSrc[0].mTemp];
+								ains->mDst.mRange.AddConstValue(IT_INT16, indexScale[lins->mSrc[0].mTemp]);
 
 								if (IsTempModifiedInRange(0, i, lins->mSrc[0].mTemp))
 								{
@@ -23374,7 +23403,7 @@ bool InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblo
 				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
 				ains->mSrc[0].mTemp < 0 &&
 				(cins->mOperator == IA_CMPLU || cins->mOperator == IA_CMPLEU) &&
-				cins->mSrc[0].mIntConst < 255 &&
+				cins->mSrc[0].mIntConst < UnsignedTypeMax(cins->mSrc[1].mType) &&
 				ains->mSrc[0].mIntConst > 0)
 			{
 				InterInstruction* iins = pblock->FindTempOriginSinglePath(ains->mDst.mTemp);
@@ -23402,7 +23431,7 @@ bool InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblo
 				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
 				ains->mSrc[0].mTemp < 0 &&
 				(cins->mOperator == IA_CMPLU || cins->mOperator == IA_CMPLEU) &&
-				cins->mSrc[0].mRange.mMaxValue < 255 &&
+				cins->mSrc[0].mRange.mMaxValue < UnsignedTypeMax(cins->mSrc[1].mType) &&
 				ains->mSrc[0].mRange.mMaxValue > 0)
 			{
 				InterInstruction* iins = pblock->FindTempOriginSinglePath(ains->mDst.mTemp);

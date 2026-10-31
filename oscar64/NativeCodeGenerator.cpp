@@ -3858,8 +3858,24 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		break;
 
 	case ASMIT_INC:
+		if (mMode == ASMIM_ZERO_PAGE && data[mAddress].mMode == NRDM_IMMEDIATE)
+		{
+			int val = (data[mAddress].mValue + 1) & 255;
+			data.Set(mAddress, NRDM_IMMEDIATE, val);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, val);
+		}
+		else
+			data.Reset(CPU_REG_Z);
+		break;
 	case ASMIT_DEC:
-		data.Reset(CPU_REG_Z);
+		if (mMode == ASMIM_ZERO_PAGE && data[mAddress].mMode == NRDM_IMMEDIATE)
+		{
+			int val = (data[mAddress].mValue - 1) & 255;
+			data.Set(mAddress, NRDM_IMMEDIATE, val);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, val);
+		}
+		else
+			data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_LDA:
