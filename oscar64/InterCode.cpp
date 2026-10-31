@@ -154,6 +154,16 @@ static int64 LimitIntConstValue(InterType type, int64 v)
 	}
 }
 
+static bool IsSByte(int64 val)
+{
+	return val >= -128 && val <= 127;
+}
+
+static bool IsUByte(int64 val)
+{
+	return val >= 0 && val <= 255;
+}
+
 
 static int64 ToTypedSigned(int64 val, InterType type)
 {
@@ -7608,6 +7618,12 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				if (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
 				{
 					lins->mSrc[1].mIntConst += tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					if (ins->mSrc[0].mRange.IsBound() && !lins->mSrc[0].mRange.IsBound())
+					{
+						lins->mSrc[0].mRange = ins->mSrc[0].mRange;
+						lins->mSrc[0].mRange.AddConstValue(IT_INT16, - tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+					}
+					
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mType = ins->mSrc[1].mType;
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
@@ -15035,6 +15051,13 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 							nai->mDst.mType = IT_POINTER;
 							mInstructions.Insert(i, nai);
 
+							if (ins->mSrc[0].mRange.IsBound())
+							{
+								nai->mSrc[0].mRange = ins->mSrc[0].mRange;
+								nai->mSrc[0].mRange.AddConstValue(IT_INT16, - ai0->mConst.mIntConst);
+								ins->mSrc[0].mRange.Reset();
+							}
+
 							ltvalue[nai->mDst.mTemp] = nullptr;
 
 							ins->mSrc[1].mTemp = nai->mDst.mTemp;
@@ -20259,7 +20282,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mType = IT_INT16;
 								ains->mSrc[0].mIntConst = indexScale[lins->mSrc[0].mTemp];
-								ains->mDst.mRange.AddConstValue(IT_INT16, indexScale[lins->mSrc[0].mTemp]);
+								ains->mDst.mRange.AddConstValue(IT_INT16, ains->mSrc[0].mIntConst);
 
 								if (IsTempModifiedInRange(0, i, lins->mSrc[0].mTemp))
 								{
@@ -20270,7 +20293,6 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								}
 								else
 								{
-									ains->mDst.mRange.AddConstValue(IT_INT16, ains->mSrc[0].mIntConst);
 									tail->AppendBeforeBranch(ains);
 									if (post->mEntryRequiredTemps[lins->mDst.mTemp])
 									{
@@ -23678,6 +23700,76 @@ bool InterCodeBasicBlock::SingleBlockLoopIndexReduction(int& spareTemps)
 				InterInstruction* bins = mInstructions[nins - 1];
 
 				int itemp = ains->mDst.mTemp;
+
+				// Keep short constant-address loops indexable with an eight-bit offset.
+				if (mProc->mNativeProcedure && mTrueJump == this && !pblock->mFalseJump &&
+					ains->mOperator == IA_ADDU && ains->mDst.mType == IT_INT16 &&
+					ains->mSrc[1].mTemp == itemp && ains->mSrc[0].mTemp < 0 && ains->mSrc[0].mIntConst == 1 &&
+					cins->mOperator == IA_CMPLU && cins->mSrc[1].mTemp == itemp && cins->mSrc[0].mTemp < 0 &&
+					cins->mSrc[0].mType == IT_INT16 && cins->mDst.mTemp != itemp &&
+					bins->mSrc[0].mTemp == cins->mDst.mTemp && !eblock->mEntryRequiredTemps[itemp])
+				{
+					InterInstruction* sins = pblock->FindTempOriginSinglePath(itemp);
+					if (sins && sins->mCode == IC_CONSTANT && sins->mConst.mType == IT_INT16)
+					{
+						int64 start = sins->mConst.mIntConst, end = cins->mSrc[0].mIntConst;
+						if (start >= 256 && end > start && end <= 65535 && end - start <= 256)
+						{
+							bool valid = true, used = false;
+							int accesses = 0;
+							for (int j = 0; j < nins - 3; j++)
+							{
+								InterInstruction* lins = mInstructions[j];
+								if (lins->mCode == IC_LOAD || lins->mCode == IC_STORE)
+									accesses++;
+								// Do not expose a rebased index through a live derived value.
+								if (lins->mDst.mTemp >= 0 && eblock->mEntryRequiredTemps[lins->mDst.mTemp])
+									valid = false;
+								if (lins->ReferencesTemp(itemp))
+								{
+									used = true;
+									if (lins->mCode != IC_LEA || lins->mDst.mTemp == itemp ||
+										lins->mSrc[0].mTemp != itemp || lins->mSrc[1].mTemp >= 0 ||
+										(lins->mSrc[1].mMemory != IM_ABSOLUTE && lins->mSrc[1].mMemory != IM_GLOBAL))
+										valid = false;
+								}
+							}
+							// A single access already has a cheaper loop form.
+							if (valid && used && accesses >= 2)
+							{
+								int64 count = end - start;
+								InterInstruction* zins = new InterInstruction(sins->mLocation, IC_CONSTANT);
+								zins->mConst.mType = IT_INT16;
+								zins->mConst.mIntConst = 0;
+								zins->mDst = ains->mDst;
+								zins->mDst.mRange.SetLimit(0, 0);
+								pblock->AppendBeforeBranch(zins);
+
+								for (int j = 0; j < nins - 3; j++)
+								{
+									InterInstruction* lins = mInstructions[j];
+									if (lins->ReferencesTemp(itemp))
+									{
+										lins->mSrc[1].mIntConst += start;
+										lins->mSrc[0].mRange.SetLimit(0, count - 1);
+									}
+								}
+								ains->mSrc[1].mRange.SetLimit(0, count - 1);
+								ains->mDst.mRange.SetLimit(1, count);
+								cins->mSrc[0].mIntConst = count;
+								cins->mSrc[0].mRange.SetLimit(count, count);
+								cins->mSrc[1].mRange.SetLimit(1, count);
+								if (mEntryValueRange.Size())
+									mEntryValueRange[itemp].SetLimit(0, count - 1);
+								if (mTrueValueRange.Size())
+									mTrueValueRange[itemp].SetLimit(0, count - 1);
+								if (mFalseValueRange.Size())
+									mFalseValueRange[itemp].SetLimit(count, count);
+								changed = true;
+							}
+						}
+					}
+				}
 
 				if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
 					cins->mSrc[1].mTemp == itemp &&
@@ -27888,6 +27980,41 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 #endif
 
 		CheckFinalLocal();
+
+#if 1
+		// Reduce register use due to signed arithmetic source reuse
+		for (int i = 0; i < mInstructions.Size() - 1; i++)
+		{
+			InterInstruction* ains = mInstructions[i];
+			if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADDS)
+			{
+				if (ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && !ains->mSrc[1].mFinal && ains->mSrc[1].IsSByte() && ains->mDst.IsSByte())
+				{
+					for (int j = i + 1; j < mInstructions.Size(); j++)
+					{
+						InterInstruction* jins = mInstructions[j];
+						if (jins->mDst.mTemp == ains->mDst.mTemp || jins->mDst.mTemp == ains->mSrc[1].mTemp)
+							break;
+						if (jins->mCode == IC_RELATIONAL_OPERATOR && jins->mOperator == IA_CMPLES && 
+							jins->mSrc[0].mTemp < 0 && jins->mSrc[1].mTemp == ains->mSrc[1].mTemp &&
+							IsSByte( jins->mSrc[0].mIntConst + ains->mSrc[0].mIntConst ))
+						{
+							jins->mSrc[0].mIntConst += ains->mSrc[0].mIntConst;
+							jins->mSrc[1].mTemp = ains->mDst.mTemp;
+							jins->mSrc[1].mFinal = false;
+							for (int k = i + 1; k < j; k++)
+							{
+								InterInstruction* ins = mInstructions[k];
+								for (int m = 0; m < ins->mNumOperands; m++)
+									if (ins->mSrc[m].mTemp == ains->mDst.mTemp)
+										ins->mSrc[m].mFinal = false;
+							}
+						}
+					}
+				}
+			}
+		}
+#endif
 
 		do	{} while (PeepholeReplaceOptimization(staticVars, staticProcs));
 
