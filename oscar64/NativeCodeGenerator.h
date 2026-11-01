@@ -1013,6 +1013,7 @@ public:
 	bool MoveCallingParamPairDown(int at);
 	bool MoveCallingParamsDown(void);
 
+	bool DeferUnusedBitClear(void);
 	bool FinalCheckedSizeReduction(void);
 
 	bool CheckBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);

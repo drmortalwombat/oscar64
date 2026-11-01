@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"fevalB"
+#define CHECK_FUNC			"mul128<10>"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -38447,6 +38447,64 @@ bool NativeCodeBasicBlock::MoveCallingParamsDown(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::DeferUnusedBitClear(void)
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int		clearZP = -1, clearIns = 0;
+		int		bitsZP = 0;
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x00 &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+			{
+				clearZP = mIns[i + 1].mAddress;
+				clearIns = i + 1;
+				bitsZP = 0;
+				i++;
+			}
+			else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x00 &&
+				     mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+			{
+				clearZP = mIns[i + 1].mAddress;
+				clearIns = i + 1;
+				bitsZP = 0;
+				i++;
+			}
+			else if (mIns[i].mType == ASMIT_ROL && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == clearZP)
+			{
+				if (mIns[i].mLive & LIVE_CPU_REG_C)
+					clearZP = -1;
+				bitsZP = 2 * bitsZP + 1;
+			}
+			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == clearZP)
+			{
+				if (!(mIns[i].mLive & LIVE_MEM))
+				{
+					mIns.Insert(i + 1, NativeCodeInstruction(mIns[i].mIns, ASMIT_AND, ASMIM_IMMEDIATE, bitsZP));
+					mIns[clearIns].mType = ASMIT_NOP;
+					mIns[clearIns].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				clearZP = -1;
+			}
+			else if (clearZP >= 0 && mIns[i].ReferencesZeroPage(clearZP))
+				clearZP = -1;
+		}
+
+		if (mTrueJump && mTrueJump->DeferUnusedBitClear())
+			changed = true;
+		if (mFalseJump && mFalseJump->DeferUnusedBitClear())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 {
 	bool	changed = false;
@@ -75418,6 +75476,15 @@ void NativeCodeProcedure::Optimize(void)
 		CheckBlocks();
 	}
 
+	ResetVisited();
+	if (mEntryBlock->DeferUnusedBitClear())
+	{
+		BuildDataFlowSets();
+		ResetVisited();
+		mEntryBlock->RemoveUnusedResultInstructions();
+		CheckBlocks();
+	}
+	
 #if DISASSEMBLE_OPT
 	DisassembleDebug("Post Op 4c");
 #endif
