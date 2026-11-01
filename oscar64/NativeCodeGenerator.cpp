@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"mul128<10>"
+#define CHECK_FUNC			"belt_sprite_xy"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -28135,14 +28135,14 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 			}
 			else if (ins.mMode == ASMIM_ABSOLUTE_X)
 			{
-				if (xreg >= 0)
+				if (xreg >= 0 && xregs[xreg] >= 0)
 					xregs[xreg] += 3 * iinc;
 				if (ins.ChangesYReg())
 					yregs[0] = -1;
 			}
 			else if (ins.mMode == ASMIM_ABSOLUTE_Y)
 			{
-				if (yreg >= 0)
+				if (yreg >= 0 && yregs[yreg] >= 0)
 					yregs[yreg] += 3 * iinc;
 				if (ins.ChangesXReg())
 					xregs[0] = -1;
@@ -47210,10 +47210,11 @@ bool NativeCodeBasicBlock::MoveShiftZeroPageUp(int at)
 			sins.mLive |= LIVE_CPU_REG_A;
 			mIns.Insert(j, sins);
 			mIns[j].mLive |= mIns[j + 1].mLive;
-			if (sins.mLive & LIVE_CPU_REG_C)
+			int live = sins.mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z);
+			if (live)
 			{
 				for (int i = j; i <= at; i++)
-					mIns[i].mLive |= LIVE_CPU_REG_C;
+					mIns[i].mLive |= live;
 			}
 
 			return true;
@@ -47223,6 +47224,9 @@ bool NativeCodeBasicBlock::MoveShiftZeroPageUp(int at)
 			return false;
 		if (mIns[j].ReferencesZeroPage(mIns[at].mAddress))
 			return false;
+		if ((mIns[at].mLive & LIVE_CPU_REG_Z) && mIns[j].ChangesZFlag())
+			return false;
+
 		j--;
 	}
 
