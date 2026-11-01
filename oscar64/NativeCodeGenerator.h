@@ -1113,6 +1113,8 @@ public:
 	bool CanSwapAccuZP(int reg, int size);
 	void SwapAccuZP(int reg, int size);
 
+	void ShortcutFVarCalls(void);
+
 	void RegisterFunctionCalls(void);
 	bool MergeFunctionCalls(void);
 
@@ -1224,6 +1226,13 @@ public:
 		InterOperator		mOperator;
 	};
 
+	struct FVarTable
+	{
+		LinkerObject	*	mLinkerObject;
+		int					mOffset;
+		LinkerObject	*	mFunction;
+	};
+
 	struct FloatTable
 	{
 		LinkerObject	*	mLinker[4];
@@ -1235,6 +1244,8 @@ public:
 
 	LinkerObject* AllocateShortMulTable(InterOperator op, int factor, int size, bool msb);
 	LinkerObject* AllocateFloatTable(InterOperator op, bool reverse, int minval, int maxval, float fval, int index);
+	LinkerObject* AllocateFVarCall(LinkerObject * obj, int address);
+
 	void PopulateShortMulTables(void);
 
 	Runtime& ResolveRuntime(const Ident* ident);
@@ -1248,6 +1259,7 @@ public:
 	ExpandingArray<Runtime>		mRuntime;
 	ExpandingArray<MulTable>	mMulTables;
 	ExpandingArray<FloatTable>	mFloatTables;
+	ExpandingArray<FVarTable>	mFVarCalls;
 
 	struct FunctionCall
 	{

@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"fevalB"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -914,6 +914,11 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 				requiredTemps += BC_REG_LOCALS + 1;
 				for(int i= BC_REG_FPARAMS; i< BC_REG_FPARAMS_END; i++)
 					requiredTemps += i;
+				if (mLinkerObject && mLinkerObject->mNumTemporaries)
+				{
+					for (int j = 0; j < mLinkerObject->mTempSizes[0]; j++)
+						requiredTemps += mLinkerObject->mTemporaries[0] + j;
+				}
 			}
 		}
 		else
@@ -5258,6 +5263,14 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
 					if (!providedTemps[i])
 						requiredTemps += i;
+				if (mLinkerObject && mLinkerObject->mNumTemporaries)
+				{
+					for (int j = 0; j < mLinkerObject->mTempSizes[0]; j++)
+					{
+						if (!providedTemps[mLinkerObject->mTemporaries[0] + j])
+							requiredTemps += mLinkerObject->mTemporaries[0] + j;
+					}
+				}
 			}
 		}
 		else if (mFlags & NICF_USE_WORKREGS)
@@ -38188,6 +38201,48 @@ void NativeCodeBasicBlock::PropagateZPAbsolute(const NativeRegisterDataSet& data
 
 		if (mTrueJump) mTrueJump->PropagateZPAbsolute(mDataSet);
 		if (mFalseJump) mFalseJump->PropagateZPAbsolute(mDataSet);
+	}
+}
+
+void NativeCodeBasicBlock::ShortcutFVarCalls(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_JSR && (mIns[i].mFlags & NCIF_FEXEC))
+			{
+				if (i >= 4 &&
+					mIns[i - 4].mType == ASMIT_LDA && mIns[i - 4].mMode == ASMIM_ABSOLUTE &&
+					mIns[i - 3].mType == ASMIT_STA && mIns[i - 3].mMode == ASMIM_ZERO_PAGE && mIns[i - 3].mAddress == BC_REG_ACCU + 0 &&
+					mIns[i - 2].mType == ASMIT_LDA && mIns[i - 2].mMode == ASMIM_ABSOLUTE && mIns[i - 2].mLinkerObject == mIns[i - 4].mLinkerObject && mIns[i - 2].mAddress == mIns[i - 4].mAddress + 1 &&
+					mIns[i - 1].mType == ASMIT_STA && mIns[i - 1].mMode == ASMIM_ZERO_PAGE && mIns[i - 1].mAddress == BC_REG_ACCU + 1)
+				{
+					mIns[i].mLinkerObject = mProc->mGenerator->AllocateFVarCall(mIns[i - 4].mLinkerObject, mIns[i - 4].mAddress);
+					mIns[i - 4].mType = ASMIT_NOP; mIns[i - 4].mMode = ASMIM_IMPLIED;
+					mIns[i - 3].mType = ASMIT_NOP; mIns[i - 3].mMode = ASMIM_IMPLIED;
+					mIns[i - 2].mType = ASMIT_NOP; mIns[i - 2].mMode = ASMIM_IMPLIED;
+					mIns[i - 1].mType = ASMIT_NOP; mIns[i - 1].mMode = ASMIM_IMPLIED;
+				}
+				else if (i >= 4 &&
+					mIns[i - 4].mType == ASMIT_LDA && mIns[i - 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i - 3].mType == ASMIT_STA && mIns[i - 3].mMode == ASMIM_ZERO_PAGE && mIns[i - 3].mAddress == BC_REG_ACCU + 0 &&
+					mIns[i - 2].mType == ASMIT_LDA && mIns[i - 2].mMode == ASMIM_ZERO_PAGE && mIns[i - 2].mAddress == mIns[i - 4].mAddress + 1 &&
+					mIns[i - 1].mType == ASMIT_STA && mIns[i - 1].mMode == ASMIM_ZERO_PAGE && mIns[i - 1].mAddress == BC_REG_ACCU + 1)
+				{
+					mIns[i].mLinkerObject = mProc->mGenerator->AllocateFVarCall(nullptr, mIns[i - 4].mAddress);
+					mIns[i - 4].mType = ASMIT_NOP; mIns[i - 4].mMode = ASMIM_IMPLIED;
+					mIns[i - 3].mType = ASMIT_NOP; mIns[i - 3].mMode = ASMIM_IMPLIED;
+					mIns[i - 2].mType = ASMIT_NOP; mIns[i - 2].mMode = ASMIM_IMPLIED;
+					mIns[i - 1].mType = ASMIT_NOP; mIns[i - 1].mMode = ASMIM_IMPLIED;
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->ShortcutFVarCalls();
+		if (mFalseJump) mFalseJump->ShortcutFVarCalls();
 	}
 }
 
@@ -75360,7 +75415,13 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		}
 	}
-
+#if 1
+	if (mCompilerOptions & COPT_NATIVE)
+	{
+		ResetVisited();
+		mEntryBlock->ShortcutFVarCalls();
+	}
+#endif
 	ResetVisited();
 	if (mEntryBlock->MoveCallingParamsDown())
 	{
@@ -76453,6 +76514,56 @@ void NativeCodeGenerator::PopulateShortMulTables(void)
 				f.mLinker[k]->mData[j - f.mMinValue] = fu.u[k];
 		}
 	}
+}
+
+LinkerObject* NativeCodeGenerator::AllocateFVarCall(LinkerObject* obj, int address)
+{
+	for (int i = 0; i < mFVarCalls.Size(); i++)
+	{
+		if (mFVarCalls[i].mLinkerObject == obj && mFVarCalls[i].mOffset == address)
+			return mFVarCalls[i].mFunction;
+	}
+
+	char	name[60];
+	const char* base = "abs";
+	if (obj && obj->mIdent)
+		base = obj->mIdent->mString;
+
+	sprintf_s(name, "__vcall_%s_%04x", base, address);
+	LinkerObject	*	lo = mLinker->AddObject(Location(), Ident::Unique(name), mRuntimeSection, LOT_NATIVE_CODE);
+	uint8* p = lo->AddSpace(3);
+	p[0] = 0x6c;
+	if (obj)
+	{
+		p[1] = 0x00;
+		p[2] = 0x00;
+		LinkerReference	ref;
+		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+		ref.mObject = lo;
+		ref.mOffset = 1;
+		ref.mRefObject = obj;
+		ref.mRefOffset = address;
+		lo->AddReference(ref);
+	}
+	else
+	{
+		p[1] = address & 0xff;
+		p[2] = address >> 8;
+
+		if (address < 0x100)
+		{
+			lo->mNumTemporaries = 1;
+			lo->mTemporaries[0] = address;
+			lo->mTempSizes[0] = 2;
+		}
+	}
+
+	FVarTable	vc;
+	vc.mFunction = lo;
+	vc.mLinkerObject = obj;
+	vc.mOffset = address;
+	mFVarCalls.Push(vc);
+	return lo;
 }
 
 LinkerObject* NativeCodeGenerator::AllocateFloatTable(InterOperator op, bool reverse, int minval, int maxval, float fval, int index)

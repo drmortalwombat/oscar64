@@ -772,7 +772,7 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 		case ASMIM_INDIRECT:
 			addr = memory[ip] + 256 * memory[ip + 1];
 			ip += 2;
-			fprintf(file, "%04x : %02x %02x %02x %s ($%04x)\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr);
+			fprintf(file, "%04x : %02x %02x %02x %s ($%04x) %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		case ASMIM_INDIRECT_X:
 			addr = memory[ip++];
