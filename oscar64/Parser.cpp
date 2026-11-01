@@ -16079,9 +16079,11 @@ void Parser::Parse(void)
 					{
 						mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition", ident);
 						mErrors->Error(vdasm->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+						vdasm = nullptr;
 					}
 				}
-				else
+				
+				if (!vdasm)
 				{
 					Declaration	*	dasm = new Declaration(mScanner->mLocation, DT_TYPE_ASSEMBLER);
 					dasm->mScope = new DeclarationScope(mScope, SLEVEL_LOCAL);

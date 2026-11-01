@@ -501,7 +501,7 @@ __asm negtmp32b
 
 // divide accu by tmp result in accu, remainder in tmp + 2
 
-__asm divmod
+__asm __divmod
 {
 		lda accu + 1
 		bne .WB
@@ -601,7 +601,7 @@ __asm divmod
 
 // divide accu by tmp result in accu, remainder in tmp + 4
 
-__asm divmod32
+__asm __divmod32
 {
 		lda	#0
 		sta	tmp + 4
@@ -669,7 +669,7 @@ W32:
 
 // divide 16 by 16 bit
 
-		jsr	divmod
+		jsr	__divmod
 		lda tmp + 2
 		sta tmp + 4
 		lda tmp + 3
@@ -764,7 +764,7 @@ W32:
 
 // Multiply accu by tmp result in tmp + 2
 
-__asm mul16
+__asm __mul16
 {
 		ldy	#0
 		sty	tmp + 3
@@ -817,7 +817,7 @@ __asm mul16
 		sty tmp + 2
 }
 
-__asm mul32by8
+__asm __mul32by8
 {
 		ldy #0
 		sty tmp + 4
@@ -857,14 +857,14 @@ __asm mul32by8
 		rts
 }
 
-__asm mul32
+__asm __mul32
 {
 		lda tmp + 1
 		ora tmp + 2
 		ora tmp + 3
 		bne .WW
 		lda tmp + 0
-		jmp mul32by8
+		jmp __mul32by8
 .WW:
 		ldy #0
 		sty tmp + 4
@@ -933,7 +933,7 @@ __asm mul32
 }
 
 #if 1
-__asm mul16by8
+__asm __mul16by8
 {
 		lsr
 		beq	.zero
@@ -1010,7 +1010,7 @@ L2:
 }
 #endif
 
-__asm divs16
+__asm __divs16
 {
 		bit	accu + 1
 		bpl	.L1
@@ -1018,15 +1018,15 @@ __asm divs16
 		bit	tmp + 1
 		bpl	.L2
 		jsr	negtmp
-.L3:	jmp	divmod
+.L3:	jmp	__divmod
 .L1:	bit	tmp + 1
 		bpl	.L3
 		jsr	negtmp
-.L2:	jsr	divmod
+.L2:	jsr	__divmod
 		jmp	negaccu
 }
 
-__asm mods16
+__asm __mods16
 {
 		bit	accu + 1
 		bpl	.L1
@@ -1034,40 +1034,40 @@ __asm mods16
 		bit	tmp + 1
 		bpl .L2
 		jsr	negtmp
-.L2:	jsr	divmod
+.L2:	jsr	__divmod
 		jmp negtmpb
 .L1:	bit	tmp + 1
 		bpl	.L3
 		jsr	negtmp
-.L3:	jmp	divmod
+.L3:	jmp	__divmod
 		rts
 }
 
-__asm divmods16
+__asm __divmods16
 {
 		bit	accu + 1
 		bmi	.L1
 		bit	tmp + 1
 		bmi .L2
-		jmp divmod
+		jmp __divmod
 .L2:
 		jsr negtmp
-		jsr divmod
+		jsr __divmod
 		jmp	negaccu
 .L1:
 		jsr negaccu
 		bit tmp + 3
 		bmi .L3
-		jsr divmod
+		jsr __divmod
 		jsr negtmpb
 		jmp negaccu
 .L3:
 		jsr negtmp
-		jsr divmod
+		jsr __divmod
 		jmp negtmpb
 }
 
-__asm divs32
+__asm __divs32
 {
 		bit	accu + 3
 		bpl	.L1
@@ -1075,15 +1075,15 @@ __asm divs32
 		bit	tmp + 3
 		bpl	.L2
 		jsr	negtmp32
-.L3:	jmp	divmod32
+.L3:	jmp	__divmod32
 .L1:	bit	tmp + 3
 		bpl	.L3
 		jsr	negtmp32
-.L2:	jsr	divmod32
+.L2:	jsr	__divmod32
 		jmp	negaccu32
 }
 
-__asm mods32
+__asm __mods32
 {
 		bit	accu + 3
 		bpl	.L1
@@ -1091,56 +1091,56 @@ __asm mods32
 		bit	tmp + 3
 		bpl	.L2
 		jsr	negtmp32
-.L2:	jsr	divmod32
+.L2:	jsr	__divmod32
 		jmp negtmp32b
-.L3:	jmp	divmod32
+.L3:	jmp	__divmod32
 .L1:	bit	tmp + 3
 		bpl	.L3
 		jsr	negtmp32
-		jmp	divmod32
+		jmp	__divmod32
 
 }
 
-__asm divmods32
+__asm __divmods32
 {
 		bit	accu + 3
 		bmi	.L1
 		bit	tmp + 3
 		bmi .L2
-		jmp divmod32
+		jmp __divmod32
 .L2:
 		jsr negtmp32
-		jsr divmod32
+		jsr __divmod32
 		jmp	negaccu32
 .L1:
 		jsr negaccu32
 		bit tmp + 3
 		bmi .L3
-		jsr divmod32
+		jsr __divmod32
 		jsr negtmp32b
 		jmp negaccu32
 .L3:
 		jsr negtmp32
-		jsr divmod32
+		jsr __divmod32
 		jmp negtmp32b
 }
 
-#pragma runtime(mul16, mul16);
-#pragma runtime(mul16by8, mul16by8);
-#pragma runtime(divu16, divmod);
-#pragma runtime(modu16, divmod);
-#pragma runtime(divs16, divs16);
-#pragma runtime(mods16, mods16);
-#pragma runtime(divmods16, divmods16);
-#pragma runtime(divu16by8, divmod.DM8)
+#pragma runtime(mul16, __mul16);
+#pragma runtime(mul16by8, __mul16by8);
+#pragma runtime(divu16, __divmod);
+#pragma runtime(modu16, __divmod);
+#pragma runtime(divs16, __divs16);
+#pragma runtime(mods16, __mods16);
+#pragma runtime(divmods16, __divmods16);
+#pragma runtime(divu16by8, __divmod.DM8)
 		
-#pragma runtime(mul32, mul32);
-#pragma runtime(mul32by8, mul32by8);
-#pragma runtime(divu32, divmod32);
-#pragma runtime(modu32, divmod32);
-#pragma runtime(divs32, divs32);
-#pragma runtime(mods32, mods32);
-#pragma runtime(divmods32, divmods32);
+#pragma runtime(mul32, __mul32);
+#pragma runtime(mul32by8, __mul32by8);
+#pragma runtime(divu32, __divmod32);
+#pragma runtime(modu32, __divmod32);
+#pragma runtime(divs32, __divs32);
+#pragma runtime(mods32, __mods32);
+#pragma runtime(divmods32, __divmods32);
 
 	
 
@@ -2126,7 +2126,7 @@ __asm inp_binop_divr_u16
 		lda	$01, x
 		sta	tmp + 1
 		sty	tmpy
-		jsr	divmod
+		jsr	__divmod
 		jmp	startup.tyexec
 }
 
@@ -2141,7 +2141,7 @@ __asm inp_binop_modr_u16
 		lda	$01, x
 		sta	tmp + 1
 		sty	tmpy
-		jsr	divmod
+		jsr	__divmod
 		lda	tmp + 2
 		sta	accu
 		lda	tmp + 3
@@ -2167,12 +2167,12 @@ __asm inp_binop_divr_s16
 		bit	tmp + 1
 		bpl	.L2
 		jsr	negtmp
-.L3:	jsr	divmod
+.L3:	jsr	__divmod
 		jmp	startup.tyexec		
 .L1:	bit	tmp + 1
 		bpl	.L3
 		jsr	negtmp
-.L2:	jsr	divmod
+.L2:	jsr	__divmod
 		jsr	negaccu
 		jmp	startup.tyexec
 }
@@ -2194,7 +2194,7 @@ __asm inp_binop_modr_s16
 		bit	tmp + 1
 		bpl	.L3
 		jsr	negtmp
-.L3:	jsr	divmod
+.L3:	jsr	__divmod
 		lda	tmp + 2
 		sta	accu
 		lda	tmp + 3
@@ -2204,7 +2204,7 @@ __asm inp_binop_modr_s16
 .L1:	bit	tmp + 1
 		bpl	.L2
 		jsr	negtmp
-.L2:	jsr	divmod
+.L2:	jsr	__divmod
 		lda	tmp + 2
 		sta	accu
 		lda	tmp + 3
@@ -4460,7 +4460,7 @@ __asm inp_binop_div_u32
 		sta	tmp + 2
 		lda	$03, x
 		sta	tmp + 3
-		jsr	divmod32
+		jsr	__divmod32
 }
 
 #pragma	bytecode(BC_BINOP_DIV_U32, inp_binop_div_u32)
@@ -4475,7 +4475,7 @@ __asm inp_binop_mod_u32
 		sta	tmp + 2
 		lda	$03, x
 		sta	tmp + 3
-		jsr	divmod32
+		jsr	__divmod32
 		lda	tmp + 4
 		sta	accu
 		lda	tmp + 5
@@ -4504,11 +4504,11 @@ __asm inp_binop_div_s32
 		bit	tmp + 3
 		bpl	.L2
 		jsr	negtmp32
-.L3:	jmp	divmod32
+.L3:	jmp	__divmod32
 .L1:	bit	tmp + 3
 		bpl	.L3
 		jsr	negtmp32
-.L2:	jsr	divmod32
+.L2:	jsr	__divmod32
 		jsr	negaccu32
 }
 
@@ -4530,7 +4530,7 @@ __asm inp_binop_mod_s32
 		bit	tmp + 3
 		bpl	.L3
 		jsr	negtmp32
-.L3:	jsr	divmod32
+.L3:	jsr	__divmod32
 		lda	tmp + 4
 		sta	accu
 		lda	tmp + 5
@@ -4543,7 +4543,7 @@ __asm inp_binop_mod_s32
 .L1:	bit	tmp + 3
 		bpl	.L2
 		jsr	negtmp32
-.L2:	jsr	divmod32
+.L2:	jsr	__divmod32
 		lda	tmp + 4
 		sta	accu
 		lda	tmp + 5
