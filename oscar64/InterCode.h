@@ -564,6 +564,7 @@ public:
 	void PruneUnusedIntegerRangeSets(void);
 
 	bool InnerLoopIntegerRangeUpdate(void);
+	bool PropagateSimpleConditionalExitConsts(void);
 
 	void PropagateValueRangeSetConversions(const ExpandingInstructionPtrArray& tvalue);
 

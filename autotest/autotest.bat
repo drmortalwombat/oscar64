@@ -51,6 +51,9 @@ rem @echo off
 @call :test looppointerrangetest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test looplivepointertest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test loopindexrebasetest.c
 @if %errorlevel% neq 0 goto :error
 

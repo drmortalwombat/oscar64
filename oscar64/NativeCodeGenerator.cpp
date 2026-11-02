@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"belt_sprite_xy"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -49817,6 +49817,24 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_ORA || lins.mType == ASMIT_AND || lins.mType == ASMIT_EOR || lins.mType == ASMIT_ADC || lins.mType == ASMIT_SBC)
 						{
 							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								int sz = mIns.Size();
+								if (sz >= 3 && lins.mType == ASMIT_ADC && mIns[sz - 2].mType == ASMIT_CLC)
+								{
+									if (mIns[sz - 3].mType == ASMIT_TXA)
+										mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, (256 - lins.mAddress) & 255);
+									else if (mIns[sz - 3].mType == ASMIT_TYA)
+										mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, (256 - lins.mAddress) & 255);
+								}
+								else if (sz >= 3 && lins.mType == ASMIT_SBC && mIns[sz - 2].mType == ASMIT_SEC)
+								{
+									if (mIns[sz - 3].mType == ASMIT_TXA)
+										mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, lins.mAddress & 255);
+									else if (mIns[sz - 3].mType == ASMIT_TYA)
+										mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, lins.mAddress & 255);
+								}
+							}
 						}
 						else if (lins.mType == ASMIT_TXA || lins.mType == ASMIT_TAX)
 						{
@@ -51444,10 +51462,24 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	
 	if (si < ei && mIns[ei].mType == ASMIT_STY && mIns[ei].mMode == ASMIM_ZERO_PAGE)
 	{
-		int	j = 0;
-		while (j < mIns.Size() && (j == ei || !(mIns[j].ChangesZeroPage(mIns[ei].mAddress) || mIns[j].UsesZeroPage(mIns[ei].mAddress))))
+		int	j = 0, iny = 0;
+		while (j < mIns.Size())
+		{
+			if (j != ei && mIns[j].ReferencesZeroPage(mIns[ei].mAddress))
+				break;
+			if (j > ei)
+			{
+				if (mIns[j].mType == ASMIT_INY)
+					iny++;
+				else if (mIns[j].mType == ASMIT_INY)
+					iny--;
+				else if (mIns[j].ChangesYReg())
+					break;
+			}
 			j++;
-		if (j == mIns.Size())
+		}
+
+		if (j == mIns.Size() && iny >= -2 && iny <= 2)
 		{
 			if (!prevBlock)
 				return OptimizeSimpleLoopInvariant(proc, full);
@@ -51455,7 +51487,24 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			exitBlock->mEntryRequiredRegs += CPU_REG_Y;
 
 			exitBlock->mIns.Insert(0, mIns[ei]);
+
+			switch (iny)
+			{
+			case -2:
+				exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[ei].mIns, ASMIT_INY));
+			case -1:
+				exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[ei].mIns, ASMIT_INY));
+				break;
+			case 2:
+				exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[ei].mIns, ASMIT_DEY));
+			case 1:
+				exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[ei].mIns, ASMIT_DEY));
+				break;
+			}
+
 			mIns.Remove(ei);
+			for (int j = ei; j < mIns.Size(); j++)
+				mIns[j].mLive |= LIVE_CPU_REG_Y;
 
 			CheckLive();
 
@@ -52172,6 +52221,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				int addr = mIns[ai].mAddress;
 				bool	fail = false, changey = false, changev = false;
 				
+				bool	eyused = exitBlock->mEntryRequiredRegs[CPU_REG_Y];
+
 				for (int i = 0; i < mIns.Size(); i++)
 				{
 					if (mIns[i].mType == ASMIT_LDY)
@@ -52183,7 +52234,17 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					}
 					else if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr)
 					{
-						if (mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC)
+						if (mIns[i].mType == ASMIT_STA)
+						{
+							if (eyused)
+							{
+								fail = true;
+								break;
+							}
+							changey = true;
+							changev = true;
+						}
+						else if (mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC)
 						{
 							changey = true;
 							changev = true;
@@ -52202,8 +52263,6 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 						return OptimizeSimpleLoopInvariant(proc, full);
 
 					changed = true;
-
-					bool	eyused = exitBlock->mEntryRequiredRegs[CPU_REG_Y];
 
 					prevBlock->mExitRequiredRegs += CPU_REG_Y;
 					mEntryRequiredRegs += CPU_REG_Y;

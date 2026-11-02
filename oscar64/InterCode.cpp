@@ -9421,6 +9421,154 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 	}
 }
 
+bool InterCodeBasicBlock::PropagateSimpleConditionalExitConsts(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mFalseJump)
+		{
+			int sz = mInstructions.Size();
+			if (sz > 2)
+			{
+				if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp)
+				{
+					int		rtemp;
+					int64	rconst;
+					InterCodeBasicBlock* rblock = nullptr;
+
+					InterInstruction* rins = mInstructions[sz - 2];
+					if (IsIntegerType(rins->mSrc[0].mType))
+					{
+						switch (rins->mOperator)
+						{
+						case IA_CMPEQ:
+							if (rins->mSrc[0].mTemp < 0)
+							{
+								rblock = mTrueJump;
+								rtemp = rins->mSrc[1].mTemp;
+								rconst = rins->mSrc[0].mIntConst;
+							}
+							else if (rins->mSrc[1].mTemp < 0)
+							{
+								rblock = mTrueJump;
+								rtemp = rins->mSrc[0].mTemp;
+								rconst = rins->mSrc[1].mIntConst;
+							}
+							break;
+						case IA_CMPNE:
+							if (rins->mSrc[0].mTemp < 0)
+							{
+								rblock = mFalseJump;
+								rtemp = rins->mSrc[1].mTemp;
+								rconst = rins->mSrc[0].mIntConst;
+							}
+							else if (rins->mSrc[1].mTemp < 0)
+							{
+								rblock = mFalseJump;
+								rtemp = rins->mSrc[0].mTemp;
+								rconst = rins->mSrc[1].mIntConst;
+							}
+							break;
+						case IA_CMPLU:
+						case IA_CMPLS:
+							if (rins->mSrc[0].mTemp < 0 && rins->mSrc[1].mRange.IsBound() && rins->mSrc[1].mRange.mMaxValue == rins->mSrc[0].mIntConst)
+							{
+								rblock = mFalseJump;
+								rtemp = rins->mSrc[1].mTemp;
+								rconst = rins->mSrc[0].mIntConst;
+							}
+							break;
+						case IA_CMPGU:
+						case IA_CMPGS:
+							if (rins->mSrc[0].mTemp < 0 && rins->mSrc[1].mRange.IsBound() && rins->mSrc[1].mRange.mMinValue == rins->mSrc[0].mIntConst)
+							{
+								rblock = mFalseJump;
+								rtemp = rins->mSrc[1].mTemp;
+								rconst = rins->mSrc[0].mIntConst;
+							}
+							break;
+						}
+
+						if (rblock && rblock->mEntryBlocks.Size() == 1)
+						{
+							int i = sz - 2;
+							while (i > 0)
+							{
+								i--;
+								InterInstruction* ains = mInstructions[i];
+								if (ains->mDst.mTemp == rtemp)
+								{
+									if (ains->mCode == IC_BINARY_OPERATOR)
+									{
+										if (ains->mOperator == IA_ADDU)
+										{
+											if (ains->mSrc[0].mTemp == rtemp && ains->mSrc[1].mTemp < 0)
+												rconst = (rconst - ains->mSrc[1].mIntConst) & UnsignedTypeMax(ains->mDst.mType);
+											else if (ains->mSrc[1].mTemp == rtemp && ains->mSrc[0].mTemp < 0)
+												rconst = (rconst - ains->mSrc[0].mIntConst) & UnsignedTypeMax(ains->mDst.mType);
+											else
+												break;
+										}
+										else if (ains->mOperator == IA_ADDS)
+										{
+											if (ains->mSrc[0].mTemp == rtemp && ains->mSrc[1].mTemp < 0)
+												rconst = rconst - ains->mSrc[1].mIntConst;
+											else if (ains->mSrc[1].mTemp == rtemp && ains->mSrc[0].mTemp < 0)
+												rconst = rconst - ains->mSrc[0].mIntConst;
+											else
+												break;
+										}
+										else if (ains->mOperator == IA_SUBU)
+										{
+											if (ains->mSrc[1].mTemp == rtemp && ains->mSrc[0].mTemp < 0)
+												rconst = (rconst + ains->mSrc[0].mIntConst) & UnsignedTypeMax(ains->mDst.mType);
+											else
+												break;
+										}
+										else if (ains->mOperator == IA_SUBS)
+										{
+											if (ains->mSrc[1].mTemp == rtemp && ains->mSrc[0].mTemp < 0)
+												rconst = rconst + ains->mSrc[0].mIntConst;
+											else
+												break;
+										}
+										else
+											break;
+									}
+									else
+										break;
+								}
+								else if (ains->mDst.mTemp >= 0 && !IsTempModifiedInRange(i + 1, sz, ains->mDst.mTemp) && mExitRequiredTemps[ains->mDst.mTemp])
+								{
+									if (ains->mCode == IC_LEA && ains->mSrc[0].mTemp == rtemp && (ains->mSrc[1].mTemp < 0 || !IsTempModifiedInRange(i + 1, sz, ains->mSrc[1].mTemp)))
+									{
+										InterInstruction* cins = ains->Clone();
+										cins->mSrc[0].mTemp = -1;
+										cins->mSrc[0].mIntConst = rconst;
+										rblock->mInstructions.Insert(0, cins);
+										changed = true;
+									}
+								}
+
+							}
+						}
+					}
+				}
+
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PropagateSimpleConditionalExitConsts()) changed = true;
+		if (mFalseJump && mFalseJump->PropagateSimpleConditionalExitConsts()) changed = true;
+	}
+
+	return changed;
+}
+
 
 bool InterCodeBasicBlock::InnerLoopIntegerRangeUpdate(void)
 {
@@ -31138,6 +31286,9 @@ void InterCodeProcedure::Close(void)
 
 
 	RebuildIntegerRangeSet();
+
+	ResetVisited();
+	mEntryBlock->PropagateSimpleConditionalExitConsts();
 
 	ResetVisited();
 	mEntryBlock->Flatten2DLoop();
