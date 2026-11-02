@@ -57,7 +57,7 @@ rem @echo off
 @call :test loopindexrebasetest.c
 @if %errorlevel% neq 0 goto :error
 
-@call :test looppointerrangetest.c
+@call :test looppointerbasetest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test rolrortest.cpp
