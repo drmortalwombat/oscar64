@@ -52185,6 +52185,12 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					{
 						if (mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC)
 						{
+							// A store cannot restore the old Y value needed after the loop.
+							if (mIns[i].mType == ASMIT_STA && exitBlock->mEntryRequiredRegs[CPU_REG_Y])
+							{
+								fail = true;
+								break;
+							}
 							changey = true;
 							changev = true;
 						}
