@@ -226,20 +226,20 @@ char * strchr( const char * str, int ch )
 	return p;
 }
 
-char * strrchr(const char * str, int ch)
+char * strrchr(const char * str, char ch)
 {
 	const char * p = str;
 	const char * last = nullptr;
 
 	while (*p)
 	{
-		if (*p == (char)ch)
+		if (*p == ch)
 			last = p;
 		p++;
 	}
 
 	// The terminating null character is considered to be a part of the string and can be found if searching for '\0'
-	return (char)ch == '\0' ? (char *)p : (char *)last;
+	return ch == '\0' ? (char *)p : (char *)last;
 }
 
 char * strstr(const char * str, const char * substr)

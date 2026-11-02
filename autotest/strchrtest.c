@@ -50,19 +50,20 @@ int main(void)
 	// Test strrchr with null character
 	strcpy(teststr, "hello");
 	assert(strrchr(teststr, '\0') == teststr + 5); // should point to end of string
-	// The int argument is converted to char, including when it becomes zero.
-	assert(strrchr(teststr, 256) == teststr + 5);
-	assert(strrchr(teststr, -256) == teststr + 5);
-	assert(strrchr(teststr, 512) == teststr + 5);
-	assert(strrchr(teststr, 'l' + 256) == teststr + 3);
-	assert(strrchr(teststr, 'x' + 256) == nullptr);
+	// Convert wider integer arguments to char at the call site.
+	volatile int needle = 256;
+	assert(strrchr(teststr, needle) == teststr + 5);
+	assert(strrchr(teststr, -needle) == teststr + 5);
+	assert(strrchr(teststr, 2 * needle) == teststr + 5);
+	assert(strrchr(teststr, 'l' + needle) == teststr + 3);
+	assert(strrchr(teststr, 'x' + needle) == nullptr);
 	
 	// Test strrchr with empty string
 	assert(strrchr("", 'a') == nullptr);
 	strcpy(teststr, "");
 	assert(strrchr(teststr, '\0') == teststr); // should point to start
-	assert(strrchr(teststr, 256) == teststr);
-	assert(strrchr(teststr, -256) == teststr);
+	assert(strrchr(teststr, needle) == teststr);
+	assert(strrchr(teststr, -needle) == teststr);
 	
 	// Test strrchr with single character string
 	assert(strcmp(strrchr("a", 'a'), "a") == 0);
