@@ -239,7 +239,7 @@ char * strrchr(const char * str, int ch)
 	}
 
 	// The terminating null character is considered to be a part of the string and can be found if searching for '\0'
-	return ch == '\0' ? (char *)p : (char *)last;
+	return (char)ch == '\0' ? (char *)p : (char *)last;
 }
 
 char * strstr(const char * str, const char * substr)
