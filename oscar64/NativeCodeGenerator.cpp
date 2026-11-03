@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"fg_geometry"
+#define CHECK_FUNC			"joy_poll"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -58165,6 +58165,9 @@ void NativeCodeBasicBlock::BranchAccuAlternativeElimination(void)
 				mTrueJump->mNumEntries++;
 				mTrueJump->mEntryBlocks.Push(mFalseJump);
 				mTrueJump->mEntryRequiredRegs += CPU_REG_A;
+
+				mFalseJump->mNDataSet.Set(CPU_REG_Z, NRDM_IMMEDIATE, mFalseJump->mIns[0].mAddress);
+				mTrueJump->mNDataSet.Reset(CPU_REG_Z);
 			}
 			else
 			{
@@ -58176,6 +58179,9 @@ void NativeCodeBasicBlock::BranchAccuAlternativeElimination(void)
 				mFalseJump->mNumEntries++;
 				mFalseJump->mEntryBlocks.Push(mTrueJump);
 				mFalseJump->mEntryRequiredRegs += CPU_REG_A;
+
+				mTrueJump->mNDataSet.Set(CPU_REG_Z, NRDM_IMMEDIATE, mTrueJump->mIns[0].mAddress);
+				mFalseJump->mNDataSet.Reset(CPU_REG_Z);
 			}
 
 			mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_A;
