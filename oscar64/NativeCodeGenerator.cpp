@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"equipment_show_space"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -26534,7 +26534,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(void)
 		if (mFalseJump && mIns.Size() >= 3)
 		{
 			int sz = mIns.Size();
-			if (mIns[sz - 3].mType == ASMIT_CLC &&
+			if ((mBranch == ASMIT_BNE || mBranch == ASMIT_BEQ || mBranch == ASMIT_BPL || mBranch == ASMIT_BMI) &&
+				mIns[sz - 3].mType == ASMIT_CLC &&
 				mIns[sz - 2].mType == ASMIT_ADC && 
 				mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].SameEffectiveAddress(mIns[sz - 2]))
 			{
