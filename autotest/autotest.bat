@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test selectorzerofallthrough.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test funcvaropt.c
 @if %errorlevel% neq 0 goto :error
 
