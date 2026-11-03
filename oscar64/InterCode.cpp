@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"reset"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -7618,12 +7618,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				if (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
 				{
 					lins->mSrc[1].mIntConst += tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
-					if (ins->mSrc[0].mRange.IsBound() && !lins->mSrc[0].mRange.IsBound())
-					{
-						lins->mSrc[0].mRange = ins->mSrc[0].mRange;
-						lins->mSrc[0].mRange.AddConstValue(IT_INT16, - tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
-					}
-					
+
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mType = ins->mSrc[1].mType;
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
