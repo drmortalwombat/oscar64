@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"fg_erase_cell"
+#define CHECK_FUNC			"fg_geometry"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -29038,7 +29038,7 @@ bool NativeCodeBasicBlock::JoinCommonHeadSequence(void)
 				if (mIns[0].mType == ASMIT_STA)
 				{
 					NativeCodeBasicBlock* e0 = mEntryBlocks[0];
-					int s0 = e0->mIns.Size();
+					int s0 = e0->mIns.Size(), live = 0;
 					if (s0 >= 2 && e0->mIns[s0 - 1].IsCommutative() && e0->mIns[s0 - 2].mType == ASMIT_LDA)
 					{
 						bool	match = true;
@@ -29056,13 +29056,29 @@ bool NativeCodeBasicBlock::JoinCommonHeadSequence(void)
 						}
 						if (match)
 						{
+
 							mIns.Insert(0, NativeCodeInstruction(e0->mIns[s0 - 1].mIns, e0->mIns[s0 - 1].mType, e0->mIns[s0 - 2]));
+							if (mIns[0].RequiresXReg())
+							{
+								live |= LIVE_CPU_REG_X;
+								mEntryRequiredRegs += CPU_REG_X;
+							}
+							if (mIns[0].RequiresYReg())
+							{
+								live |= LIVE_CPU_REG_Y;
+								mEntryRequiredRegs += CPU_REG_Y;
+							}
 							for (int i = 0; i < mEntryBlocks.Size(); i++)
 							{
 								NativeCodeBasicBlock* eb = mEntryBlocks[i];
 								int sz = eb->mIns.Size();
 								eb->mIns[sz - 2].CopyMode(eb->mIns[sz - 1]);
-								eb->mIns[sz - 1].mType = ASMIT_NOP; eb->mIns[sz - 1].mMode = ASMIM_IMPLIED;
+								eb->mIns[sz - 2].mLive |= live;
+								if (live & LIVE_CPU_REG_X)
+									eb->mExitRequiredRegs += CPU_REG_X;
+								if (live & LIVE_CPU_REG_Y)
+									eb->mExitRequiredRegs += CPU_REG_Y;
+								eb->mIns.Remove(sz - 1);
 							}
 							changed = true;
 						}
@@ -29085,13 +29101,29 @@ bool NativeCodeBasicBlock::JoinCommonHeadSequence(void)
 						if (match)
 						{
 							mIns.Insert(0, NativeCodeInstruction(e0->mIns[s0 - 1].mIns, ASMIT_ADC, e0->mIns[s0 - 2]));
+							if (mIns[0].RequiresXReg())
+							{
+								live |= LIVE_CPU_REG_X;
+								mEntryRequiredRegs += CPU_REG_X;
+							}
+							if (mIns[0].RequiresYReg())
+							{
+								live |= LIVE_CPU_REG_Y;
+								mEntryRequiredRegs += CPU_REG_Y;
+							}
+
 							for (int i = 0; i < mEntryBlocks.Size(); i++)
 							{
 								NativeCodeBasicBlock* eb = mEntryBlocks[i];
 								int sz = eb->mIns.Size();
 								eb->mIns[sz - 2].mType = ASMIT_LDA; eb->mIns[sz - 2].mMode = ASMIM_IMMEDIATE;
 								eb->mIns[sz - 2].mAddress = (eb->mIns[sz - 1].mType == ASMIT_ADC) ? eb->mIns[sz - 1].mAddress : (eb->mIns[sz - 1].mAddress ^ 0xff);
-								eb->mIns[sz - 1].mType = ASMIT_NOP; eb->mIns[sz - 1].mMode = ASMIM_IMPLIED;
+								eb->mIns[sz - 2].mLive |= live;
+								if (live & LIVE_CPU_REG_X)
+									eb->mExitRequiredRegs += CPU_REG_X;
+								if (live & LIVE_CPU_REG_Y)
+									eb->mExitRequiredRegs += CPU_REG_Y;
+								eb->mIns.Remove(sz - 1);
 							}
 							changed = true;
 						}
@@ -33784,6 +33816,9 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 
 		CheckLive();
 		mProc->CheckBlocks();
+
+		if (changed)
+			RemoveNops();
 
 		if (mTrueJump && mTrueJump->JoinTailCodeSequences(loops))
 			changed = true;
