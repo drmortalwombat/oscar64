@@ -58155,34 +58155,31 @@ void NativeCodeBasicBlock::BranchAccuAlternativeElimination(void)
 			mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
 		{
 			NativeCodeBasicBlock* eblock = mTrueJump->mTrueJump;
-			if (eblock->mEntryBlocks.Size() == 2)
+			if (mBranch == ASMIT_BEQ)
 			{
-				if (mBranch == ASMIT_BEQ)
-				{
-					mTrueJump->mIns[0].mType = ASMIT_EOR;
-					mFalseJump->mIns[0].mAddress ^= mTrueJump->mIns[0].mAddress;
-					eblock->mEntryBlocks.RemoveAll(mFalseJump);
-					eblock->mNumEntries--;
-					mFalseJump->mTrueJump = mTrueJump;
-					mTrueJump->mNumEntries++;
-					mTrueJump->mEntryBlocks.Push(mFalseJump);
-					mTrueJump->mEntryRequiredRegs += CPU_REG_A;
-				}
-				else
-				{
-					mFalseJump->mIns[0].mType = ASMIT_EOR;
-					mTrueJump->mIns[0].mAddress ^= mFalseJump->mIns[0].mAddress;
-					eblock->mEntryBlocks.RemoveAll(mTrueJump);
-					eblock->mNumEntries--;
-					mTrueJump->mTrueJump = mFalseJump;
-					mFalseJump->mNumEntries++;
-					mFalseJump->mEntryBlocks.Push(mTrueJump);
-					mFalseJump->mEntryRequiredRegs += CPU_REG_A;
-				}
-
-				mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_A;
-				mExitRequiredRegs += CPU_REG_A;
+				mTrueJump->mIns[0].mType = ASMIT_EOR;
+				mFalseJump->mIns[0].mAddress ^= mTrueJump->mIns[0].mAddress;
+				eblock->mEntryBlocks.RemoveAll(mFalseJump);
+				eblock->mNumEntries--;
+				mFalseJump->mTrueJump = mTrueJump;
+				mTrueJump->mNumEntries++;
+				mTrueJump->mEntryBlocks.Push(mFalseJump);
+				mTrueJump->mEntryRequiredRegs += CPU_REG_A;
 			}
+			else
+			{
+				mFalseJump->mIns[0].mType = ASMIT_EOR;
+				mTrueJump->mIns[0].mAddress ^= mFalseJump->mIns[0].mAddress;
+				eblock->mEntryBlocks.RemoveAll(mTrueJump);
+				eblock->mNumEntries--;
+				mTrueJump->mTrueJump = mFalseJump;
+				mFalseJump->mNumEntries++;
+				mFalseJump->mEntryBlocks.Push(mTrueJump);
+				mFalseJump->mEntryRequiredRegs += CPU_REG_A;
+			}
+
+			mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_A;
+			mExitRequiredRegs += CPU_REG_A;
 		}
 
 		if (mTrueJump) mTrueJump->BranchAccuAlternativeElimination();
