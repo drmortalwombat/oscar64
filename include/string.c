@@ -213,11 +213,11 @@ char * cpycat(char * dst, const char * src)
 
 #pragma native(cpycat)
 
-char * strchr( const char * str, int ch )
+char * strchr( const char * str, char ch )
 {
 	char * p = (char *)str;
 
-	while (*p != (char)ch)
+	while (*p != ch)
 	{
 		if (!*p)
 			return nullptr;
@@ -226,14 +226,14 @@ char * strchr( const char * str, int ch )
 	return p;
 }
 
-char * strrchr(const char * str, int ch)
+char * strrchr(const char * str, char ch)
 {
 	const char * p = str;
 	const char * last = nullptr;
 
 	while (*p)
 	{
-		if (*p == (char)ch)
+		if (*p == ch)
 			last = p;
 		p++;
 	}
