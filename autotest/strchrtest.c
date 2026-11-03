@@ -6,6 +6,7 @@ char teststr[2000];
 
 int main(void)
 {
+	volatile int needle = 256;
 	// Test strchr with basic functionality
 	assert(strcmp(strchr("hello", 'h'), "hello") == 0);
 	assert(strcmp(strchr("hello", 'e'), "ello") == 0);
@@ -16,11 +17,19 @@ int main(void)
 	// Test strchr with null character
 	strcpy(teststr, "hello");
 	assert(strchr(teststr, '\0') == teststr + 5); // should point to end of string
+	// Convert wider integer arguments to char at the call site.
+	assert(strchr(teststr, needle) == teststr + 5);
+	assert(strchr(teststr, -needle) == teststr + 5);
+	assert(strchr(teststr, 2 * needle) == teststr + 5);
+	assert(strchr(teststr, 'l' + needle) == teststr + 2);
+	assert(strchr(teststr, 'x' + needle) == nullptr);
 	
 	// Test strchr with empty string
 	assert(strchr("", 'a') == nullptr);
 	strcpy(teststr, "");
 	assert(strchr(teststr, '\0') == teststr); // should point to start of
+	assert(strchr(teststr, needle) == teststr);
+	assert(strchr(teststr, -needle) == teststr);
 	
 	// Test strchr with single character string
 	assert(strcmp(strchr("a", 'a'), "a") == 0);
@@ -51,7 +60,6 @@ int main(void)
 	strcpy(teststr, "hello");
 	assert(strrchr(teststr, '\0') == teststr + 5); // should point to end of string
 	// Convert wider integer arguments to char at the call site.
-	volatile int needle = 256;
 	assert(strrchr(teststr, needle) == teststr + 5);
 	assert(strrchr(teststr, -needle) == teststr + 5);
 	assert(strrchr(teststr, 2 * needle) == teststr + 5);

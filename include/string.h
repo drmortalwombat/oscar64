@@ -15,7 +15,7 @@ char * strcat(char * dst, const char * src);
 
 char * strncat(char * dst, const char * src, int n);
 
-char * strchr(const char * str, int ch);
+char * strchr(const char * str, char ch);
 
 char * strrchr(const char * str, char ch);
 
