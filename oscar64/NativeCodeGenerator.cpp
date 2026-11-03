@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"equipment_show_space"
+#define CHECK_FUNC			"fg_erase_cell"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -36131,6 +36131,11 @@ bool NativeCodeBasicBlock::PatchForwardSumYPointer(const NativeCodeBasicBlock* b
 						mIns[at].mLive |= LIVE_CPU_REG_A;
 						mIns.Insert(at + 2, NativeCodeInstruction(inins, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 					}
+				}
+				else if ((ins.mLive & LIVE_CPU_REG_Z) && ins.mType == ASMIT_STA)
+				{
+					mIns[at].mLive |= LIVE_CPU_REG_A;
+					mIns.Insert(at + 1, NativeCodeInstruction(inins, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 				}
 
 				mIns.Insert(at, NativeCodeInstruction(inins, ASMIT_LDY, iins));
