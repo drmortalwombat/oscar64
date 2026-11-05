@@ -306,6 +306,7 @@ void GlobalAnalyzer::AutoInline(void)
 
 				lexp->mLeft = aexp;
 				lexp->mRight = dec->mValue;
+				lexp->mEndLocation = dec->mValue->mEndLocation;
 				dec->mValue = lexp;
 			}
 			else if (pdec->mFlags & DTF_FPARAM_UNUSED)
@@ -350,6 +351,7 @@ void GlobalAnalyzer::AutoInline(void)
 				Expression* lexp = new Expression(dec->mLocation, EX_SEQUENCE);
 				lexp->mLeft = assumeExp;
 				lexp->mRight = dec->mValue;
+				lexp->mEndLocation = dec->mValue->mEndLocation;
 				dec->mValue = lexp;
 			}
 
