@@ -781,10 +781,27 @@ void ValueSet::FlushFrameAliases(void)
 }
 
 
-static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset)
+static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset, int& size)
 {
+	bool	unbound = false;
+
+	offset = 0;
+
 	while (ins && ins->mCode == IC_LEA && ins->mSrc[1].mMemory == IM_INDIRECT)
+	{
+		if (ins->mSrc[0].mTemp >= 0)
+		{
+			const InterInstruction* iins = tvalue[ins->mSrc[0].mTemp];
+			if (iins->mCode == IC_CONSTANT)
+				offset += int(iins->mConst.mIntConst);
+			else
+				unbound = true;
+		}
+		else			
+			offset += int(ins->mSrc[0].mIntConst);
+
 		ins = tvalue[ins->mSrc[1].mTemp];
+	}
 
 	if (ins)
 	{
@@ -792,7 +809,13 @@ static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtr
 		{
 			mem = ins->mConst.mMemory;
 			vindex = ins->mConst.mVarIndex;
-			offset = int(ins->mConst.mIntConst);
+			if (unbound)
+			{
+				offset = 0;
+				size = 65536;
+			}
+			else
+				offset += int(ins->mConst.mIntConst);
 
 			return true;
 		}
@@ -800,7 +823,13 @@ static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtr
 		{
 			mem = ins->mSrc[1].mMemory;
 			vindex = ins->mSrc[1].mVarIndex;
-			offset = int(ins->mSrc[1].mIntConst);
+			if (unbound)
+			{
+				offset = 0;
+				size = 65536;
+			}
+			else
+				offset += int(ins->mSrc[1].mIntConst);
 
 			return true;
 		}
@@ -815,7 +844,7 @@ static bool MemRange(const InterInstruction* ins, const GrowingInstructionPtrArr
 	if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT)
 	{
 		size = ins->mSrc[0].mOperandSize;
-		return MemPtrRange(tvalue[ins->mSrc[0].mTemp], tvalue, mem, vindex, offset);
+		return MemPtrRange(tvalue[ins->mSrc[0].mTemp], tvalue, mem, vindex, offset, size);
 	}
 	else if (ins->mSrc[1].mMemory == IM_INDIRECT)
 	{
@@ -823,7 +852,7 @@ static bool MemRange(const InterInstruction* ins, const GrowingInstructionPtrArr
 			size = ins->mConst.mOperandSize;
 		else
 			size = ins->mSrc[1].mOperandSize;
-		return MemPtrRange(tvalue[ins->mSrc[1].mTemp], tvalue, mem, vindex, offset);
+		return MemPtrRange(tvalue[ins->mSrc[1].mTemp], tvalue, mem, vindex, offset, size);
 	}
 
 	if (ins)
