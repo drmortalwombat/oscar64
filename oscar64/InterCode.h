@@ -772,6 +772,8 @@ public:
 	bool ShortcutConstBranches(const GrowingInstructionPtrArray& cins);
 	bool ShortcutDuplicateBranches(void);
 
+	void CollectReturnValueRange(IntegerValueRange& range);
+
 	InterCodeBasicBlock* BuildLoopPrefix(void);
 	void BuildLoopSuffix(void);
 
@@ -862,6 +864,7 @@ public:
 	// Absolute accesses are separate from indirect accesses which may alias named globals.
 	InterMemoryEffects					mAbsoluteEffects;
 	NumberSet							mReferencedGlobals, mModifiedGlobals;
+	IntegerValueRange					mReturnValueRange;
 
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject, Errors * errors);
 	~InterCodeProcedure(void);

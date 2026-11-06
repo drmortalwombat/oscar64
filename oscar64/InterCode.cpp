@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"reset"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -10041,18 +10041,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					break;
 
 				case IA_EXT16TO32S:
+				{
 					vr = ins->mSrc[0].mRange;
-					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -65536 || vr.mMaxValue > 65535)
-					{
-						vr.mMaxState = IntegerValueRange::S_BOUND;
-						vr.mMaxValue = 65535;
-					}
-					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < -65536 || vr.mMinValue > 65535)
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -32768 || vr.mMaxValue > 32767 ||
+					    vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < -32768 || vr.mMinValue > 32767)
 					{
 						vr.mMinState = IntegerValueRange::S_BOUND;
-						vr.mMinValue = -65536;
+						vr.mMinValue = -32768;
+						vr.mMaxState = IntegerValueRange::S_BOUND;
+						vr.mMaxValue = 32767;
 					}
-					break;
+				}	break;
 
 				case IA_EXT8TO16U:
 				case IA_EXT8TO32U:
@@ -10897,6 +10896,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 				}
 				break;
 
+			case IC_CALL_NATIVE:
+			case IC_CALL:
+				if (ins->mDst.mTemp >= 0 && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc)
+					vr = ins->mSrc[0].mLinkerObject->mProc->mReturnValueRange;
+				else
+					vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+				break;
+
 			default:
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 			}
@@ -10915,7 +10922,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 #endif
 			ins->mDst.mRange.MergeUnknown(vr);
 #if 1
-			if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxValue == vr.mMinValue)
+			if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxValue == vr.mMinValue && !HasSideEffect(ins->mCode))
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mType = ins->mDst.mType;
@@ -19469,6 +19476,65 @@ bool InterCodeBasicBlock::ChangeFalseJump(InterCodeBasicBlock* block)
 	}
 
 	return false;
+}
+
+void InterCodeBasicBlock::CollectReturnValueRange(IntegerValueRange& range)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int sz = mInstructions.Size();
+		if (sz > 0 && mInstructions[sz - 1]->mCode == IC_RETURN_VALUE)
+		{
+			InterInstruction* ins = mInstructions[sz - 1];
+			if (IsIntegerType(ins->mSrc[0].mType))
+			{
+				if (ins->mSrc[0].mTemp < 0)
+				{
+					if (range.mMinState == IntegerValueRange::S_UNKNOWN)
+					{
+						range.mMinState = IntegerValueRange::S_BOUND;
+						range.mMinValue = ins->mSrc[0].mIntConst;
+						range.mMaxState = IntegerValueRange::S_BOUND;
+						range.mMaxValue = ins->mSrc[0].mIntConst;
+					}
+					else
+					{
+						if (ins->mSrc[0].mIntConst < range.mMinValue)
+							range.mMinValue = ins->mSrc[0].mIntConst;
+						if (ins->mSrc[0].mIntConst > range.mMaxValue)
+							range.mMaxValue = ins->mSrc[0].mIntConst;
+					}
+				}
+				else if (ins->mSrc[0].mRange.IsBound())
+				{
+					if (range.mMinState == IntegerValueRange::S_UNKNOWN)
+						range = ins->mSrc[0].mRange;
+					else
+					{
+						if (ins->mSrc[0].mRange.mMinValue < range.mMinValue)
+							range.mMinValue = ins->mSrc[0].mRange.mMinValue;
+						if (ins->mSrc[0].mRange.mMaxValue > range.mMaxValue)
+							range.mMaxValue = ins->mSrc[0].mRange.mMaxValue;
+					}
+				}
+				else
+				{
+					range.mMinState = IntegerValueRange::S_UNBOUND;
+					range.mMaxState = IntegerValueRange::S_UNBOUND;
+				}
+			}
+			else
+			{
+				range.mMinState = IntegerValueRange::S_UNBOUND;
+				range.mMaxState = IntegerValueRange::S_UNBOUND;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectReturnValueRange(range);
+		if (mFalseJump) mFalseJump->CollectReturnValueRange(range);
+	}
 }
 
 bool InterCodeBasicBlock::ShortcutDuplicateBranches(void)
@@ -29335,6 +29401,9 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mLinkerObject->mProc = this;
 	mLinkerObject->mFlags |= LOBJF_CONST;
 	mCallerSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP;
+
+	mReturnValueRange.mMinState = IntegerValueRange::S_UNBOUND;
+	mReturnValueRange.mMaxState = IntegerValueRange::S_UNBOUND;
 }
 
 InterCodeProcedure::~InterCodeProcedure(void)
@@ -32210,6 +32279,10 @@ void InterCodeProcedure::Close(void)
 
 	ResetVisited();
 	mEntryBlock->MarkAliasing(mParamAliasedSet);
+
+	mReturnValueRange.Reset();
+	ResetVisited();
+	mEntryBlock->CollectReturnValueRange(mReturnValueRange);
 
 	DisassembleDebug("Marked Aliasing");
 }

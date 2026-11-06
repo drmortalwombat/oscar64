@@ -335,7 +335,7 @@ public:
 	void InlineSimpleJumps(void);
 	void PatchReferences(bool inlays);
 	void CopyObjects(bool inlays);
-	void PlaceObjects(bool retry);
+	void PlaceObjects(bool retry, int minsize);
 	void Link(void);
 	void CollectBreakpoints(void);
 protected:

@@ -1057,7 +1057,7 @@ void Linker::PatchReferences(bool inlays)
 	}
 }
 
-void Linker::PlaceObjects(bool retry)
+void Linker::PlaceObjects(bool retry, int minsize)
 {
 	for (int i = 0; i < mRegions.Size(); i++)
 	{
@@ -1068,7 +1068,7 @@ void Linker::PlaceObjects(bool retry)
 			for (int k = 0; k < lsec->mObjects.Size(); k++)
 			{
 				LinkerObject* lobj = lsec->mObjects[k];
-				if (lobj->mType != LOT_INLAY && (lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS, retry))
+				if (lobj->mType != LOT_INLAY && (lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && (lobj->mSize == 0 || lobj->mSize >= minsize) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS, retry))
 				{
 					if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
 						printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
@@ -1129,10 +1129,13 @@ void Linker::Link(void)
 		}
 
 		// Move objects into regions
-		PlaceObjects(false);
+		PlaceObjects(false, 4);
+
+		// Move objects into regions
+		PlaceObjects(false, 1);
 
 		// Retry for alignment
-		PlaceObjects(true);
+		PlaceObjects(true, 1);
 
 		// Place stack segment
 
@@ -1187,7 +1190,7 @@ void Linker::Link(void)
 			}
 		}
 
-		PlaceObjects(false);
+		PlaceObjects(false, 1);
 
 		// Calculate BSS storage
 

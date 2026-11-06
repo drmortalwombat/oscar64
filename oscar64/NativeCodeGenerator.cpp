@@ -29872,6 +29872,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 									mFalseJump->PrependInstruction(mIns[i]);
 								mIns.Remove(i);
 								changed = true;
+								continue;
 							}
 							else
 								mTempRegs += addr;
@@ -29916,6 +29917,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 						mIns.Remove(i - 2, 3);
 						i -= 2;
 						changed = true;
+						continue;
 					}
 				}
 
