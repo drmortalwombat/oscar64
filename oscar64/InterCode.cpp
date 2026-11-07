@@ -10196,7 +10196,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					vr.mMinValue = min0 + min1;
 					vr.mMaxValue = max0 + max1;
 
-					if (vr.mMaxValue - vr.mMinValue > m)
+					if (vr.mMaxValue - vr.mMinValue > m || vrmax == IntegerValueRange::S_WEAK && vr.mMinValue < 0 || vrmin == IntegerValueRange::S_WEAK && vr.mMaxValue > m)
 					{
 						vr.mMinState = minunknown ? IntegerValueRange::S_UNKNOWN : IntegerValueRange::S_UNBOUND;
 						vr.mMaxState = maxunknown ? IntegerValueRange::S_UNKNOWN : IntegerValueRange::S_UNBOUND;

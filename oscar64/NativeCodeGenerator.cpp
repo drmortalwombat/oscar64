@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"joy_poll"
+#define CHECK_FUNC			"f"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -61902,7 +61902,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 	}
 	if (pass >= 3 &&
 		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE &&
-		mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+		mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+		mBranch != ASMIT_BPL && mBranch != ASMIT_BMI)
 	{
 		NativeCodeInstruction	ins(mIns[i + 1]);
 		mIns[i + 1].CopyMode(mIns[i + 0]);
