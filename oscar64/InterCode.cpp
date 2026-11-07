@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"nformi"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -10144,7 +10144,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					bool						maxunknown = false, minunknown = false;
 
 					if (ins->mSrc[0].mTemp < 0)
+					{
 						min0 = max0 = ins->mSrc[0].mIntConst;
+						if (ins->mSrc[1].mTemp == ins->mDst.mTemp)
+						{
+							if (min0 >= SignedTypeMax(ins->mDst.mType))
+								min0 = max0 = min0 + 2 * SignedTypeMin(ins->mDst.mType);
+							else if (min0 < SignedTypeMin(ins->mDst.mType))
+								min0 = max0 = min0 - 2 * SignedTypeMin(ins->mDst.mType);
+						}
+					}
 					else
 					{
 						IntegerValueRange	vr0 = mProc->mLocalValueRange[ins->mSrc[0].mTemp];
@@ -10168,7 +10177,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					}
 
 					if (ins->mSrc[1].mTemp < 0)
+					{
 						min1 = max1 = ins->mSrc[1].mIntConst;
+						if (ins->mSrc[0].mTemp == ins->mDst.mTemp)
+						{
+							if (min1 >= SignedTypeMax(ins->mDst.mType))
+								min1 = max1 = min1 + 2 * SignedTypeMin(ins->mDst.mType);
+							else if (min1 < SignedTypeMin(ins->mDst.mType))
+								min1 = max1 = min1 - 2 * SignedTypeMin(ins->mDst.mType);
+						}
+					}
 					else
 					{
 						IntegerValueRange	vr1 = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
@@ -10320,7 +10338,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					bool						maxunknown = false, minunknown = false;
 
 					if (ins->mSrc[0].mTemp < 0)
+					{
 						min0 = max0 = ins->mSrc[0].mIntConst;
+						if (ins->mSrc[1].mTemp == ins->mDst.mTemp)
+						{
+							if (min0 >= SignedTypeMax(ins->mDst.mType))
+								min0 = max0 = min0 + 2 * SignedTypeMin(ins->mDst.mType);
+							else if (min0 < SignedTypeMin(ins->mDst.mType))
+								min0 = max0 = min0 - 2 * SignedTypeMin(ins->mDst.mType);
+						}
+					}
 					else
 					{
 						IntegerValueRange	vr0 = mProc->mLocalValueRange[ins->mSrc[0].mTemp];
@@ -10372,7 +10399,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					vr.mMinValue = min1 - max0;
 					vr.mMaxValue = max1 - min0;
 
-					if (vr.mMaxValue - vr.mMinValue > m)
+					if (vr.mMaxValue - vr.mMinValue > m || vrmax == IntegerValueRange::S_WEAK && vr.mMinValue < 0 || vrmin == IntegerValueRange::S_WEAK && vr.mMaxValue > m)
 					{
 						vr.mMinState = IntegerValueRange::S_UNBOUND;
 						vr.mMaxState = IntegerValueRange::S_UNBOUND;
@@ -11218,7 +11245,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(void)
 		{
 			ins->mDst.mRange.Limit(mProc->mReverseValueRange[ins->mDst.mTemp]);
 			mProc->mReverseValueRange[ins->mDst.mTemp].Reset();
-			IntegerValueRange& vr(ins->mDst.mRange);
+			IntegerValueRange vr(ins->mDst.mRange);
 
 			switch (ins->mCode)
 			{
@@ -11304,8 +11331,57 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(void)
 						mProc->mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
 					}
 					break;
-				case IA_ADDS:
 				case IA_ADDU:
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND)
+						{
+							int64	m = UnsignedTypeMax(ins->mDst.mType);
+							int64	minval = (vr.mMinValue - ins->mSrc[0].mIntConst) & m;
+							int64	maxval = (vr.mMaxValue - ins->mSrc[0].mIntConst) & m;
+							if (minval <= maxval)
+							{
+								ins->mSrc[1].mRange.LimitMin(minval);
+								ins->mSrc[1].mRange.LimitMax(maxval);
+							}
+						}
+
+						mProc->mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
+					else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND)
+						{
+							int64	m = UnsignedTypeMax(ins->mDst.mType);
+							int64	minval = (vr.mMinValue - ins->mSrc[1].mIntConst) & m;
+							int64	maxval = (vr.mMaxValue - ins->mSrc[1].mIntConst) & m;
+							if (minval <= maxval)
+							{
+								ins->mSrc[0].mRange.LimitMin(minval);
+								ins->mSrc[0].mRange.LimitMax(maxval);
+							}
+						}
+
+						mProc->mReverseValueRange[ins->mSrc[0].mTemp].Limit(ins->mSrc[0].mRange);
+					}
+					else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMin(vr.mMinValue - ins->mSrc[0].mRange.mMaxValue);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue - ins->mSrc[0].mRange.mMinValue);
+
+						if (vr.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMin(vr.mMinValue - ins->mSrc[1].mRange.mMaxValue);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMax(vr.mMaxValue - ins->mSrc[1].mRange.mMinValue);
+
+						mProc->mReverseValueRange[ins->mSrc[0].mTemp].Limit(ins->mSrc[0].mRange);
+						mProc->mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
+					break;
+
+				case IA_ADDS:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
 					{
 						if (ins->mDst.mType == IT_INT8)
@@ -14609,8 +14685,16 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								mInstructions.Insert(i, nins);
 
 								ins->mSrc[0] = nins->mDst;
-								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
-								ins->mSrc[1].mRange.AddConstValue(IT_INT16, -ains->mSrc[0].mIntConst);
+								if (ains->mOperator == IA_ADDU && ains->mSrc[0].mIntConst > ains->mDst.mRange.mMinValue)
+								{
+									ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst - 256;
+									ins->mSrc[1].mRange.AddConstValue(IT_INT16, 256 - ains->mSrc[0].mIntConst);
+								}
+								else
+								{
+									ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+									ins->mSrc[1].mRange.AddConstValue(IT_INT16, -ains->mSrc[0].mIntConst);
+								}
 								changed = true;
 							}
 						}
