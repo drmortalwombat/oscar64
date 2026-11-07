@@ -21229,7 +21229,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 		if (mLoopHead && mEntryBlocks.Size() == 2 && mLoopPrefix->mEntryBlocks.Size() == 1)
 		{
-			ExpandingArray<InterCodeBasicBlock*> body, path;
+			ExpandingArray<InterCodeBasicBlock*> body, path, exits;
 			body.Push(this);
 			bool	innerLoop = true;
 
@@ -21262,6 +21262,17 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 						int64					mStart, mEnd, mStep;
 						bool					mReferenced;
 					};
+
+					for (int i = 0; i < body.Size(); i++)
+					{
+						if (body[i] != eblock && body[i]->mFalseJump)
+						{
+							if (!body.Contains(body[i]->mFalseJump))
+								exits.Push(body[i]->mFalseJump);
+							if (!body.Contains(body[i]->mTrueJump))
+								exits.Push(body[i]->mTrueJump);
+						}
+					}
 
 					ExpandingArray<LoopCounter>	lcs;
 
@@ -21458,6 +21469,21 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 					}
 					if (lcs.Size() >= 2)
 					{
+//						printf("Lcs %d Exits %d\n", lcs.Size(), exits.Size());
+
+						for (int i = 0; i < lcs.Size(); i++)
+						{
+							for (int j = 0; j < exits.Size(); j++)
+							{
+//								printf("Checking Block %d vs. Tmp %d\n", exits[j]->mIndex, lcs[i].mInc->mDst.mTemp);
+								if (exits[j]->mEntryRequiredTemps[lcs[i].mInc->mDst.mTemp])
+								{
+									lcs[i].mReferenced = true;
+//									printf("Referenced\n");
+								}
+							}
+						}
+
 						int64	loop = -1;
 						int k = 0;
 						while (k < lcs.Size() && !lcs[k].mCmp)
