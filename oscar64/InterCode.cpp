@@ -21476,7 +21476,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 							for (int j = 0; j < exits.Size(); j++)
 							{
 //								printf("Checking Block %d vs. Tmp %d\n", exits[j]->mIndex, lcs[i].mInc->mDst.mTemp);
-								if (exits[j]->mEntryRequiredTemps[lcs[i].mInc->mDst.mTemp])
+								if (lcs[i].mInc->mDst.mTemp >= 0 && exits[j]->mEntryRequiredTemps[lcs[i].mInc->mDst.mTemp])
 								{
 									lcs[i].mReferenced = true;
 //									printf("Referenced\n");
