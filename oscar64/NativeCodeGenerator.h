@@ -976,6 +976,9 @@ public:
 	bool AlternateXXUsage(void);
 	bool ShortSwapXY(void);
 
+	int FindShiftedStore(int at, AsmInsType type, int reg);
+	bool MergeShiftedOp(void);
+
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);
 

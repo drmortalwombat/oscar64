@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"f"
+#define CHECK_FUNC			"equipment_ship_scale"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -20382,6 +20382,77 @@ bool NativeCodeBasicBlock::PropagateCrossBlockAccuExpression(void)
 			changed = true;
 		if (mFalseJump && mFalseJump->PropagateCrossBlockAccuExpression())
 			changed = true;
+	}
+
+	return changed;
+}
+
+int NativeCodeBasicBlock::FindShiftedStore(int at, AsmInsType type, int reg)
+{
+	while (at > 1)
+	{
+		at--;
+		if (mIns[at + 0].mType == ASMIT_STA && mIns[at + 0].mMode == ASMIM_ZERO_PAGE && mIns[at + 0].mAddress == reg &&
+			mIns[at - 1].mType == type && mIns[at - 1].mMode == ASMIM_IMPLIED && !(mIns[at].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+		{
+			return at - 1;
+		}
+
+		if (mIns[at].ReferencesZeroPage(reg))
+			return -1;
+	}
+
+	return -1;
+}
+
+bool NativeCodeBasicBlock::MergeShiftedOp(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if ((mIns[i].mType == ASMIT_ASL || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_IMPLIED && !(mIns[i].mLive & LIVE_CPU_REG_C))
+			{
+				if (mIns[i + 1].IsLogic() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+				{
+					int at = FindShiftedStore(i, mIns[i].mType, mIns[i + 1].mAddress);
+					if (at >= 0)
+					{
+						NativeCodeInstruction	ins = mIns[i];
+						mIns[at] = mIns[at + 1];
+						mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0] = mIns[i + 1];
+						mIns[i + 1] = ins;
+						changed = true;
+					}
+				}
+				else if (mIns[i].mType == ASMIT_ASL && i + 2 < mIns.Size())
+				{
+					if ((mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC || mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC) &&
+						mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+					{
+						int at = FindShiftedStore(i, mIns[i].mType, mIns[i + 2].mAddress);
+						if (at >= 0)
+						{
+							NativeCodeInstruction	ins = mIns[i];
+							mIns[at] = mIns[at + 1];
+							mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
+							mIns[i + 0] = mIns[i + 1];
+							mIns[i + 1] = mIns[i + 2];
+							mIns[i + 2] = ins;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MergeShiftedOp()) changed = true;
+		if (mFalseJump && mFalseJump->MergeShiftedOp()) changed = true;
 	}
 
 	return changed;
@@ -74854,7 +74925,12 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 				BuildDataFlowSets();
 			}
+
+			ResetVisited();
+			if (mEntryBlock->MergeShiftedOp())
+				changed = true;
 		}
+
 #endif
 
 #if _DEBUG

@@ -14557,6 +14557,43 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 							changed = true;
 						}
+						else if (
+							ai0->mCode == IC_BINARY_OPERATOR && ai0->mOperator == IA_SHL && ai0->mSrc[0].mTemp < 0 &&
+							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == IA_SHL && ai1->mSrc[0].mTemp < 0)
+						{
+							if (spareTemps + 2 >= ltvalue.Size())
+								return true;
+
+							InterInstruction* sins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							sins->mOperator = IA_SHL;
+							sins->mSrc[1] = ins->mDst;
+							sins->mSrc[1].mTemp = spareTemps++;
+							sins->mSrc[1].mFinal = true;
+							sins->mDst = ins->mDst;
+							ins->mDst = sins->mSrc[1];
+							sins->mSrc[0].mType = sins->mSrc[1].mType;
+							sins->mSrc[0].mTemp = -1;
+							sins->mSrc[0].mIntConst = int64min(ai0->mSrc[0].mIntConst, ai1->mSrc[0].mIntConst);
+							ai0->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
+							if (ai0->mSrc[0].mIntConst == 0)
+							{
+								ai0->mCode = IC_LOAD_TEMPORARY;
+								ai0->mSrc[0] = ai0->mSrc[1];
+								ai0->mDst.mRange = ai0->mSrc[0].mRange;
+								ai0->mNumOperands = 1;
+							}
+							ai1->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
+							if (ai1->mSrc[0].mIntConst == 0)
+							{
+								ai1->mCode = IC_LOAD_TEMPORARY;
+								ai1->mSrc[0] = ai1->mSrc[1];
+								ai1->mDst.mRange = ai1->mSrc[0].mRange;
+								ai1->mNumOperands = 1;
+							}
+							mInstructions.Insert(i + 1, sins);
+
+							changed = true;
+						}
 					}
 
 
@@ -14589,7 +14626,98 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							}
 						}
 					}
+					else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0 &&
+						ltvalue[ins->mSrc[0].mTemp] && ltvalue[ins->mSrc[1].mTemp] &&
+						ins->mSrc[0].mFinal && ins->mSrc[1].mFinal)
+					{
+						InterInstruction* ai0 = ltvalue[ins->mSrc[0].mTemp], * ai1 = ltvalue[ins->mSrc[1].mTemp];
+						if (
+							ai0->mCode == IC_BINARY_OPERATOR && ai0->mOperator == IA_SHL && ai0->mSrc[0].mTemp < 0 &&
+							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == IA_SHL && ai1->mSrc[0].mTemp < 0)
+						{
+							if (spareTemps + 2 >= ltvalue.Size())
+								return true;
 
+							InterInstruction* sins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							sins->mOperator = IA_SHL;
+							sins->mSrc[1] = ins->mDst;
+							sins->mSrc[1].mTemp = spareTemps++;
+							sins->mSrc[1].mFinal = true;
+							sins->mDst = ins->mDst;
+							ins->mDst = sins->mSrc[1];
+							sins->mSrc[0].mType = sins->mSrc[1].mType;
+							sins->mSrc[0].mTemp = -1;
+							sins->mSrc[0].mIntConst = int64min(ai0->mSrc[0].mIntConst, ai1->mSrc[0].mIntConst);
+							ai0->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
+							if (ai0->mSrc[0].mIntConst == 0)
+							{
+								ai0->mCode = IC_LOAD_TEMPORARY;
+								ai0->mSrc[0] = ai0->mSrc[1];
+								ai0->mDst.mRange = ai0->mSrc[0].mRange;
+								ai0->mNumOperands = 1;
+							}
+							ai1->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
+							if (ai1->mSrc[0].mIntConst == 0)
+							{
+								ai1->mCode = IC_LOAD_TEMPORARY;
+								ai1->mSrc[0] = ai1->mSrc[1];
+								ai1->mDst.mRange = ai1->mSrc[0].mRange;
+								ai1->mNumOperands = 1;
+							}
+							mInstructions.Insert(i + 1, sins);
+
+							changed = true;
+						}
+					}
+
+					break;
+
+				case IA_AND:
+				case IA_OR:
+				case IA_XOR:
+					if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0 &&
+						ltvalue[ins->mSrc[0].mTemp] && ltvalue[ins->mSrc[1].mTemp] &&
+						ins->mSrc[0].mFinal && ins->mSrc[1].mFinal)
+					{
+						InterInstruction* ai0 = ltvalue[ins->mSrc[0].mTemp], * ai1 = ltvalue[ins->mSrc[1].mTemp];
+						if (
+							ai0->mCode == IC_BINARY_OPERATOR && (ai0->mOperator == IA_SHL || ai0->mOperator == IA_SHR) && ai0->mSrc[0].mTemp < 0 &&
+							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == ai0->mOperator && ai1->mSrc[0].mTemp < 0)
+						{
+							if (spareTemps + 2 >= ltvalue.Size())
+								return true;
+
+							InterInstruction* sins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							sins->mOperator = ai0->mOperator;
+							sins->mSrc[1] = ins->mDst;
+							sins->mSrc[1].mTemp = spareTemps++;
+							sins->mSrc[1].mFinal = true;
+							sins->mDst = ins->mDst;
+							ins->mDst = sins->mSrc[1];
+							sins->mSrc[0].mType = sins->mSrc[1].mType;
+							sins->mSrc[0].mTemp = -1;
+							sins->mSrc[0].mIntConst = int64min(ai0->mSrc[0].mIntConst, ai1->mSrc[0].mIntConst);
+							ai0->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
+							if (ai0->mSrc[0].mIntConst == 0)
+							{
+								ai0->mCode = IC_LOAD_TEMPORARY;
+								ai0->mSrc[0] = ai0->mSrc[1];
+								ai0->mDst.mRange = ai0->mSrc[0].mRange;
+								ai0->mNumOperands = 1;
+							}
+							ai1->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
+							if (ai1->mSrc[0].mIntConst == 0)
+							{
+								ai1->mCode = IC_LOAD_TEMPORARY;
+								ai1->mSrc[0] = ai1->mSrc[1];
+								ai1->mDst.mRange = ai1->mSrc[0].mRange;
+								ai1->mNumOperands = 1;
+							}
+							mInstructions.Insert(i + 1, sins);
+
+							changed = true;
+						}
+					}
 					break;
 #endif
 				}
