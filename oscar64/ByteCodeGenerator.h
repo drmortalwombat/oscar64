@@ -286,6 +286,7 @@ public:
 	void IntConstToAddr(int64 val);
 	void FloatConstToAccu(double val);
 	void FloatConstToWork(double val);
+
 	void FillValue(InterCodeProcedure* proc, const InterInstruction* ins);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins);

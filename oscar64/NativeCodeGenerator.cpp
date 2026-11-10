@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"equipment_ship_scale"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -76592,7 +76592,11 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			return;
 
 		case IC_TYPECAST:
-			if (ins->mSrc[0].mTemp != ins->mDst.mTemp)
+			if (ins->mSrc[0].mTemp < 0)
+			{
+				block->LoadConstantToReg(iproc, ins, ins->mSrc[0], ins->mSrc[0].mType, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp], false);
+			}
+			else if (ins->mSrc[0].mTemp != ins->mDst.mTemp)
 			{
 				block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp]));
 				block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp]));

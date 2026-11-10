@@ -3088,11 +3088,22 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (vl.mType->mType == DT_TYPE_POINTER || vl.mType->mType == DT_TYPE_ARRAY)
 			{
+				int stride = vl.mType->Stride();
+				int	limit = 0;
+
 				if (vl.mType->mType == DT_TYPE_POINTER)
 					vl = Dereference(proc, exp, block, inlineMapper, vl);
 				else
 				{
 					vl = Dereference(proc, exp, block, inlineMapper, vl, 1);
+
+					if (vl.mType->mSize > vl.mType->mBase->mSize && (exp->mFlags & ANAFL_RHS))
+					{
+						if (stride == 1)
+							limit = vl.mType->mSize / vl.mType->mBase->mSize;
+						else
+							limit = vl.mType->mSize;
+					}
 
 					Declaration* ptype = new Declaration(exp->mLocation, DT_TYPE_POINTER);
 					ptype->mBase = vl.mType->mBase;
@@ -3157,6 +3168,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mSrc[0].mTemp = mins->mDst.mTemp;
 					ins->mSrc[1].mType = IT_POINTER;
 					ins->mSrc[1].mTemp = vl.mTemp;
+
+					if (limit)
+					{
+						ins->mSrc[0].mRange.LimitMin(0);
+						ins->mSrc[0].mRange.LimitMax(limit);
+					}
+
 					ins->mDst.mType = IT_POINTER;
 					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 					block->Append(ins);

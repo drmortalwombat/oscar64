@@ -4738,7 +4738,11 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			return;
 
 		case IC_TYPECAST:
-			if (ins->mSrc[0].mTemp >= 0 && ins->mDst.mTemp != ins->mSrc[0].mTemp)
+			if (ins->mSrc[0].mTemp < 0)
+			{
+				LoadOperandAddress(iproc, ins->mSrc[0], BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp]);
+			}
+			else if (ins->mSrc[0].mTemp >= 0 && ins->mDst.mTemp != ins->mSrc[0].mTemp)
 			{
 				ByteCodeInstruction	lins(BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp];
