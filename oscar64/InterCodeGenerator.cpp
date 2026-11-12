@@ -6551,7 +6551,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 				if (dec->mFastCallSize < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
 					dec->mLinkerObject->mTempSizes[0] = dec->mFastCallSize - dec->mFastCallBase;
 				else
-					dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - dec->mFastCallBase;
+					dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS - dec->mFastCallBase;
 			}
 
 			Declaration* pdec = dec->mBase->mParams;

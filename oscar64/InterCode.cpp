@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"sformat"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -6225,6 +6225,52 @@ void InterInstruction::UnionRanges(InterInstruction* ins)
 	mDst.mRange.Union(ins->mDst.mRange);
 	for(int i=0; i<mNumOperands; i++)
 		mSrc[i].mRange.Union(ins->mSrc[i].mRange);
+}
+
+bool InterInstruction::SimpleParamToTemp(int vindex, int temp)
+{
+	switch (mCode)
+	{
+	case IC_LOAD:
+		if (mSrc[0].mMemory == IM_PARAM && mSrc[0].mTemp < 0 && vindex == mSrc[0].mVarIndex)
+		{
+			mCode = IC_LOAD_TEMPORARY;
+			mSrc[0].mTemp = temp;
+			mSrc[0].mType = mDst.mType;
+			mNumOperands = 1;
+
+			assert(mSrc[0].mTemp >= 0);
+
+			return true;
+		}
+		break;
+	case IC_STORE:
+		if (mSrc[1].mMemory == IM_PARAM && mSrc[1].mTemp < 0 && vindex == mSrc[1].mVarIndex)
+		{
+			if (mSrc[0].mTemp < 0)
+			{
+				mCode = IC_CONSTANT;
+				mConst.mType = mSrc[0].mType;
+				mConst.mIntConst = mSrc[0].mIntConst;
+				mConst.mFloatConst = mSrc[0].mFloatConst;
+				mNumOperands = 0;
+			}
+			else
+			{
+				mCode = IC_LOAD_TEMPORARY;
+				mNumOperands = 1;
+				assert(mSrc[0].mTemp >= 0);
+			}
+
+			mDst.mTemp = temp;
+			mDst.mType = mSrc[0].mType;
+
+			return true;
+		}
+		break;
+	}
+
+	return false;
 }
 
 void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
@@ -17254,6 +17300,20 @@ static bool CanMoveInstructionBeforePath(const ExpandingInterCodeBasicBlockPtrAr
 		if (!blocks[i]->CanMoveInstructionBeforeBlock(blocks[i]->mInstructions.Size(), ins))
 			return false;
 	return true;
+}
+
+bool InterCodeBasicBlock::IsInLoopBlock(InterCodeBasicBlock* block)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump == block || mFalseJump == block)
+			return true;
+		if (mTrueJump && mTrueJump->IsInLoopBlock(block)) return true;
+		if (mFalseJump && mFalseJump->IsInLoopBlock(block)) return true;
+	}
+	return false;
 }
 
 bool InterCodeBasicBlock::IsDirectLoopPathBlock(InterCodeBasicBlock* block)
@@ -29549,6 +29609,29 @@ void InterCodeBasicBlock::CollectSimpleLocals(FastNumberSet& complexLocals, Fast
 	}
 }
 
+void InterCodeBasicBlock::SimpleParamToTemp(int vindex, int temp, ExpandingArray<InterCodeBasicBlock*>& blocks)
+{
+	int i;
+
+	bool	used = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->SimpleParamToTemp(vindex, temp))
+				used = true;
+		}
+
+		if (used)
+			blocks.Push(this);
+
+		if (mTrueJump) mTrueJump->SimpleParamToTemp(vindex, temp, blocks);
+		if (mFalseJump) mFalseJump->SimpleParamToTemp(vindex, temp, blocks);
+	}
+}
+
 void InterCodeBasicBlock::SimpleLocalToTemp(int vindex, int temp)
 {
 	int i;
@@ -29565,7 +29648,6 @@ void InterCodeBasicBlock::SimpleLocalToTemp(int vindex, int temp)
 		if (mTrueJump) mTrueJump->SimpleLocalToTemp(vindex, temp);
 		if (mFalseJump) mFalseJump->SimpleLocalToTemp(vindex, temp);
 	}
-
 }
 
 void InterCodeBasicBlock::CollectActiveTemporaries(FastNumberSet& set)
@@ -30841,6 +30923,55 @@ void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int 
 				mLocalVars[vi]->mTempIndex = AddTemporary(localTypes[vi]);
 				ResetVisited();
 				mEntryBlock->SimpleLocalToTemp(vi, mLocalVars[vi]->mTempIndex);
+			}
+		}
+
+		if (paramMemory == IM_PARAM)
+		{
+			ExpandingArray<InterCodeBasicBlock*>	 blocks;
+
+			for (int i = 0; i < simpleParams.Num(); i++)
+			{
+				int vi = simpleParams.Element(i);
+				if (!complexParams[vi])
+				{
+					blocks.SetSize(0);
+
+					mParamVars[vi]->mTemp = true;
+					mParamVars[vi]->mTempIndex = AddTemporary(paramTypes[vi]);
+					ResetVisited();
+					mEntryBlock->SimpleParamToTemp(vi, mParamVars[vi]->mTempIndex, blocks);
+
+					if (blocks.Size())
+					{
+						InterCodeBasicBlock	*	dblock = blocks[0];
+						for (int i = 1; i < blocks.Size(); i++)
+						{
+							while (!dblock->IsDominator(blocks[i]))
+								dblock = dblock->mDominator;
+						}							
+
+						ResetVisited();
+						while (dblock->IsInLoopBlock(dblock))
+						{
+							dblock = dblock->mDominator;
+							ResetVisited();
+						}
+						
+						InterInstruction* ins = new InterInstruction(mLocation, IC_LOAD);
+						ins->mDst.mType = paramTypes[vi];
+						ins->mDst.mTemp = mParamVars[vi]->mTempIndex;
+						ins->mNumOperands = 1;
+						ins->mSrc[0].mTemp = -1;
+						ins->mSrc[0].mType = IT_POINTER;
+						ins->mSrc[0].mMemory = IM_PARAM;
+						ins->mSrc[0].mMemoryBase = IM_PARAM;
+						ins->mSrc[0].mVarIndex = vi;
+						ins->mSrc[0].mOperandSize = mParamVars[vi]->mSize;
+
+						dblock->mInstructions.Insert(0, ins);
+					}
+				}
 			}
 		}
 

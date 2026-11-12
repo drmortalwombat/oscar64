@@ -779,6 +779,10 @@ public:
 
 	bool HasTailSameAY(void) const;
 	bool HasTailSameAX(void) const;
+	bool CanSwapTailYtoA(NativeCodeBasicBlock* tblock) const;
+	bool SwapTailYtoA(void);
+	bool CanSwapTailXtoA(NativeCodeBasicBlock* tblock) const;
+	bool SwapTailXtoA(void);
 
 	bool HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const;
 	bool HasTailAccuReg(int addr) const;

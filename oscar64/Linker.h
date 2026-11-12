@@ -219,6 +219,7 @@ public:
 	LinkerObject					*	mPrefix, * mSuffix;
 	int									mSuffixReference;
 	NumberSet							mReferencedGlobals, mModifiedGlobals;
+	uint32								mUID;
 
 	ExpandingArray<LinkerObjectRange>	mRanges;
 	ExpandingArray<CodeLocation>		mCodeLocations, mCodeOrigins;

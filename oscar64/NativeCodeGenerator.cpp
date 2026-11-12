@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"sformat"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -28337,6 +28337,105 @@ bool NativeCodeBasicBlock::SameTail(const NativeCodeInstruction& ins) const
 		return false;
 }
 
+bool NativeCodeBasicBlock::CanSwapTailYtoA(NativeCodeBasicBlock* tblock) const
+{
+	if (tblock == mFalseJump)
+	{
+		if (mTrueJump->mEntryRequiredRegs[CPU_REG_Y])
+			return false;
+	}
+	else if (mFalseJump && mFalseJump->mEntryRequiredRegs[CPU_REG_Y])
+		return false;
+
+	int i = mIns.Size() - 1;
+	while (i >= 0 && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesYReg())
+		i--;
+
+	if (mIns[i].mLive & LIVE_CPU_REG_A)
+		return false;
+
+	if (mIns[i].mType == ASMIT_TAY && !(mIns[i].mFlags & LIVE_CPU_REG_Z))
+		return true;
+	else if (mIns[i].mType == ASMIT_LDY)
+		return true;
+	return false;
+}
+
+bool NativeCodeBasicBlock::SwapTailYtoA(void)
+{
+	int i = mIns.Size() - 1;
+	while (i >= 0 && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesYReg())
+	{
+		mIns[i].mLive |= LIVE_CPU_REG_A;
+		i--;
+	}
+
+	mExitRequiredRegs += CPU_REG_A;
+
+	if (mIns[i].mType == ASMIT_TAY)
+	{
+		mIns[i].mType = ASMIT_NOP;
+		return true;
+	}
+	else if (mIns[i].mType == ASMIT_LDY)
+	{
+		mIns[i].mType = ASMIT_LDA;
+		return true;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::CanSwapTailXtoA(NativeCodeBasicBlock* tblock) const
+{
+	if (tblock == mFalseJump)
+	{
+		if (mTrueJump->mEntryRequiredRegs[CPU_REG_X])
+			return false;
+	}
+	else if (mFalseJump && mFalseJump->mEntryRequiredRegs[CPU_REG_X])
+		return false;
+
+	int i = mIns.Size() - 1;
+	while (i >= 0 && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesXReg())
+		i--;
+
+	if (mIns[i].mLive & LIVE_CPU_REG_A)
+		return false;
+
+	if (mIns[i].mType == ASMIT_TAX && !(mIns[i].mFlags & LIVE_CPU_REG_Z))
+		return true;
+	else if (mIns[i].mType == ASMIT_LDX)
+		return true;
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::SwapTailXtoA(void)
+{
+	int i = mIns.Size() - 1;
+	while (i >= 0 && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesXReg())
+	{
+		mIns[i].mLive |= LIVE_CPU_REG_A;
+		i--;
+	}
+
+	mExitRequiredRegs += CPU_REG_A;
+
+	if (mIns[i].mType == ASMIT_TAX)
+	{
+		mIns[i].mType = ASMIT_NOP;
+		return true;
+	}
+	else if (mIns[i].mType == ASMIT_LDX)
+	{
+		mIns[i].mType = ASMIT_LDA;
+		return true;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::HasTailSTAX16(int& addr, int& index) const
 {
 	int sz = mIns.Size();
@@ -33013,6 +33112,58 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 			}
 		}
 #if 1
+		if (mIns.Size() > 0 && !mEntryRequiredRegs[CPU_REG_A] && mEntryRequiredRegs[CPU_REG_Y] && mEntryBlocks.Size() > 1)
+		{
+			int i = 0;
+			while (i < mIns.Size() && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesYReg())
+				i++;
+			if (i < mIns.Size() && mIns[i].mType == ASMIT_TYA && !(mIns[i].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_Y)))
+			{
+				int j = 0;
+				while (j < mEntryBlocks.Size() && mEntryBlocks[j]->CanSwapTailYtoA(this))
+					j++;
+				if (j == mEntryBlocks.Size())
+				{
+					for (int j = 0; j < mEntryBlocks.Size(); j++)
+						mEntryBlocks[j]->SwapTailYtoA();
+					mEntryRequiredRegs += CPU_REG_A;
+					mIns[i].mType = ASMIT_NOP;
+					while (i > 0)
+					{
+						i--;
+						mIns[i].mLive |= LIVE_CPU_REG_A;
+					}
+					changed = true;
+				}
+			}
+		}
+
+		if (mIns.Size() > 0 && !mEntryRequiredRegs[CPU_REG_A] && mEntryRequiredRegs[CPU_REG_X] && mEntryBlocks.Size() > 1)
+		{
+			int i = 0;
+			while (i < mIns.Size() && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesXReg())
+				i++;
+			if (i < mIns.Size() && mIns[i].mType == ASMIT_TXA && !(mIns[i].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
+			{
+				int j = 0;
+				while (j < mEntryBlocks.Size() && mEntryBlocks[j]->CanSwapTailXtoA(this))
+					j++;
+				if (j == mEntryBlocks.Size())
+				{
+					for (int j = 0; j < mEntryBlocks.Size(); j++)
+						mEntryBlocks[j]->SwapTailXtoA();
+					mEntryRequiredRegs += CPU_REG_A;
+					mIns[i].mType = ASMIT_NOP;
+					while (i > 0)
+					{
+						i--;
+						mIns[i].mLive |= LIVE_CPU_REG_A;
+					}
+					changed = true;
+				}
+			}
+		}
+
 		if (mIns.Size() >= 2)
 		{
 			int ns = mIns.Size();

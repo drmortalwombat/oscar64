@@ -407,6 +407,7 @@ public:
 	
 	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray& localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes);
 	void SimpleLocalToTemp(int vindex, int temp);
+	bool SimpleParamToTemp(int vindex, int temp);
 
 	bool ConstantFolding(void);
 	bool ConstantFoldingRelationRange(void);
@@ -623,6 +624,7 @@ public:
 
 	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray & localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes);
 	void SimpleLocalToTemp(int vindex, int temp);
+	void SimpleParamToTemp(int vindex, int temp, ExpandingArray<InterCodeBasicBlock*>& blocks);
 
 	void CollectActiveTemporaries(FastNumberSet& set);
 	void ShrinkActiveTemporaries(FastNumberSet& set, GrowingTypeArray& temporaries);
@@ -651,6 +653,7 @@ public:
 	bool IsDominator(InterCodeBasicBlock* block);
 	bool IsDirectDominatorBlock(InterCodeBasicBlock* block);
 	bool IsDirectLoopPathBlock(InterCodeBasicBlock* block);
+	bool IsInLoopBlock(InterCodeBasicBlock* block);
 	bool CollectBlocksToDominator(InterCodeBasicBlock* dblock, ExpandingArray<InterCodeBasicBlock*>& body);
 
 	void MarkRelevantStatics(void);
