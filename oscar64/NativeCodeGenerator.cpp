@@ -28351,13 +28351,17 @@ bool NativeCodeBasicBlock::CanSwapTailYtoA(NativeCodeBasicBlock* tblock) const
 	while (i >= 0 && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesYReg())
 		i--;
 
-	if (mIns[i].mLive & LIVE_CPU_REG_A)
-		return false;
+	if (i >= 0)
+	{
+		if (mIns[i].mLive & LIVE_CPU_REG_A)
+			return false;
 
-	if (mIns[i].mType == ASMIT_TAY && !(mIns[i].mFlags & LIVE_CPU_REG_Z))
-		return true;
-	else if (mIns[i].mType == ASMIT_LDY)
-		return true;
+		if (mIns[i].mType == ASMIT_TAY && !(mIns[i].mFlags & LIVE_CPU_REG_Z))
+			return true;
+		else if (mIns[i].mType == ASMIT_LDY)
+			return true;
+	}
+
 	return false;
 }
 
@@ -28400,13 +28404,16 @@ bool NativeCodeBasicBlock::CanSwapTailXtoA(NativeCodeBasicBlock* tblock) const
 	while (i >= 0 && !mIns[i].ReferencesAccu() && !mIns[i].ReferencesXReg())
 		i--;
 
-	if (mIns[i].mLive & LIVE_CPU_REG_A)
-		return false;
+	if (i >= 0)
+	{
+		if (mIns[i].mLive & LIVE_CPU_REG_A)
+			return false;
 
-	if (mIns[i].mType == ASMIT_TAX && !(mIns[i].mFlags & LIVE_CPU_REG_Z))
-		return true;
-	else if (mIns[i].mType == ASMIT_LDX)
-		return true;
+		if (mIns[i].mType == ASMIT_TAX && !(mIns[i].mFlags & LIVE_CPU_REG_Z))
+			return true;
+		else if (mIns[i].mType == ASMIT_LDX)
+			return true;
+	}
 
 	return false;
 }
