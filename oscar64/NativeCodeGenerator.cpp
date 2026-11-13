@@ -30034,6 +30034,94 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 			{
 				NativeCodeInstruction	ins(mIns[i]);
 
+#if 1
+				if (ins.mType == ASMIT_STA && ins.mMode == ASMIM_ZERO_PAGE && !mTempRegs[ins.mAddress] && !(ins.mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					int addr = ins.mAddress;
+					NativeCodeBasicBlock* ublock = nullptr, *nblock = nullptr;
+
+					if (mTrueJump->mEntryRequiredRegs[addr] && !mFalseJump->mEntryRequiredRegs[addr] && mTrueJump->mNumEntries == 1 && !mTrueJump->mEntryRequiredRegs[CPU_REG_A] && !mTrueJump->mEntryRequiredRegs[CPU_REG_C])
+					{
+						ublock = mTrueJump;
+						nblock = mFalseJump;
+					}
+					else if (mFalseJump->mEntryRequiredRegs[addr] && !mTrueJump->mEntryRequiredRegs[addr] && mFalseJump->mNumEntries == 1 && !mFalseJump->mEntryRequiredRegs[CPU_REG_A] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
+					{
+						ublock = mFalseJump;
+						nblock = mTrueJump;
+					}
+
+					if (ublock && ublock->mEntryRequiredRegs[CPU_REG_Z])
+					{
+						if (ublock->mIns.Size() == 0)
+						{
+							if (ublock->mTrueJump == nblock)
+								ublock = ublock->mFalseJump;
+							else if (ublock->mFalseJump == nblock)
+								ublock = ublock->mTrueJump;
+							else
+								ublock = nullptr;
+						}
+						else
+							ublock = nullptr;
+					}
+
+					if (ublock && ublock != this)
+					{
+						bool	needa = true, needc = false;
+						int j = i;
+						while (j > 0 && (needa || needc))
+						{
+							j--;
+							if (mIns[j].mType == ASMIT_CLC || mIns[j].mType == ASMIT_SEC)
+								needc = false;
+							else if (mIns[j].mType == ASMIT_LDA || mIns[j].IsArithmetic())
+							{
+								if (!(mIns[j].mMode == ASMIM_IMMEDIATE || mIns[j].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[j].mMode == ASMIM_ZERO_PAGE && !mTempRegs[mIns[j].mAddress]))
+									break;
+								needa = true;
+								if (mIns[j].IsAddSub())
+									needc = true;
+								else if (mIns[j].mType == ASMIT_LDA)
+									needa = false;
+							}
+							else if (mIns[j].IsShift() && mIns[j].mMode == ASMIM_IMPLIED)
+							{
+								needa = true;
+								if (mIns[j].ReferencesCarry())
+									needc = true;
+							}
+							else if (mIns[j].mType == ASMIT_STA)
+							{
+								if (mIns[j].mMode == ASMIM_ZERO_PAGE && !mTempRegs[mIns[j].mAddress])
+								{
+									if (nblock->mEntryRequiredRegs[mIns[j].mAddress])
+										break;
+									needa = true;
+								}
+								else
+									break;
+							}
+							else
+								break;
+						}
+						if (!needa && !needc)
+						{							
+							for (int k = j; k <= i; k++)
+							{
+								ublock->mIns.Insert(k - j, mIns[k]);
+								if (mIns[k].mType != ASMIT_STA && mIns[k].mMode == ASMIM_ZERO_PAGE)
+									ublock->mEntryRequiredRegs += mIns[k].mAddress;
+							}
+
+							mIns.Remove(j, i - j + 1);
+							i = j;
+							changed = true;
+							continue;
+						}
+					}
+				}
+#endif
 				if (ins.mMode == ASMIM_ZERO_PAGE)
 				{
 					int	addr = ins.mAddress;
@@ -40422,14 +40510,8 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 		{
 			if (iins->mMode == ASMIM_ZERO_PAGE)
 			{
-				int ireg = iins->mAddress;
-				int	k = 0;
-				while (k < at)
-				{
-					if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
-						return false;
-					k++;
-				}
+				if (ChangesZeroPage(iins->mAddress, 0, at))
+					 return false;
 			}
 			else
 			{
