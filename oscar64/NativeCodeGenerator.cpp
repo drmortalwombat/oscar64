@@ -45002,9 +45002,11 @@ bool NativeCodeBasicBlock::HoistCommonLoads(void)
 			if (!mExitRequiredRegs[CPU_REG_A] && mTrueJump->FindInitialLoadA(tins) && mFalseJump->FindInitialLoadA(fins) && tins->IsSame(*fins) && !(tins->mFlags & NCIF_VOLATILE))
 			{
 				int i = mIns.Size();
-				while (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z))
+				while (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z) && !tins->MayBeChangedOnAddress(mIns[i - 1]))
 					i--;
-				if (!ReferencesAccu(i) && (i > 0 || !mEntryRequiredRegs[CPU_REG_Z]))
+				if (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z) && mIns[i - 1].IsStore())
+					;
+				else if (!ReferencesAccu(i) && (i > 0 || !mEntryRequiredRegs[CPU_REG_Z]))
 				{
 					mIns.Insert(i, *tins);
 					tins->mType = ASMIT_NOP; tins->mMode = ASMIM_IMPLIED;
@@ -45015,9 +45017,11 @@ bool NativeCodeBasicBlock::HoistCommonLoads(void)
 			if (!mExitRequiredRegs[CPU_REG_X] && mTrueJump->FindInitialLoadX(tins) && mFalseJump->FindInitialLoadX(fins) && tins->IsSame(*fins) && !(tins->mFlags & NCIF_VOLATILE))
 			{
 				int i = mIns.Size();
-				while (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z))
+				while (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z) && !tins->MayBeChangedOnAddress(mIns[i - 1]))
 					i--;
-				if (!ReferencesXReg(i) && (i > 0 || !mEntryRequiredRegs[CPU_REG_Z]))
+				if (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z) && mIns[i - 1].IsStore())
+					;
+				else if (!ReferencesXReg(i) && (i > 0 || !mEntryRequiredRegs[CPU_REG_Z]))
 				{
 					mIns.Insert(i, *tins);
 					tins->mType = ASMIT_NOP; tins->mMode = ASMIM_IMPLIED;
@@ -45028,9 +45032,11 @@ bool NativeCodeBasicBlock::HoistCommonLoads(void)
 			if (!mExitRequiredRegs[CPU_REG_Y] && mTrueJump->FindInitialLoadY(tins) && mFalseJump->FindInitialLoadY(fins) && tins->IsSame(*fins) && !(tins->mFlags & NCIF_VOLATILE))
 			{
 				int i = mIns.Size();
-				while (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z))
+				while (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z) && !tins->MayBeChangedOnAddress(mIns[i - 1]))
 					i--;
-				if (!ReferencesYReg(i) && (i > 0 || !mEntryRequiredRegs[CPU_REG_Z]))
+				if (i > 0 && (mIns[i - 1].mLive & LIVE_CPU_REG_Z) && mIns[i - 1].IsStore())
+					;
+				else if (!ReferencesYReg(i) && (i > 0 || !mEntryRequiredRegs[CPU_REG_Z]))
 				{
 					mIns.Insert(i, *tins);
 					tins->mType = ASMIT_NOP; tins->mMode = ASMIM_IMPLIED;
