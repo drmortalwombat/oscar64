@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"sformat"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -7747,7 +7747,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			else if (ins->mSrc[1].mTemp >= 0 && fsingle[ins->mSrc[1].mTemp])
 			{
 				InterInstruction* lins = tvalue[ins->mSrc[1].mTemp];
-				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[lins->mSrc[1].mTemp] && fsingle[tvalue[lins->mSrc[1].mTemp]->mDst.mTemp])
+				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[lins->mSrc[1].mTemp] && tvalue[lins->mSrc[1].mTemp] && fsingle[tvalue[lins->mSrc[1].mTemp]->mDst.mTemp])
 					lins = tvalue[lins->mSrc[1].mTemp];
 				if (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
 				{
@@ -15679,15 +15679,17 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 		if (mLoopHead)
 		{
-			ltvalue.Clear();
+			if (mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+			{
+				for (i = 0; i < ltvalue.Size(); i++)
+				{
+					if (ltvalue[i] && IsTempModified(i))
+						ltvalue[i] = nullptr;
+				}
+			}
+			else
+				ltvalue.Clear();
 		}
-#if 0
-		else if (mNumEntries > 1)
-		{
-			lvalues.FlushAll();
-			ltvalue.Clear();
-		}
-#endif
 		else if (mNumEntries > 0)
 		{
 			if (mNumEntered > 0)
@@ -29793,7 +29795,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 		{
 			if (mInstructions[i]->mCode != IC_NONE)
 			{
-				fprintf(file, "%04x (%4d)\t", i, mInstructions[i]->mLocation.mLine);
+				fprintf(file, "%04d (%4d)\t", i, mInstructions[i]->mLocation.mLine);
 				mInstructions[i]->Disassemble(file, mProc);
 			}
 		}
