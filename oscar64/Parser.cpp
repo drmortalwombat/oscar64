@@ -14066,6 +14066,34 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 						exp->mDecValue = ldec;
 					}
 				}
+				else if (exp->mDecValue->mType == DT_VARIABLE && exp->mDecValue->mBase->mType == DT_TYPE_STRUCT)
+				{
+					Declaration* edec = exp->mDecValue->mBase->mScope->Lookup(mScanner->mTokenIdent);
+					if (edec)
+					{
+						Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
+						ndec->mBase = exp->mDecValue;
+						ndec->mParams = edec;
+						ndec->mOffset = edec->mOffset;
+						exp->mDecValue = ndec;
+					}
+					else
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member not found", mScanner->mTokenIdent);
+				}
+				else if (exp->mDecValue->mType == DT_VARIABLE_REF && exp->mDecValue->mParams && exp->mDecValue->mParams->mType == DT_ELEMENT && exp->mDecValue->mParams->mBase->mType == DT_TYPE_STRUCT)
+				{
+					Declaration* edec = exp->mDecValue->mParams->mBase->mScope->Lookup(mScanner->mTokenIdent);
+					if (edec)
+					{
+						Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
+						ndec->mBase = exp->mDecValue->mBase;
+						ndec->mParams = edec;
+						ndec->mOffset = exp->mDecValue->mOffset + edec->mOffset;
+						exp->mDecValue = ndec;
+					}
+					else
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member not found", mScanner->mTokenIdent);
+				}
 				else
 					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid object for dot qualification");
 
