@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"test"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -26168,12 +26168,35 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(void)
 		if (mIns.Size() >= 3 && mFalseJump && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE))
 		{
 			int	sz = mIns.Size();
-			if ((mIns[sz - 3].mType == ASMIT_INC || mIns[sz - 3].mType == ASMIT_DEC) &&
+			if (mIns[sz - 3].IsShiftRotOrInc() &&
 				mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].SameEffectiveAddress(mIns[sz - 3]) &&
 				mIns[sz - 1].mType == ASMIT_ORA && 
 				!(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
 			{
 				mIns[sz - 3].mLive |= LIVE_CPU_REG_Z;
+				mIns[sz - 2].CopyMode(mIns[sz - 1]);
+				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+				NativeCodeBasicBlock* tblock = this->SplitAt(sz - 2);
+
+				if (tblock->mBranch == ASMIT_BEQ)
+					mTrueJump = tblock->mFalseJump;
+				else
+					mTrueJump = tblock->mTrueJump;
+
+				mBranch = ASMIT_BNE;
+				mFalseJump = tblock;
+				mTrueJump->mNumEntries++;
+				mTrueJump->mEntryBlocks.Push(this);
+				changed = true;
+			}
+			else if (mIns[sz - 3].IsShiftRotOrInc() &&
+				mIns[sz - 2].mType == ASMIT_LDA &&
+				mIns[sz - 1].mType == ASMIT_ORA && mIns[sz - 1].SameEffectiveAddress(mIns[sz - 3]) &&
+				!(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+			{
+				mIns[sz - 3].mLive |= LIVE_CPU_REG_Z;
+				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
 
 				NativeCodeBasicBlock* tblock = this->SplitAt(sz - 2);
 

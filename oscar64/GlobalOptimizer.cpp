@@ -1520,6 +1520,25 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 								pdec->mOptFlags |= OPTF_VAR_CONST;
 							}
 						}
+						else if (pex->mType == EX_VARIABLE && pdec->mBase->IsIntegerType() && pdec->mBase->CanAssign(pex->mDecType))
+						{
+							if (pdec->mOptFlags & OPTF_VAR_CONST)
+							{
+								pdec->mMinValue = pdec->mValue->mDecValue->mInteger;
+								pdec->mMaxValue = pdec->mValue->mDecValue->mInteger;
+
+								pdec->mOptFlags |= OPTF_VAR_RANGE_LIMITED;
+							}
+
+							pdec->mOptFlags |= OPTF_VAR_NOCONST;
+							pdec->mOptFlags &= ~OPTF_VAR_CONST;
+
+							pdec->mMinValue = int64min(pdec->mMinValue, pex->mDecValue->mBase->MinInteger());
+							pdec->mMaxValue = int64max(pdec->mMaxValue, pex->mDecValue->mBase->MaxInteger());
+
+							if (pdec->mMinValue < pdec->mBase->MinInteger() || pdec->mMaxValue > pdec->mBase->MaxInteger())
+								pdec->mOptFlags &= ~OPTF_VAR_RANGE_LIMITED;
+						}
 						else if (pex->mType == EX_VARIABLE && pdec->mBase->mType == DT_TYPE_POINTER && pex->mDecType->mType == DT_TYPE_ARRAY && (pex->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)) && pdec->mBase->CanAssign(pex->mDecType))
 						{
 							if (pdec->mOptFlags & OPTF_VAR_CONST)
@@ -1548,6 +1567,14 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 						{
 							pdec->mMinValue = int64min(pex->mDecValue->mInteger, pdec->mMinValue);
 							pdec->mMaxValue = int64max(pex->mDecValue->mInteger, pdec->mMaxValue);
+						}
+						else if (pex->mType == EX_VARIABLE && pdec->mBase->IsIntegerType() && pdec->mBase->CanAssign(pex->mDecType))
+						{
+							pdec->mMinValue = int64min(pdec->mMinValue, pex->mDecValue->mBase->MinInteger());
+							pdec->mMaxValue = int64max(pdec->mMaxValue, pex->mDecValue->mBase->MaxInteger());
+
+							if (pdec->mMinValue < pdec->mBase->MinInteger() || pdec->mMaxValue > pdec->mBase->MaxInteger())
+								pdec->mOptFlags &= ~OPTF_VAR_RANGE_LIMITED;
 						}
 						else
 							pdec->mOptFlags &= ~OPTF_VAR_RANGE_LIMITED;
