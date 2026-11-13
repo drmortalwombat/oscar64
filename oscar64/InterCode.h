@@ -855,7 +855,7 @@ public:
 	GrowingVariableArray				mLocalVars, mParamVars;
 	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 
-	Location							mLocation;
+	Location							mLocation, mEndLocation;
 	const Ident						*	mIdent, * mSection;
 
 	LinkerObject					*	mLinkerObject, * mSaveTempsLinkerObject;
