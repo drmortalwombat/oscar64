@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"sformat"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -28748,6 +28748,7 @@ bool NativeCodeBasicBlock::UntangleAbsoluteMoves(bool final)
 				}
 
 				prevX = -1;
+				prevY = -1;
 			}
 			else if (mIns[i].mType == ASMIT_STY && prevY >= 0)
 			{
@@ -28763,6 +28764,7 @@ bool NativeCodeBasicBlock::UntangleAbsoluteMoves(bool final)
 					changed = true;
 				}
 
+				prevX = -1;
 				prevY = -1;
 			}
 			else
