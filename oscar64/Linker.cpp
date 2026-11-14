@@ -9,7 +9,7 @@ LinkerRegion::LinkerRegion(void)
 {}
 
 LinkerSection::LinkerSection(void)
-	: mObjects(nullptr), mSections(nullptr), mFlags(0)
+	: mFlags(0)
 {}
 
 
@@ -827,6 +827,15 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge, boo
 	}
 
 	return false;
+}
+
+void LinkerRegion::AddSection(LinkerSection* section)
+{
+	if (!mSections.Contains(section))
+	{
+		mSections.Push(section);
+		section->mRegions.Push(this);
+	}
 }
 
 void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection* section)

@@ -103,6 +103,7 @@ public:
 	bool AllocateAppend(Linker* linker, LinkerObject* obj);
 	bool Allocate(Linker * linker, LinkerObject* obj, bool merge, bool retry);
 	void PlaceStackSection(LinkerSection* stackSection, LinkerSection* section);
+	void AddSection(LinkerSection* section);
 };
 
 static const uint32	LREF_LOWBYTE		=	0x00000001;
@@ -137,8 +138,9 @@ class LinkerSection
 public:
 	const Ident* mIdent;
 
-	GrowingArray <LinkerObject*>	 mObjects;
-	GrowingArray <LinkerSection*>	 mSections;
+	ExpandingArray <LinkerObject*>	 mObjects;
+	ExpandingArray <LinkerSection*>	 mSections;
+	ExpandingArray <LinkerRegion*>	 mRegions;
 
 	int								mStart, mEnd, mSize;
 	LinkerSectionType				mType;

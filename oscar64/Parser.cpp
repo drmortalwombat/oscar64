@@ -15461,10 +15461,7 @@ void Parser::ParsePragma(void)
 						{
 							LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(mScanner->mTokenIdent);
 							if (lsec)
-							{
-								if (!rgn->mSections.Contains(lsec))
-									rgn->mSections.Push(lsec);
-							}
+								rgn->AddSection(lsec);
 							else
 								mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name not defined");
 							mScanner->NextToken();

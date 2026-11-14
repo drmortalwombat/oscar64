@@ -11070,6 +11070,30 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 				}
 				break;
 
+			case IC_TYPECAST:
+				if (ins->mDst.mType == IT_INT16 && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mType == IT_POINTER)
+				{
+					if (ins->mSrc[0].mLinkerObject)
+					{
+						LinkerObject* obj = ins->mSrc[0].mLinkerObject;
+						LinkerSection* section = obj->mSection;
+						if (section)
+						{
+							int64	mina = 0x10000, maxa = 0x00000;
+							for (int i = 0; i < section->mRegions.Size(); i++)
+							{
+								LinkerRegion* region = section->mRegions[i];
+								if (region->mStart < mina)
+									mina = region->mStart;
+								if (region->mEnd > maxa)
+									maxa = region->mEnd;
+							}
+							if (maxa > mina)
+								vr.SetLimit(mina, maxa - 1);
+						}
+					}
+				}
+				break;
 			case IC_CALL_NATIVE:
 			case IC_CALL:
 				if (ins->mDst.mTemp >= 0 && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc)

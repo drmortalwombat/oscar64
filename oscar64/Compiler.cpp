@@ -615,7 +615,7 @@ bool Compiler::GenerateCode(void)
 					regionStartup = mLinker->AddRegion(identStartup, 0x1c01, 0x1c80);
 					regionLowcode = mLinker->AddRegion(identLowcode, 0x1c80, 0x1d00);
 				}
-				regionLowcode->mSections.Push(mCompilationUnits->mSectionLowCode);
+				regionLowcode->AddSection(mCompilationUnits->mSectionLowCode);
 				break;
 			case TMACH_C128B:
 			case TMACH_C128E:
@@ -635,7 +635,7 @@ bool Compiler::GenerateCode(void)
 					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
 					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1180);
 				}
-				regionLowcode->mSections.Push(mCompilationUnits->mSectionLowCode);
+				regionLowcode->AddSection(mCompilationUnits->mSectionLowCode);
 				break;
 			case TMACH_VIC20:
 				if (mCompilerOptions & COPT_NATIVE)
@@ -746,12 +746,12 @@ bool Compiler::GenerateCode(void)
 		sectionBytecode = mLinker->AddSection(identBytecode, LST_DATA);
 	}
 
-	regionStartup->mSections.Push(sectionStartup);
+	regionStartup->AddSection(sectionStartup);
 
-	regionZeroPage->mSections.Push(mCompilationUnits->mSectionZeroPage);
+	regionZeroPage->AddSection(mCompilationUnits->mSectionZeroPage);
 
 	if (regionBytecode)
-		regionBytecode->mSections.Push(sectionBytecode);
+		regionBytecode->AddSection(sectionBytecode);
 
 	if (!mLinker->IsSectionPlaced(mCompilationUnits->mSectionCode))
 	{
@@ -894,7 +894,7 @@ bool Compiler::GenerateCode(void)
 				case TMACH_NES_NROM_V:
 					regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
 					regionBoot->mCartridgeBanks = 1;
-					regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+					regionBoot->AddSection(mCompilationUnits->mSectionBoot);
 					regionRom = mLinker->AddRegion(identRom, 0x8000, 0xff80);
 					regionRom->mCartridgeBanks = 1;
 					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
@@ -902,7 +902,7 @@ bool Compiler::GenerateCode(void)
 				case TMACH_NES_MMC1:
 					regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
 					regionBoot->mCartridgeBanks = 1ULL << 15;
-					regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+					regionBoot->AddSection(mCompilationUnits->mSectionBoot);
 					regionRom = mLinker->AddRegion(identRom, 0xc000, 0xff80);
 					regionRom->mCartridgeBanks = 1ULL << 15;
 					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
@@ -910,7 +910,7 @@ bool Compiler::GenerateCode(void)
 				case TMACH_NES_MMC3:
 					regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
 					regionBoot->mCartridgeBanks = 1ULL << 31;
-					regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+					regionBoot->AddSection(mCompilationUnits->mSectionBoot);
 					regionRom = mLinker->AddRegion(identRom, 0xc000, 0xff80);
 					regionRom->mCartridgeBanks = 1ULL << 31;
 					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
@@ -940,18 +940,18 @@ bool Compiler::GenerateCode(void)
 
 		if (regionRom)
 		{
-			regionRom->mSections.Push(mCompilationUnits->mSectionCode);
-			regionRom->mSections.Push(mCompilationUnits->mSectionData);
+			regionRom->AddSection(mCompilationUnits->mSectionCode);
+			regionRom->AddSection(mCompilationUnits->mSectionData);
 		}
 		else
 		{
-			regionMain->mSections.Push(mCompilationUnits->mSectionCode);
-			regionMain->mSections.Push(mCompilationUnits->mSectionData);
+			regionMain->AddSection(mCompilationUnits->mSectionCode);
+			regionMain->AddSection(mCompilationUnits->mSectionData);
 		}
 
-		regionMain->mSections.Push(mCompilationUnits->mSectionBSS);
-		regionMain->mSections.Push(mCompilationUnits->mSectionHeap);
-		regionMain->mSections.Push(mCompilationUnits->mSectionStack);
+		regionMain->AddSection(mCompilationUnits->mSectionBSS);
+		regionMain->AddSection(mCompilationUnits->mSectionHeap);
+		regionMain->AddSection(mCompilationUnits->mSectionStack);
 	}
 
 	mInterCodeModule->InitParamStack(mCompilationUnits->mSectionStack);
