@@ -30063,12 +30063,12 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 					int addr = ins.mAddress;
 					NativeCodeBasicBlock* ublock = nullptr, *nblock = nullptr;
 
-					if (mTrueJump->mEntryRequiredRegs[addr] && !mFalseJump->mEntryRequiredRegs[addr] && mTrueJump->mNumEntries == 1 && !mTrueJump->mEntryRequiredRegs[CPU_REG_A] && !mTrueJump->mEntryRequiredRegs[CPU_REG_C])
+					if (mTrueJump->mEntryRequiredRegs[addr] && !mFalseJump->mEntryRequiredRegs[addr] && mTrueJump->mNumEntries == 1 && !mTrueJump->mEntryRequiredRegs[CPU_REG_A] && !mTrueJump->mEntryRequiredRegs[CPU_REG_C] && !mTrueJump->mLoopHead)
 					{
 						ublock = mTrueJump;
 						nblock = mFalseJump;
 					}
-					else if (mFalseJump->mEntryRequiredRegs[addr] && !mTrueJump->mEntryRequiredRegs[addr] && mFalseJump->mNumEntries == 1 && !mFalseJump->mEntryRequiredRegs[CPU_REG_A] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
+					else if (mFalseJump->mEntryRequiredRegs[addr] && !mTrueJump->mEntryRequiredRegs[addr] && mFalseJump->mNumEntries == 1 && !mFalseJump->mEntryRequiredRegs[CPU_REG_A] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C] && !mFalseJump->mLoopHead)
 					{
 						ublock = mFalseJump;
 						nblock = mTrueJump;
@@ -30130,8 +30130,13 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 						}
 						if (!needa && !needc)
 						{							
+							int	live = 0;
+							if (ublock->mEntryRequiredRegs[CPU_REG_X]) live |= LIVE_CPU_REG_X;
+							if (ublock->mEntryRequiredRegs[CPU_REG_Y]) live |= LIVE_CPU_REG_Y;
+
 							for (int k = j; k <= i; k++)
 							{
+								mIns[k].mLive |= live;
 								ublock->mIns.Insert(k - j, mIns[k]);
 								if (mIns[k].mType != ASMIT_STA && mIns[k].mMode == ASMIM_ZERO_PAGE)
 									ublock->mEntryRequiredRegs += mIns[k].mAddress;
