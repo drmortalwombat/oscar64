@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"test"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -4157,7 +4157,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			changed = true;
 		}
-		else if (mMode == ASMIM_IMMEDIATE && mType == ASMIT_ORA && mAddress != 0x00)
+		else if (mMode == ASMIM_IMMEDIATE && mType == ASMIT_ORA && (mAddress & 0x80))
 		{
 			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 			data.Reset(CPU_REG_A);
@@ -49363,6 +49363,14 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 							mBranch = ASMIT_JMP;
 							changed = true;
 						}
+						else if (mNDataSet[CPU_REG_A].mMask & mNDataSet[CPU_REG_A].mValue)
+						{
+							mTrueJump->RemEntryBlock(this);
+							mTrueJump = mFalseJump;
+							mFalseJump = nullptr;
+							mBranch = ASMIT_JMP;
+							changed = true;
+						}
 						else
 						{
 							mNDataSet.SetMask(CPU_REG_A, 0xff, 0x00);
@@ -49392,6 +49400,13 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 								mFalseJump->RemEntryBlock(this);
 								mFalseJump = nullptr;
 							}
+							mBranch = ASMIT_JMP;
+							changed = true;
+						}
+						else if (mNDataSet[CPU_REG_A].mMask & mNDataSet[CPU_REG_A].mValue)
+						{
+							mFalseJump->RemEntryBlock(this);
+							mFalseJump = nullptr;
 							mBranch = ASMIT_JMP;
 							changed = true;
 						}
