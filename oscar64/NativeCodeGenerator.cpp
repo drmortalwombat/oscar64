@@ -52843,20 +52843,34 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 				if (valx >= 0 && valx == valy)
 				{
-					if (usex)
-					{
-						mIns[yi].mType = ASMIT_NOP;
-						usey = false;
-					}
+					if (ReferencesYReg(xi + 1, yi) && ReferencesXReg(xi + 1, yi) || ReferencesYReg(yi + 1, xi) && ReferencesXReg(yi + 1, xi))
+						;
 					else
-						mIns[xi].mType = ASMIT_NOP;
-
-					for (int i = 0; i < mIns.Size(); i++)
 					{
-						if (usex && mIns[i].ReferencesYReg() || usey && mIns[i].ReferencesXReg()) mIns[i].SwapXYReg();
-					}
+						if (usex)
+						{
+							if (ReferencesYReg(yi + 1, xi))
+								mIns[xi].mType = ASMIT_NOP;
+							else
+								mIns[yi].mType = ASMIT_NOP;
 
-					changed = true;
+							usey = false;
+						}
+						else
+						{
+							if (ReferencesXReg(xi + 1, yi))
+								mIns[yi].mType = ASMIT_NOP;
+							else
+								mIns[xi].mType = ASMIT_NOP;
+						}
+
+						for (int i = 0; i < mIns.Size(); i++)
+						{
+							if (usex && mIns[i].ReferencesYReg() || usey && mIns[i].ReferencesXReg()) mIns[i].SwapXYReg();
+						}
+
+						changed = true;
+					}
 				}
 			}
 		}

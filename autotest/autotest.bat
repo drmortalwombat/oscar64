@@ -6,6 +6,9 @@ rem @echo off
 @call :test funcvaropt.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test incdectest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test intoddmultest.cpp
 @if %errorlevel% neq 0 goto :error
 
