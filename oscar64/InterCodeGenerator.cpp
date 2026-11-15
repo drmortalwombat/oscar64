@@ -931,7 +931,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			{
 				cexp->mAsmInsMode = ASMIM_ZERO_PAGE;
 			}
-			else if (cexp->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(cexp->mAsmInsType, ASMIM_ZERO_PAGE) && aexp->mType == DT_VARIABLE_REF && (aexp->mBase->mFlags & DTF_GLOBAL) && (aexp->mBase->mFlags & DTF_ZEROPAGE))
+			else if (cexp->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(cexp->mAsmInsType, ASMIM_ZERO_PAGE) && aexp->mType == DT_VARIABLE_REF && (aexp->mParams->mFlags & DTF_GLOBAL) && (aexp->mParams->mFlags & DTF_ZEROPAGE))
 			{
 				cexp->mAsmInsMode = ASMIM_ZERO_PAGE;
 			}
@@ -1002,10 +1002,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				d[offset] = cexp->mLeft->mDecValue->mInteger & 255;
 			else if (aexp->mType == DT_LABEL_REF)
 			{
-				if (aexp->mBase->mBase)
+				if (aexp->mParams->mBase)
 				{
-					if (!aexp->mBase->mBase->mLinkerObject)
-						TranslateAssembler(mod, aexp->mBase->mBase, nullptr);
+					if (!aexp->mParams->mBase->mLinkerObject)
+						TranslateAssembler(mod, aexp->mParams->mBase, nullptr);
 
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
@@ -1014,8 +1014,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 						ref.mFlags = LREF_HIGHBYTE;
 					else
 						ref.mFlags = LREF_LOWBYTE;
-					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
-					ref.mRefOffset = aexp->mOffset + int(aexp->mBase->mInteger);
+					ref.mRefObject = aexp->mParams->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mOffset + int(aexp->mParams->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
@@ -1024,9 +1024,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			}
 			else if (aexp->mType == DT_VARIABLE_REF)
 			{
-				if (aexp->mBase->mFlags & DTF_GLOBAL)
+				if (aexp->mParams->mFlags & DTF_GLOBAL)
 				{
-					InitGlobalVariable(mod, aexp->mBase);
+					InitGlobalVariable(mod, aexp->mParams);
 
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
@@ -1035,7 +1035,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 						ref.mFlags = LREF_HIGHBYTE;
 					else
 						ref.mFlags = LREF_LOWBYTE;
-					ref.mRefObject = aexp->mBase->mLinkerObject;
+					ref.mRefObject = aexp->mParams->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
@@ -1082,9 +1082,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			}
 			else if (aexp->mType == DT_FUNCTION_REF)
 			{
-				if (!aexp->mBase->mLinkerObject)
+				if (!aexp->mParams->mLinkerObject)
 				{
-					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mBase->mValue, aexp->mBase);
+					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mParams->mValue, aexp->mParams);
 				}
 
 				LinkerReference	ref;
@@ -1094,7 +1094,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mFlags = LREF_HIGHBYTE;
 				else
 					ref.mFlags = LREF_LOWBYTE;
-				ref.mRefObject = aexp->mBase->mLinkerObject;
+				ref.mRefObject = aexp->mParams->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
@@ -1113,15 +1113,15 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
 			else if (aexp->mType == DT_VARIABLE_REF)
 			{
-				if (aexp->mBase->mFlags & DTF_GLOBAL)
+				if (aexp->mParams->mFlags & DTF_GLOBAL)
 				{
-					InitGlobalVariable(mod, aexp->mBase);
+					InitGlobalVariable(mod, aexp->mParams);
 
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE;
-					ref.mRefObject = aexp->mBase->mLinkerObject;
+					ref.mRefObject = aexp->mParams->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					ref.mFlags |= rflags;
@@ -1131,10 +1131,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				else if (refvars)
 				{
 					int j = 0;
-					while (j < refvars->Size() && (*refvars)[j] != aexp->mBase)
+					while (j < refvars->Size() && (*refvars)[j] != aexp->mParams)
 						j++;
 					if (j == refvars->Size())
-						refvars->Push(aexp->mBase);
+						refvars->Push(aexp->mParams);
 
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
@@ -1228,10 +1228,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			}
 			else if (aexp->mType == DT_LABEL_REF)
 			{
-				if (aexp->mBase->mBase)
+				if (aexp->mParams->mBase)
 				{
-					if (!aexp->mBase->mBase->mLinkerObject)
-						TranslateAssembler(mod, aexp->mBase->mBase, nullptr);
+					if (!aexp->mParams->mBase->mLinkerObject)
+						TranslateAssembler(mod, aexp->mParams->mBase, nullptr);
 
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
@@ -1239,8 +1239,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mFlags |= rflags;
 
-					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
-					ref.mRefOffset = aexp->mOffset + int(aexp->mBase->mInteger);
+					ref.mRefObject = aexp->mParams->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mOffset + int(aexp->mParams->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
@@ -1283,9 +1283,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			}
 			else if (aexp->mType == DT_VARIABLE_REF)
 			{
-				if (aexp->mBase->mFlags & DTF_GLOBAL)
+				if (aexp->mParams->mFlags & DTF_GLOBAL)
 				{
-					InitGlobalVariable(mod, aexp->mBase);
+					InitGlobalVariable(mod, aexp->mParams);
 
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
@@ -1293,7 +1293,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mFlags |= rflags;
 
-					ref.mRefObject = aexp->mBase->mLinkerObject;
+					ref.mRefObject = aexp->mParams->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
@@ -1319,9 +1319,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 			}
 			else if (aexp->mType == DT_FUNCTION_REF)
 			{
-				if (!aexp->mBase->mLinkerObject)
+				if (!aexp->mParams->mLinkerObject)
 				{
-					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mBase->mValue, aexp->mBase);
+					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mParams->mValue, aexp->mParams);
 				}
 
 				LinkerReference	ref;
@@ -1330,7 +1330,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mFlags |= rflags;
 
-				ref.mRefObject = aexp->mBase->mLinkerObject;
+				ref.mRefObject = aexp->mParams->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
@@ -1346,12 +1346,12 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 				int64 disp = 0;
 				if (aexp->mType == DT_LABEL_REF)
 				{
-					if (aexp->mBase->mBase == adec)
-						disp = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
-					else if (aexp->mBase->mBase)
-						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mBase->mQualIdent);
+					if (aexp->mParams->mBase == adec)
+						disp = aexp->mOffset + aexp->mParams->mInteger - offset - 1;
+					else if (aexp->mParams->mBase)
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range", aexp->mParams->mQualIdent);
 					else
-						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
+						mErrors->Error(cexp->mLeft->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mParams->mQualIdent);
 				}
 				else if (aexp->mType == DT_LABEL)
 				{
@@ -2462,17 +2462,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			case DT_LABEL_REF:
 			{
-				if (!dec->mBase->mBase->mLinkerObject)
-					TranslateAssembler(proc->mModule, dec->mBase->mBase, nullptr);
+				if (!dec->mParams->mBase->mLinkerObject)
+					TranslateAssembler(proc->mModule, dec->mParams->mBase, nullptr);
 
 				InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 				ins->mConst.mType = IT_POINTER;
-				ins->mConst.mVarIndex = dec->mBase->mBase->mVarIndex;
-				ins->mConst.mLinkerObject = dec->mBase->mBase->mLinkerObject;
+				ins->mConst.mVarIndex = dec->mParams->mBase->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mParams->mBase->mLinkerObject;
 				ins->mConst.mMemory = IM_PROCEDURE;
-				ins->mConst.mIntConst = dec->mInteger + dec->mBase->mInteger;
+				ins->mConst.mIntConst = dec->mInteger + dec->mParams->mInteger;
 				block->Append(ins);
 				return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
 			}
@@ -2606,7 +2606,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			int	lbits = dec->mBits, lshift = dec->mShift;
 
 			if (dec->mType == DT_VARIABLE_REF)
-				dec = dec->mBase;
+				dec = dec->mParams;
 
 			ins->mConst.mVarIndex = dec->mVarIndex;
 
@@ -2671,12 +2671,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
 			else if (exp->mDecType->IsFunctionType())
-			{
-				if (exp->mDecValue->mType == DT_VARIABLE_REF && exp->mDecValue->mBase->mBase->mType == DT_TYPE_ARRAY)
-					return ExValue(exp->mDecValue->mBase->mBase->mBase, ins->mDst.mTemp, ref, lbits, lshift);
-				else
-					return ExValue(exp->mDecValue->mBase, ins->mDst.mTemp, ref, lbits, lshift);
-			}
+				return ExValue(exp->mDecValue->mBase, ins->mDst.mTemp, ref, lbits, lshift);
 			else
 				return ExValue(exp->mDecType, ins->mDst.mTemp, ref, lbits, lshift);
 		}
@@ -6324,12 +6319,13 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	else if (data->mType == DT_CONST_CONSTRUCTOR)
 	{
 		Declaration* dec = new Declaration(data->mLocation, DT_VARIABLE_REF);
-		dec->mBase = variable->mDeclaration;
+		dec->mParams = variable->mDeclaration;
+		dec->mBase = variable->mDeclaration->mBase;
 		dec->mOffset = offset;
 		DestructStack* destack = nullptr;
 		GotoNode* gotos = nullptr;
 		data->mValue->mRight->mDecValue = dec;
-		dec->mBase->mFlags |= DTF_VAR_ALIASING;
+		dec->mParams->mFlags |= DTF_VAR_ALIASING;
 		TranslateExpression(nullptr, mMainInitProc, mMainInitBlock, data->mValue, destack, gotos, BranchTarget(), BranchTarget(), nullptr);
 	}
 	else if (data->mType == DT_CONST_POINTER)
@@ -6389,12 +6385,12 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 
 		case DT_VARIABLE_REF:
 		{
-			if (!dec->mBase->mLinkerObject)
+			if (!dec->mParams->mLinkerObject)
 			{
-				InitGlobalVariable(mod, dec->mBase);
+				InitGlobalVariable(mod, dec->mParams);
 			}
 
-			ref.mRefObject = dec->mBase->mLinkerObject;
+			ref.mRefObject = dec->mParams->mLinkerObject;
 			ref.mRefOffset = dec->mOffset;
 		}	break;
 

@@ -369,10 +369,30 @@ bool GlobalAnalyzer::MarkCycle(Declaration* rootDec, Declaration* procDec)
 		procDec->mFlags |= DTF_FUNC_ANALYZING;
 
 		bool	cycle = false;
-		for (int i = 0; i < procDec->mCalled.Size(); i++)
+		if (procDec->mType == DT_TYPE_FUNCTION)
 		{
-			if (MarkCycle(rootDec, procDec->mCalled[i]))
-				cycle = true;
+			Declaration* udec = Find(procDec);
+
+			for (int i = 0; i < mVariableFunctions.Size(); i++)
+			{
+				Declaration* vf = mVariableFunctions[i];
+
+				if (mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER)
+				{
+					if (Find(vf) == udec && MarkCycle(rootDec, vf))
+						cycle = true;
+				}
+				else if (vf->mBase->IsSame(procDec) && MarkCycle(rootDec, vf))
+					cycle = true;
+			}
+		}
+		else
+		{
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+			{
+				if (MarkCycle(rootDec, procDec->mCalled[i]))
+					cycle = true;
+			}
 		}
 		if (cycle)
 			procDec->mFlags |= DTF_FUNC_RECURSIVE;
@@ -898,10 +918,10 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_VARIABLE_REF)
 			{
-				if (adec->mBase->mFlags & DTF_GLOBAL)
+				if (adec->mParams->mFlags & DTF_GLOBAL)
 				{
-					AnalyzeGlobalVariable(adec->mBase);
-					adec->mBase->mFlags |= DTF_VAR_ALIASING;
+					AnalyzeGlobalVariable(adec->mParams);
+					adec->mParams->mFlags |= DTF_VAR_ALIASING;
 				}
 			}
 			else if (adec->mType == DT_LABEL)
@@ -918,8 +938,8 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_FUNCTION_REF)
 			{
-				AnalyzeProcedure(exp, adec->mBase->mValue, adec->mBase);
-				RegisterProc(adec->mBase);
+				AnalyzeProcedure(exp, adec->mParams->mValue, adec->mParams);
+				RegisterProc(adec->mParams);
 			}
 			else if (adec->mType == DT_CONST_FUNCTION)
 			{
@@ -935,7 +955,7 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 void GlobalAnalyzer::AnalyzeGlobalVariable(Declaration* dec)
 {
 	while (dec->mType == DT_VARIABLE_REF)
-		dec = dec->mBase;
+		dec = dec->mParams;
 
 	dec->mUseCount++;
 
@@ -1006,7 +1026,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 	{
 		Declaration* vdec = exp->mDecValue;
 		while (vdec->mType == DT_VARIABLE_REF)
-			vdec = vdec->mBase;
+			vdec = vdec->mParams;
 
 		if (exp->mDecType->IsSimpleType())
 			procDec->mComplexity += 5 * exp->mDecType->mSize;

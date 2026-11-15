@@ -309,7 +309,7 @@ void Compiler::PreCompileExpression(Expression* exp)
 void Compiler::PreCompileDeclaration(Declaration* dec)
 {
 	while (dec->mType == DT_VARIABLE_REF || dec->mType == DT_FUNCTION_REF)
-		dec = dec->mBase;
+		dec = dec->mParams;
 
 	if (dec->mType == DT_VARIABLE || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER)
 	{

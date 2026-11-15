@@ -3,6 +3,21 @@ rem @echo off
 @call :test viewportstructreturnrowtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test attributeregistertest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test conditionalcallnativestacktest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test inlinebytewindowtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test returnedstructboolnegation.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test structmembercallbacktest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test selectorzerofallthrough.c
 @if %errorlevel% neq 0 goto :error
 

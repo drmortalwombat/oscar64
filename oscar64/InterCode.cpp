@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"returnedStructBool_interval"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -46,6 +46,8 @@ static int64 SignedTypeMin(InterType type)
 {
 	switch (type)
 	{
+	case IT_BOOL:
+		return 0;
 	case IT_INT8:
 		return -128;
 	case IT_INT16:
@@ -59,6 +61,8 @@ static int64 SignedTypeMax(InterType type)
 {
 	switch (type)
 	{
+	case IT_BOOL:
+		return 1;
 	case IT_INT8:
 		return 127;
 	case IT_INT16:
@@ -72,6 +76,8 @@ static int64 UnsignedTypeMax(InterType type)
 {
 	switch (type)
 	{
+	case IT_BOOL:
+		return 1;
 	case IT_INT8:
 		return 255;
 	case IT_INT16:
@@ -15307,7 +15313,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 				lvalues.Intersect(mMergeValues);
 				for (int i = 0; i < ltvalue.Size(); i++)
 				{
-					if (mMergeTValues[i] != ltvalue[i])
+					if (mMergeTValues[i] != ltvalue[i] && !(ltvalue[i] && mMergeTValues[i] && ltvalue[i]->mCode == IC_CONSTANT && ltvalue[i]->IsEqual(mMergeTValues[i])))
 						ltvalue[i] = nullptr;
 				}
 			}
@@ -15712,7 +15718,7 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 			{
 				for (int i = 0; i < ltvalue.Size(); i++)
 				{
-					if (mMergeTValues[i] != ltvalue[i])
+					if (mMergeTValues[i] != ltvalue[i] && !(ltvalue[i] && mMergeTValues[i] && ltvalue[i]->mCode == IC_CONSTANT && ltvalue[i]->IsEqual(mMergeTValues[i])))
 						ltvalue[i] = nullptr;
 				}
 			}
@@ -27693,15 +27699,25 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimizationIns(int i, const GrowingVar
 			mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && IsUnsignedRelational(mInstructions[i + 1]->mOperator) &&
 			mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 			mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+			(mInstructions[i + 0]->mSrc[0].mIntConst & 7) &&
 			(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) <= UnsignedTypeMax(mInstructions[i + 1]->mSrc[0].mType))
 		{
-			mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+			int64	mask = UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType);
+			if (mInstructions[i + 0]->mSrc[1].IsPositive() && mInstructions[i + 0]->mSrc[1].mRange.IsBound())
+				mask = BinMask(mInstructions[i + 0]->mSrc[1].mRange.mMaxValue);
 
-			mInstructions[i + 0]->mOperator = IA_AND;
-			mInstructions[i + 0]->mSrc[0].mIntConst = ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
-			mInstructions[i + 0]->mDst.mRange.Reset();
-			mInstructions[i + 1]->mSrc[1].mRange.Reset();
-			return true;
+			mask &= ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+
+			if (mask <= UnsignedTypeMax(mInstructions[i + 1]->mSrc[0].mType))
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mOperator = IA_AND;
+				mInstructions[i + 0]->mSrc[0].mIntConst = mask;
+				mInstructions[i + 0]->mDst.mRange.Reset();
+				mInstructions[i + 1]->mSrc[1].mRange.Reset();
+				return true;
+			}
 		}
 
 		if (i + 3 < mInstructions.Size() &&
