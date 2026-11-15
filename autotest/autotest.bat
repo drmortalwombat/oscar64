@@ -468,6 +468,9 @@ rem @echo off
 @call :test signedbytestructreturn.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test inlinebytewindowtest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test fixlogtest.c
 @if %errorlevel% neq 0 goto :error
 

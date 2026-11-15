@@ -33554,7 +33554,9 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 			{
 				if (mIns[s - 2].mType == ASMIT_STA && mIns[s - 2].mMode == ASMIM_ZERO_PAGE &&
 					mFalseJump->mIns[ts - 1].mType == ASMIT_STA && mFalseJump->mIns[ts - 1].mMode == ASMIM_ZERO_PAGE && mFalseJump->mIns[ts - 1].mAddress == mIns[s - 2].mAddress &&
-					mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_ZERO_PAGE && mFalseJump->mIns[0].mAddress == mIns[s - 2].mAddress)
+					mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_ZERO_PAGE && mFalseJump->mIns[0].mAddress == mIns[s - 2].mAddress &&
+					// The accumulator bypass cannot replace reads of the stored byte inside the branch.
+					!mFalseJump->ReferencesZeroPage(mIns[s - 2].mAddress, 1, ts - 1))
 				{
 					if (!(mIns[s - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)) && HasAsmInstructionMode(ASMIT_LDY, mIns[s - 1].mMode))
 					{
