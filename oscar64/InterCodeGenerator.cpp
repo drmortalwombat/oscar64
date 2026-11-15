@@ -97,7 +97,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 					ins->mDst.mRange.LimitMax(limit - 1);
 				}
 #if 1
-				else
+				else if (v.mType->mSize < 4)
 				{
 					ins->mDst.mRange.LimitMin(v.mType->MinInteger());
 					ins->mDst.mRange.LimitMax(v.mType->MaxInteger());

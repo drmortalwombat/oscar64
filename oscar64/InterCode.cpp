@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"cond_k"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -384,6 +384,14 @@ void IntegerValueRange::LimitMaxWeak(int64 value)
 		mMaxState = S_BOUND;
 		mMaxValue = value;
 	}
+}
+
+int64 IntegerValueRange::Size(void) const
+{
+	if (mMinState == S_BOUND && mMaxState == S_BOUND)
+		return mMaxValue - mMinValue + 1;
+	else
+		return 1ll << 32;
 }
 
 bool IntegerValueRange::IsInvalid(void) const
@@ -8323,6 +8331,8 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		{
 			ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 			ins->mSrc[0].mMemory = tvalue[ins->mSrc[0].mTemp]->mConst.mMemory;
+			ins->mSrc[0].mVarIndex = tvalue[ins->mSrc[0].mTemp]->mConst.mVarIndex;
+			ins->mSrc[0].mLinkerObject = tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject;
 			ins->mSrc[0].mTemp = -1;
 		}
 		break;
@@ -10363,35 +10373,19 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 				case IA_ADDS:
 					if (ins->mSrc[0].mTemp < 0)
 					{
-#if 0
-						if (/*ins->mSrc[1].mTemp == ins->mDst.mTemp &&*/ dependTemps[ins->mDst.mTemp] && i + 3 != sz)
-						{
-							int64 start = pblock->mTrueValueRange[ins->mDst.mTemp].mMinValue;
-							vr.SetLimit(start + ins->mSrc[0].mIntConst, start + nloop * ins->mSrc[0].mIntConst);
-						}
-						else
-#endif
-						{
-							vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
-							if (ins->mSrc[0].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
-								vr.mMaxState = IntegerValueRange::S_UNBOUND;
-							else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
-								vr.mMinState = IntegerValueRange::S_UNBOUND;
-							if (ins->mDst.mType == IT_INT8 && (
-								ins->mSrc[0].mIntConst >= 128 && vr.mMaxState != IntegerValueRange::S_BOUND ||
-								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue + ins->mSrc[0].mIntConst >= 256))
-								vr.mMinState = IntegerValueRange::S_UNBOUND;
+						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+						if (ins->mSrc[0].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+						if (ins->mDst.mType == IT_INT8 && (
+							ins->mSrc[0].mIntConst >= 128 && vr.mMaxState != IntegerValueRange::S_BOUND ||
+							vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue + ins->mSrc[0].mIntConst >= 256))
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
 
-							vr.mMaxValue += ins->mSrc[0].mIntConst;
-							vr.mMinValue += ins->mSrc[0].mIntConst;
+						vr.mMaxValue += ins->mSrc[0].mIntConst;
+						vr.mMinValue += ins->mSrc[0].mIntConst;
 
-							if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
-								vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
-							{
-								vr.mMinState = IntegerValueRange::S_UNBOUND;
-								vr.mMaxState = IntegerValueRange::S_UNBOUND;
-							}
-						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -10402,13 +10396,6 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 						vr.mMaxValue += ins->mSrc[1].mIntConst;
 						vr.mMinValue += ins->mSrc[1].mIntConst;
-
-						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
-							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
-						{
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-							vr.mMaxState = IntegerValueRange::S_UNBOUND;
-						}
 					}
 					else
 					{
@@ -10427,25 +10414,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 						}
 						else
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
-
-						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
-							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
-						{
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-							vr.mMaxState = IntegerValueRange::S_UNBOUND;
-						}
 					}
 
-#if 1
-					if (ins->mDst.mType == IT_INT8)
+					// Undefined behaviour, signed integer overflow
+					if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > SignedTypeMax(ins->mDst.mType) ||
+						vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
 					{
-						if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < -255 || vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > 255)
-						{
-							vr.LimitMax(255);
-							vr.LimitMin(-128);
-						}
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						vr.mMinState = IntegerValueRange::S_UNBOUND;
 					}
-#endif
 					break;
 				case IA_SUBU:
 				{
@@ -10555,13 +10532,6 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 						vr.mMaxValue -= ins->mSrc[0].mIntConst;
 						vr.mMinValue -= ins->mSrc[0].mIntConst;
-
-						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
-							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
-						{
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-							vr.mMaxState = IntegerValueRange::S_UNBOUND;
-						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -10602,6 +10572,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 						}
 						else
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
+					}
+
+					// Undefined behaviour, signed integer overflow
+					if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > SignedTypeMax(ins->mDst.mType) ||
+						vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+					{
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						vr.mMinState = IntegerValueRange::S_UNBOUND;
 					}
 
 					break;
@@ -10791,7 +10769,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 									vr.mMinValue = 0;
 									break;
 								case IT_INT32:
-									vr.mMaxValue = 0x100000000ULL >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = 0xffffffffULL >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									vr.mMinValue = 0;
 									break;
 								}
@@ -10991,17 +10969,27 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
 						if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMinState < IntegerValueRange::S_WEAK || vr.mMinValue < 0)
 						{
-							vr.mMaxValue = IntegerValueRange::S_BOUND;
+							vr.mMaxState = IntegerValueRange::S_BOUND;
 							vr.mMaxValue = UnsignedTypeMax(ins->mSrc[1].mType);
 						}
+						if (vr.mMinState != IntegerValueRange::S_BOUND)
+							vr.SetMin(0);
 					}
 					else
-						vr.LimitMax(ins->mSrc[1].mIntConst);
-
-					vr.SetMin(0);
+						vr.SetConstant(ins->mSrc[1].mIntConst & UnsignedTypeMax(ins->mSrc[1].mType));
 
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 1)
+					{
+						vr.mMinValue /= ins->mSrc[0].mIntConst;
 						vr.mMaxValue /= ins->mSrc[0].mIntConst;
+					}
+					else if (ins->mSrc[0].mRange.IsBound() && ins->mSrc[0].mRange.mMinValue > 0)
+					{
+						vr.mMinValue /= ins->mSrc[0].mRange.mMaxValue;
+						vr.mMaxValue /= ins->mSrc[0].mRange.mMinValue;
+					}
+					else
+						vr.SetMin(0);
 					break;
 
 				case IA_DIVS:
@@ -11119,6 +11107,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 			}
 #endif
 			ins->mDst.mRange.MergeUnknown(vr);
+			vr = ins->mDst.mRange;
 #if 1
 			if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxValue == vr.mMinValue && !HasSideEffect(ins->mCode))
 			{
@@ -14952,7 +14941,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ins->mSrc[1].mRange.AddConstValue(IT_INT16, -ains->mSrc[0].mIntConst);
 								changed = true;
 							}
-							else if (ains->mSrc[1].mType == IT_INT8)
+							else if (ains->mSrc[1].mType == IT_INT8 && ains->mSrc[1].mRange.Size() == ains->mDst.mRange.Size())
 							{
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
@@ -15051,7 +15040,10 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							nins->mSrc[0] = cins->mDst;
 
 							ins->mCode = IC_BINARY_OPERATOR;
-							ins->mOperator = IA_ADDS;
+							if (lins->mSrc[1].mMemory == IM_ABSOLUTE)
+								ins->mOperator = IA_ADDU;
+							else
+								ins->mOperator = IA_ADDS;
 							ins->mNumOperands = 2;
 							ins->mSrc[1] = nins->mDst;
 							ins->mSrc[0] = lins->mSrc[0];
@@ -20833,7 +20825,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									mInstructions.Remove(i);
 
 									InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
-									ains->mOperator = IA_ADDS;
+									ains->mOperator = lins->mOperator;
 									ains->mDst = lins->mDst;
 									ains->mSrc[1] = lins->mDst;
 									ains->mSrc[0].mType = lins->mDst.mType;
@@ -20871,7 +20863,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									mInstructions.Remove(i);
 
 									InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
-									ains->mOperator = IA_ADDS;
+									ains->mOperator = (lins->mOperator == IA_ADDU || lins->mOperator == IA_SUBU) ? IA_ADDU : IA_ADDS;
 									ains->mDst = lins->mDst;
 									ains->mSrc[1] = lins->mDst;
 									ains->mSrc[0].mType = lins->mDst.mType;
@@ -22348,6 +22340,9 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 						InterInstruction* ins = block->mInstructions[i];
 						if (ins->mInvariant && ins->mExpensive)
 						{
+							ins->mDst.mRange.Reset();
+							for (int j = 0; j < ins->mNumOperands; j++)
+								ins->mSrc[j].mRange.Reset();
 							mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 						}
 						else

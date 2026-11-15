@@ -212,6 +212,8 @@ public:
 	bool IsBound(void) const;
 	bool IsConstant(void) const;
 	bool IsInvalid(void) const;
+	int64 Size(void) const;
+
 	bool IsRange(int64 minVal, int64 maxVal) const;
 
 	void SetMin(int64 value);

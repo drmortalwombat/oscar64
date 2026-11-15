@@ -15900,7 +15900,10 @@ void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 		if (mFDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 			fprintf(file, ",Z=%d", mFDataSet[CPU_REG_Z].mValue);
 	}
-	fprintf(file, ")\n");
+	if (mLocked)
+		fprintf(file, ") Locked\n");
+	else
+		fprintf(file, ")\n");
 
 	for (int i = 0; i < mIns.Size(); i++)
 	{
@@ -16569,6 +16572,10 @@ bool NativeCodeBasicBlock::RemoveUnusedBitOps(void)
 			case ASMIT_SEC:
 				usesC = false;
 				break;
+			case ASMIT_RTS:
+				if (mExitRegA)
+					usesA = true;
+				break;
 			default:
 				if (ins.ReferencesAccu())
 					usesA = 0xff;
@@ -17079,11 +17086,27 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 			{
 				for (int i = 0; i < mTrueJump->mIns.Size(); i++)
 					mIns.Push(mTrueJump->mIns[i]);
+				mNDataSet = mTrueJump->mNDataSet;
 				mBranch = mTrueJump->mBranch;
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
-				mNDataSet = mTrueJump->mNDataSet;
 				changed = true;
+			}
+
+			if (mTrueJump && !mFalseJump && mTrueJump->mNumEntries == 1 && mTrueJump != this && mIns.Size() > 0 && mTrueJump->mLocked)
+			{
+				int k = mTrueJump->mIns.Size();
+				while (k > 0 && mTrueJump->mIns[k - 1].mType == ASMIT_RTS)
+					k--;
+				if (k > 0 && mTrueJump->mIns[k - 1].mType == ASMIT_LDA)
+					k--;
+				if (k > 0)
+				{
+					for (int i = 0; i < k; i++)
+						mIns.Push(mTrueJump->mIns[i]);
+					mTrueJump->mIns.Remove(0, k);
+					changed = true;
+				}
 			}
 
 			int steps = 100;
@@ -52392,6 +52415,14 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			for (int i = 0; i < mIns.Size(); i++)
 				mIns[i].mLive |= LIVE_CPU_REG;
 			mIns[1].mType = ASMIT_INX; mIns[1].mMode = ASMIM_IMPLIED;
+			int k = mIns.Size();
+			while (k > 0 && !mIns[k - 1].ReferencesXReg())
+				k--;
+			if (k > 1)
+			{
+				mIns.Insert(k, mIns[1]);
+				mIns.Remove(1, 1);
+			}
 			prevBlock->mIns.Push(mIns[0]);
 			exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[0].mIns, ASMIT_STX, mIns[0]));
 			mIns.Remove(0);
@@ -61242,7 +61273,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 	{
 		if ((mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY) && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 		{
-			if (i + 3 == mIns.Size() && mIns[i + 1].mType == ASMIT_INX && mIns[i + 2].mType == ASMIT_CPX)
+			if (i + 3 == mIns.Size() && (mIns[i + 1].mType == ASMIT_INX || mIns[i + 1].mType == ASMIT_DEX) && mIns[i + 2].mType == ASMIT_CPX)
 				;	// Avoid bypassing loop iterator
 			else if (!mIns[i + 1].RequiresYReg())
 			{
@@ -61282,7 +61313,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 		}
 		else if ((mIns[i].mType == ASMIT_INX || mIns[i].mType == ASMIT_DEX) && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 		{
-			if (i + 3 == mIns.Size() && mIns[i + 1].mType == ASMIT_INY && mIns[i + 2].mType == ASMIT_CPY)
+			if (i + 3 == mIns.Size() && (mIns[i + 1].mType == ASMIT_INY || mIns[i + 1].mType == ASMIT_DEY) && mIns[i + 2].mType == ASMIT_CPY)
 				;	// Avoid bypassing loop iterator
 			else if (!mIns[i + 1].RequiresXReg())
 			{
@@ -67542,7 +67573,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 		mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress &&
 		mIns[i + 4].mType == ASMIT_ASL && mIns[i + 4].mMode == ASMIM_IMPLIED && !(mIns[i + 4].mLive & LIVE_CPU_REG_A))
 	{
-		mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+		mIns[i + 1].mLive |= mIns[i + 4].mLive & LIVE_CPU_REG_C;
+		mIns[i + 2].mLive |= mIns[i + 4].mLive & LIVE_CPU_REG_C;
 		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
 		mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 
@@ -73361,11 +73393,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mEntryBlock = AllocateBlock();
 	mEntryBlock->mLocked = true;
-	mBlocks.Push(mEntryBlock);
 
 	mExitBlock = AllocateBlock();
 	mExitBlock->mLocked = true;
-	mBlocks.Push(mExitBlock);
 
 	// Place a temporary RTS
 
