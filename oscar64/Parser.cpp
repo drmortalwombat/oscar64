@@ -8154,6 +8154,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 			size += s;
 			d[size] = 0;
 			dec->mSize = size + 1;
+			dec->mBase->mSize = dec->mSize;
 			delete[] dec->mData;
 			dec->mData = d;
 			mScanner->NextToken();
