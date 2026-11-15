@@ -14073,22 +14073,22 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 					if (edec)
 					{
 						Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-						ndec->mBase = exp->mDecValue;
-						ndec->mParams = edec;
+						ndec->mParams = exp->mDecValue;
+						ndec->mBase = edec->mBase;
 						ndec->mOffset = edec->mOffset;
 						exp->mDecValue = ndec;
 					}
 					else
 						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member not found", mScanner->mTokenIdent);
 				}
-				else if (exp->mDecValue->mType == DT_VARIABLE_REF && exp->mDecValue->mParams && exp->mDecValue->mParams->mType == DT_ELEMENT && exp->mDecValue->mParams->mBase->mType == DT_TYPE_STRUCT)
+				else if (exp->mDecValue->mType == DT_VARIABLE_REF && exp->mDecValue->mBase->mType == DT_TYPE_STRUCT)
 				{
-					Declaration* edec = exp->mDecValue->mParams->mBase->mScope->Lookup(mScanner->mTokenIdent);
+					Declaration* edec = exp->mDecValue->mBase->mScope->Lookup(mScanner->mTokenIdent);
 					if (edec)
 					{
 						Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-						ndec->mBase = exp->mDecValue->mBase;
-						ndec->mParams = edec;
+						ndec->mParams = exp->mDecValue->mParams;
+						ndec->mBase = edec->mBase;
 						ndec->mOffset = exp->mDecValue->mOffset + edec->mOffset;
 						exp->mDecValue = ndec;
 					}
@@ -14164,7 +14164,7 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-				ndec->mBase = nexp->mLeft->mDecValue;
+				ndec->mParams = nexp->mLeft->mDecValue;
 				ndec->mOffset = nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger);
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
@@ -14177,7 +14177,7 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-				ndec->mBase = nexp->mLeft->mDecValue->mBase;
+				ndec->mParams = nexp->mLeft->mDecValue->mParams;
 				ndec->mOffset = nexp->mLeft->mDecValue->mOffset + (nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger));
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
@@ -14190,7 +14190,7 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_FUNCTION_REF);
-				ndec->mBase = nexp->mLeft->mDecValue;
+				ndec->mParams = nexp->mLeft->mDecValue;
 				ndec->mOffset = nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger);
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
@@ -14203,7 +14203,7 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
-				ndec->mBase = nexp->mLeft->mDecValue;
+				ndec->mParams = nexp->mLeft->mDecValue;
 				ndec->mOffset = nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger);
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
@@ -14283,7 +14283,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_LABEL)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
-				ndec->mBase = exp->mDecValue;
+				ndec->mParams = exp->mDecValue;
 				ndec->mOffset = 0;
 				ndec->mFlags |= DTF_LOWER_BYTE;
 				exp->mDecValue = ndec;
@@ -14291,7 +14291,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_LABEL_REF)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
-				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mParams = exp->mDecValue->mParams;
 				ndec->mOffset = exp->mDecValue->mOffset;
 				ndec->mFlags |= DTF_LOWER_BYTE;
 				exp->mDecValue = ndec;
@@ -14299,7 +14299,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_VARIABLE)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-				ndec->mBase = exp->mDecValue;
+				ndec->mParams = exp->mDecValue;
 				ndec->mOffset = 0;
 				ndec->mFlags |= DTF_LOWER_BYTE;
 				exp->mDecValue = ndec;
@@ -14307,7 +14307,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_VARIABLE_REF)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mParams = exp->mDecValue->mParams;
 				ndec->mOffset = exp->mDecValue->mOffset;
 				ndec->mFlags |= DTF_LOWER_BYTE;
 				exp->mDecValue = ndec;
@@ -14315,7 +14315,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_FUNCTION_REF);
-				ndec->mBase = exp->mDecValue;
+				ndec->mParams = exp->mDecValue;
 				ndec->mOffset = 0;
 				ndec->mFlags |= DTF_LOWER_BYTE;
 				exp->mDecValue = ndec;
@@ -14323,7 +14323,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_FUNCTION_REF)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_FUNCTION_REF);
-				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mParams = exp->mDecValue->mParams;
 				ndec->mOffset = exp->mDecValue->mOffset;
 				ndec->mFlags |= DTF_LOWER_BYTE;
 				exp->mDecValue = ndec;
@@ -14353,7 +14353,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_LABEL)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
-				ndec->mBase = exp->mDecValue;
+				ndec->mParams = exp->mDecValue;
 				ndec->mOffset = 0;
 				ndec->mFlags |= DTF_UPPER_BYTE;
 				exp->mDecValue = ndec;
@@ -14361,7 +14361,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_LABEL_REF)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
-				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mParams = exp->mDecValue->mParams;
 				ndec->mOffset = exp->mDecValue->mOffset;
 				ndec->mFlags |= DTF_UPPER_BYTE;
 				exp->mDecValue = ndec;
@@ -14369,7 +14369,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_VARIABLE)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-				ndec->mBase = exp->mDecValue;
+				ndec->mParams = exp->mDecValue;
 				ndec->mOffset = 0;
 				ndec->mFlags |= DTF_UPPER_BYTE;
 				exp->mDecValue = ndec;
@@ -14377,7 +14377,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_VARIABLE_REF)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
-				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mParams = exp->mDecValue->mParams;
 				ndec->mOffset = exp->mDecValue->mOffset;
 				ndec->mFlags |= DTF_UPPER_BYTE;
 				exp->mDecValue = ndec;
@@ -14385,7 +14385,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_FUNCTION_REF);
-				ndec->mBase = exp->mDecValue;
+				ndec->mParams = exp->mDecValue;
 				ndec->mOffset = 0;
 				ndec->mFlags |= DTF_UPPER_BYTE;
 				exp->mDecValue = ndec;
@@ -14393,7 +14393,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 			else if (exp->mDecValue->mType == DT_FUNCTION_REF)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_FUNCTION_REF);
-				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mParams = exp->mDecValue->mParams;
 				ndec->mOffset = exp->mDecValue->mOffset;
 				ndec->mFlags |= DTF_UPPER_BYTE;
 				exp->mDecValue = ndec;
@@ -14698,7 +14698,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 				if (ilast->mLeft && ilast->mLeft->mDecValue)
 				{
 					if ((ilast->mLeft->mDecValue->mType == DT_CONST_INTEGER && ilast->mLeft->mDecValue->mInteger >= 0 && ilast->mLeft->mDecValue->mInteger < 256) ||
-						(ilast->mLeft->mDecValue->mType == DT_VARIABLE_REF && !(ilast->mLeft->mDecValue->mBase->mFlags & DTF_GLOBAL)) ||
+						(ilast->mLeft->mDecValue->mType == DT_VARIABLE_REF && !(ilast->mLeft->mDecValue->mParams->mFlags & DTF_GLOBAL)) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && !(ilast->mLeft->mDecValue->mFlags & DTF_GLOBAL)) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && (ilast->mLeft->mDecValue->mFlags & DTF_ZEROPAGE)) ||
 						ilast->mLeft->mDecValue->mType == DT_ARGUMENT)
@@ -14784,7 +14784,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 					{
 						Declaration* dv = ilast->mLeft->mDecValue;
 						if (dv->mType == DT_VARIABLE_REF)
-							dv = dv->mBase;
+							dv = dv->mParams;
 						if (dv->mType == DT_ARGUMENT || dv->mType == DT_VARIABLE && !(dv->mFlags & DTF_GLOBAL))
 							mErrors->Error(ilast->mLocation, EWARN_UNDEFINED_ASM_BEHAVIOUR, "changing a local variable from __asm is undefined", dv->mQualIdent);
 					}

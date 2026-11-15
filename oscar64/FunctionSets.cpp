@@ -92,10 +92,10 @@ void FunctionSets::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_VARIABLE_REF)
 			{
-				if (adec->mBase->mFlags & DTF_GLOBAL)
+				if (adec->mParams->mFlags & DTF_GLOBAL)
 				{
-					AnalyzeGlobalVariable(adec->mBase);
-					adec->mBase->mFlags |= DTF_VAR_ALIASING;
+					AnalyzeGlobalVariable(adec->mParams);
+					adec->mParams->mFlags |= DTF_VAR_ALIASING;
 				}
 			}
 			else if (adec->mType == DT_LABEL)
@@ -112,7 +112,7 @@ void FunctionSets::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_FUNCTION_REF)
 			{
-				AnalyzeProcedure(adec->mBase->mValue, adec->mBase);
+				AnalyzeProcedure(adec->mParams->mValue, adec->mParams);
 			}
 			else if (adec->mType == DT_CONST_FUNCTION)
 			{
@@ -127,7 +127,7 @@ void FunctionSets::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 void FunctionSets::AnalyzeGlobalVariable(Declaration* dec)
 {
 	while (dec->mType == DT_VARIABLE_REF)
-		dec = dec->mBase;
+		dec = dec->mParams;
 
 	if (!(dec->mFlags & DTF_ANALYZED))
 	{
@@ -162,9 +162,9 @@ static bool IsFuncType(Declaration* dec)
 Declaration * FunctionSets::Unify(Declaration* ldec, Declaration* rdec)
 {
 	if (ldec && ldec->mType == DT_VARIABLE_REF)
-		ldec = ldec->mBase;
+		ldec = ldec->mParams;
 	if (rdec && rdec->mType == DT_VARIABLE_REF)
-		rdec = rdec->mBase;
+		rdec = rdec->mParams;
 
 	if (ldec && !ldec->mUnion)
 	{
@@ -303,7 +303,7 @@ Declaration* FunctionSets::Analyze(Expression* exp, Declaration* procDec)
 	{
 		Declaration* vdec = exp->mDecValue;
 		while (vdec->mType == DT_VARIABLE_REF)
-			vdec = vdec->mBase;
+			vdec = vdec->mParams;
 
 		if ((vdec->mFlags & DTF_STATIC) || (vdec->mFlags & DTF_GLOBAL))
 		{

@@ -716,12 +716,13 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 
 				if (vp.mBaseValue->mDecValue->mType == DT_VARIABLE_REF)
 				{
-					target->mBase = vp.mBaseValue->mDecValue->mBase;
+					target->mParams = vp.mBaseValue->mDecValue->mParams;
 					target->mOffset = vp.mBaseValue->mDecValue->mOffset;
 				}
 				else
-					target->mBase = vp.mBaseValue->mDecValue;
+					target->mParams = vp.mBaseValue->mDecValue;
 
+				target->mBase = type;
 				target->mOffset += vp.mOffset;
 
 				dec->mValue = new Expression(mLocation, EX_VARIABLE);
@@ -765,7 +766,8 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 		else if (vp.mDecValue)
 		{
 			dec = new Declaration(mLocation, DT_VARIABLE_REF);
-			dec->mBase = vp.mDecValue;
+			dec->mParams = vp.mDecValue;
+			dec->mBase = type;
 			dec->mFlags = 0;
 			dec->mSize = type->mSize;
 			dec->mOffset = vp.mOffset;

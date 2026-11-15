@@ -33552,7 +33552,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 			int s = mIns.Size(), ts = mFalseJump->mIns.Size();
 			if (s > 1 && ts > 0)
 			{
-				if (mIns[s - 2].mType == ASMIT_STA && mIns[s - 2].mMode == ASMIM_ZERO_PAGE &&
+				if (mIns[s - 1].mType == ASMIT_LDA && 
+					mIns[s - 2].mType == ASMIT_STA && mIns[s - 2].mMode == ASMIM_ZERO_PAGE &&
 					mFalseJump->mIns[ts - 1].mType == ASMIT_STA && mFalseJump->mIns[ts - 1].mMode == ASMIM_ZERO_PAGE && mFalseJump->mIns[ts - 1].mAddress == mIns[s - 2].mAddress &&
 					mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_ZERO_PAGE && mFalseJump->mIns[0].mAddress == mIns[s - 2].mAddress)
 				{
@@ -33561,8 +33562,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						mIns[s - 1].mType = ASMIT_LDY;
 						mTrueJump->mIns.Insert(0, mIns[s - 2]);
 						mIns.Remove(s - 2);
+						mFalseJump->mIns[0].mType = ASMIT_STA;
 						mFalseJump->mIns.Remove(ts - 1);
-						mFalseJump->mIns.Remove(0);
 						mExitRequiredRegs += CPU_REG_A;
 						mFalseJump->mExitRequiredRegs += CPU_REG_A;
 						mFalseJump->mEntryRequiredRegs += CPU_REG_A;
@@ -33578,8 +33579,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 						mIns[s - 1].mType = ASMIT_LDX;
 						mTrueJump->mIns.Insert(0, mIns[s - 2]);
 						mIns.Remove(s - 2);
+						mFalseJump->mIns[0].mType = ASMIT_STA;
 						mFalseJump->mIns.Remove(ts - 1);
-						mFalseJump->mIns.Remove(0);
 						mExitRequiredRegs += CPU_REG_A;
 						mFalseJump->mExitRequiredRegs += CPU_REG_A;
 						mFalseJump->mEntryRequiredRegs += CPU_REG_A;
