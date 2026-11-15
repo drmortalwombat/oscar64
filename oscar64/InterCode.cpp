@@ -27700,6 +27700,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimizationIns(int i, const GrowingVar
 			mInstructions[i + 0]->mOperator = IA_AND;
 			mInstructions[i + 0]->mSrc[0].mIntConst = ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
 			mInstructions[i + 0]->mDst.mRange.Reset();
+			// The mask keeps the unshifted width, including bits above a byte.
+			mInstructions[i + 1]->mSrc[0].mType = mInstructions[i + 0]->mDst.mType;
+			mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
 			mInstructions[i + 1]->mSrc[1].mRange.Reset();
 			return true;
 		}
