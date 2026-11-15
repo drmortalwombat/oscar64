@@ -3,6 +3,9 @@ rem @echo off
 @call :test concatenatedstringsizetest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test viewportstructreturnrowtest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test attributeregistertest.c
 @if %errorlevel% neq 0 goto :error
 
