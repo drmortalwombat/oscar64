@@ -1280,7 +1280,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mDecType;
 		return ex->ConstantFold(errors, dataSection);
 	}
-	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
+	// Callback analysis and code generation need the member declaration, not just its storage owner.
+	else if (mType == EX_QUALIFY && !mDecType->IsFunctionType() && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
 	{
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
@@ -1294,7 +1295,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mDecType;
 		return ex;
 	}
-	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE_REF && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
+	else if (mType == EX_QUALIFY && !mDecType->IsFunctionType() && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE_REF && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
 	{
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
