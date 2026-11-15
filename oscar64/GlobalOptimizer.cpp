@@ -1128,9 +1128,9 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_VARIABLE_REF)
 			{
-				if (adec->mBase->mFlags & DTF_GLOBAL)
-					AnalyzeGlobalVariable(adec->mBase);
-				adec->mBase->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+				if (adec->mParams->mFlags & DTF_GLOBAL)
+					AnalyzeGlobalVariable(adec->mParams);
+				adec->mParams->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
 			}
 			else if (adec->mType == DT_LABEL)
 			{
@@ -1148,9 +1148,9 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_FUNCTION_REF)
 			{
-				adec->mBase->mOptFlags |= OPTF_VAR_USED;
-				AnalyzeProcedure(adec->mBase->mValue, adec->mBase);
-				RegisterProc(adec->mBase);
+				adec->mParams->mOptFlags |= OPTF_VAR_USED;
+				AnalyzeProcedure(adec->mParams->mValue, adec->mParams);
+				RegisterProc(adec->mParams);
 			}
 			else if (adec->mType == DT_CONST_FUNCTION)
 			{
@@ -1168,7 +1168,7 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 void GlobalOptimizer::AnalyzeGlobalVariable(Declaration* dec)
 {
 	while (dec->mType == DT_VARIABLE_REF)
-		dec = dec->mBase;
+		dec = dec->mParams;
 
 	if (!(dec->mOptFlags & OPTF_ANALYZED))
 	{
@@ -1303,7 +1303,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 	{
 		Declaration* vdec = exp->mDecValue;
 		if (vdec->mType == DT_VARIABLE_REF)
-			vdec = vdec->mBase;
+			vdec = vdec->mParams;
 
 		if ((vdec->mFlags & DTF_STATIC) || (vdec->mFlags & DTF_GLOBAL))
 		{

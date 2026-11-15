@@ -613,9 +613,9 @@ Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataS
 			if (mDecValue->mType == DT_VARIABLE && (mDecValue->mFlags & DTF_CONST) &&
 				mDecValue->mValue && mDecValue->mValue->mType == EX_CONSTANT)
 				return mDecValue->mValue;
-			else if (mDecValue->mType == DT_VARIABLE_REF && (mDecValue->mFlags & DTF_CONST) && mDecValue->mBase->mValue && mDecValue->mBase->mValue->mType == EX_CONSTANT && mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
+			else if (mDecValue->mType == DT_VARIABLE_REF && (mDecValue->mFlags & DTF_CONST) && mDecValue->mParams->mValue && mDecValue->mParams->mValue->mType == EX_CONSTANT && mDecValue->mParams->mValue->mDecValue->mType == DT_CONST_STRUCT)
 			{
-				Declaration* mdec = mDecValue->mBase->mValue->mDecValue->mParams;
+				Declaration* mdec = mDecValue->mParams->mValue->mDecValue->mParams;
 				int	coffset = mDecValue->mOffset;
 				while (mdec)
 				{
@@ -852,17 +852,19 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		if (vdec->mType == DT_VARIABLE_REF)
 		{
 			dec->mFlags = vdec->mFlags;
-			dec->mBase = vdec->mBase;
+			dec->mParams = vdec->mParams;
 			dec->mSize = mLeft->mLeft->mDecType->mBase->mSize - int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
 			dec->mOffset = int(mLeft->mRight->mDecValue->mInteger) * dec->mSize + vdec->mOffset;
 		}
 		else
 		{
 			dec->mFlags = vdec->mFlags;
-			dec->mBase = vdec;
+			dec->mParams = vdec;
 			dec->mSize = mLeft->mLeft->mDecType->mBase->mSize - int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
 			dec->mOffset = int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
 		}
+		dec->mBase = mLeft->mLeft->mDecType;
+
 		ex->mDecValue = dec;
 		ex->mDecType = mLeft->mLeft->mDecType;
 		return ex;
@@ -1141,7 +1143,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			if (pdec->mType == DT_VARIABLE_REF)
 			{
 				ileft = pdec->mOffset;
-				pdec = pdec->mBase;
+				pdec = pdec->mParams;
 			}
 
 			switch (mToken)
@@ -1157,7 +1159,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			Expression* vex = new Expression(mLocation, EX_VARIABLE);
 			Declaration* vdec = new Declaration(mLocation, DT_VARIABLE_REF);
 			vdec->mFlags = pdec->mFlags;
-			vdec->mBase = pdec;
+			vdec->mParams = pdec;
+			vdec->mBase = mLeft->mDecType->mBase;
 			vdec->mSize = pdec->mBase->mSize;			
 			vdec->mOffset = ileft;
 			vex->mDecValue = vdec;
@@ -1247,7 +1250,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mDecValue;
+		dec->mParams = mLeft->mDecValue;
+		dec->mBase = mLeft->mDecType;
 		dec->mSize = mLeft->mDecType->mBase->mSize - int(mRight->mDecValue->mInteger) * dec->mSize;
 		dec->mOffset = int(mRight->mDecValue->mInteger) * dec->mSize;
 		ex->mDecValue = dec;
@@ -1259,7 +1263,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mDecValue->mBase;
+		dec->mParams = mLeft->mDecValue->mParams;
+		dec->mBase = mLeft->mDecType;
 		dec->mSize = mLeft->mDecType->mBase->mSize - int(mRight->mDecValue->mInteger) * dec->mSize;
 		dec->mOffset = mLeft->mDecValue->mOffset + int(mRight->mDecValue->mInteger) * dec->mSize;
 		ex->mDecValue = dec;
@@ -1285,7 +1290,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mDecValue;
+		dec->mParams = mLeft->mDecValue;
+		dec->mBase = mDecValue->mBase;
 		dec->mOffset = mDecValue->mOffset;
 		dec->mSize = mDecValue->mSize;
 		dec->mBits = mDecValue->mBits;
@@ -1299,7 +1305,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mDecValue->mBase;
+		dec->mParams = mLeft->mDecValue->mParams;
+		dec->mBase = mDecValue->mBase;
 		dec->mOffset = mLeft->mDecValue->mOffset + mDecValue->mOffset;
 		dec->mSize = mDecValue->mSize;
 		dec->mBits = mDecValue->mBits;
@@ -1317,7 +1324,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mDecValue;
+		dec->mParams = mLeft->mDecValue;
+		dec->mBase = mLeft->mDecValue->mBase->mBase;
 		dec->mOffset = offset;
 		dec->mSize = mDecType->mSize;
 		ex->mDecValue = dec;
@@ -1333,7 +1341,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mDecValue->mBase;
+		dec->mParams = mLeft->mDecValue->mParams;
+		dec->mBase = mDecType;
 		dec->mOffset = offset;
 		dec->mSize = mDecType->mSize;
 		ex->mDecValue = dec;
@@ -1611,37 +1620,20 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 
 			return pdec;
 		}
-		else if (mType == DT_VARIABLE_REF)
+		else if (mType == DT_VARIABLE_REF && mBase->mType == DT_TYPE_ARRAY)
 		{
-			Declaration* vtype = mBase->mBase;
-			while (vtype && vtype->mType == DT_TYPE_STRUCT)
-			{
-				Declaration* dec = vtype->mParams;
-				while (dec && dec->mOffset != mOffset)
-					dec = dec->mNext;
-				if (dec)
-					vtype = dec->mBase;
-				else
-					vtype = nullptr;
-			}
+			Expression* ex = new Expression(mLocation, EX_VARIABLE);
+			ex->mDecType = mBase;
+			ex->mDecValue = this;
 
-			if (vtype && vtype->mType == DT_TYPE_ARRAY)
-			{
-				Expression* ex = new Expression(mLocation, EX_VARIABLE);
-				ex->mDecType = mBase->mBase;
-				ex->mDecValue = this;
+			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_POINTER;
+			pdec->mValue = ex;
+			pdec->mBase = ntype;
+			pdec->mSize = 2;
+			pdec->mOffset = 0;
 
-				Declaration* pdec = this->Clone();
-				pdec->mType = DT_CONST_POINTER;
-				pdec->mValue = ex;
-				pdec->mBase = ntype;
-				pdec->mSize = 2;
-				pdec->mOffset = 0;
-
-				return pdec;
-			}
-			else
-				return this;
+			return pdec;
 		}
 		else
 			return this;
