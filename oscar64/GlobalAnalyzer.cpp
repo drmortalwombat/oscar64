@@ -369,6 +369,23 @@ bool GlobalAnalyzer::MarkCycle(Declaration* rootDec, Declaration* procDec)
 		procDec->mFlags |= DTF_FUNC_ANALYZING;
 
 		bool	cycle = false;
+
+		// Follow the same possible indirect targets as fastcall allocation.
+		if (procDec->mType == DT_TYPE_FUNCTION)
+		{
+			for (int i = 0; i < mVariableFunctions.Size(); i++)
+			{
+				Declaration* vf = mVariableFunctions[i];
+
+				if ((mCompilerOptions & COPT_OPTIMIZE_FUNCTION_POINTER)
+					? Find(vf) == Find(procDec) : vf->mBase->IsSame(procDec))
+				{
+					if (MarkCycle(rootDec, vf))
+						cycle = true;
+				}
+			}
+		}
+
 		for (int i = 0; i < procDec->mCalled.Size(); i++)
 		{
 			if (MarkCycle(rootDec, procDec->mCalled[i]))

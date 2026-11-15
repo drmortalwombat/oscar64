@@ -174,6 +174,9 @@ rem @echo off
 @call :test copyinitmove.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test attributeregistertest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test fastcalltest.c
 @if %errorlevel% neq 0 goto :error
 
