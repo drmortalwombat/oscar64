@@ -32320,15 +32320,6 @@ void InterCodeProcedure::Close(void)
 		ResetVisited();
 		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);
 
-		if (mCallsFunctionPointer)
-		{
-			for (int i = 0; i < mCalledFunctions.Size(); i++)
-			{
-				if (mCalledFunctions[i]->mLinkerObject && mCalledFunctions[i]->mLinkerObject->mStackSection)
-					mLinkerObject->mStackSection->mSections.Push(mCalledFunctions[i]->mLinkerObject->mStackSection);
-			}
-		}
-
 		GrowingInstructionPtrArray	pipa(nullptr);
 		ResetVisited();
 		mEntryBlock->LinkerObjectForwarding(pipa);
@@ -32357,6 +32348,17 @@ void InterCodeProcedure::Close(void)
 		mLinkerObject->mStackSection->mSections.Push(mModule->mParamLinkerSection);
 		ResetVisited();
 		mEntryBlock->CollectStaticStackDependencies(mLinkerObject);
+	}
+
+	// Argument control flow can leave a known callee in a temporary, even when
+	// the source contains no function-pointer call. Retain all known stack edges.
+	if (mLinkerObject->mStackSection)
+	{
+		for (int i = 0; i < mCalledFunctions.Size(); i++)
+		{
+			if (mCalledFunctions[i]->mLinkerObject && mCalledFunctions[i]->mLinkerObject->mStackSection)
+				mLinkerObject->mStackSection->mSections.Push(mCalledFunctions[i]->mLinkerObject->mStackSection);
+		}
 	}
 
 #endif
