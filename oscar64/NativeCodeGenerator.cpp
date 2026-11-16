@@ -38844,7 +38844,8 @@ bool NativeCodeBasicBlock::MoveCallingParamsDown(void)
 				else if (i + 3 < mIns.Size() &&
 					mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress + 1 &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1)
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 				{
 					if (MoveCallingParamPairDown(i))
 						changed = true;
