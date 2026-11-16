@@ -96,6 +96,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 					ins->mDst.mRange.LimitMin(0);
 					ins->mDst.mRange.LimitMax(limit - 1);
 				}
+				else if (v.mType->mFlags & DTF_RANGE_LIMITED)
+				{
+					ins->mDst.mRange.LimitMin(int64max(v.mType->MinInteger(), v.mType->mMinValue));
+					ins->mDst.mRange.LimitMax(int64min(v.mType->MaxInteger(), v.mType->mMaxValue));
+				}
 #if 1
 				else if (v.mType->mSize < 4)
 				{
@@ -2671,6 +2676,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
 			else if (exp->mDecType->IsFunctionType())
+				return ExValue(exp->mDecValue->mBase, ins->mDst.mTemp, ref, lbits, lshift);
+			else if (exp->mDecValue->mBase->mFlags & DTF_RANGE_LIMITED)
 				return ExValue(exp->mDecValue->mBase, ins->mDst.mTemp, ref, lbits, lshift);
 			else
 				return ExValue(exp->mDecType, ins->mDst.mTemp, ref, lbits, lshift);

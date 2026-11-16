@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"returnedStructBool_interval"
+#define CHECK_FUNC			"main"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -6551,13 +6551,14 @@ bool InterInstruction::ConstantFolding(void)
 			{
 				mCode = IC_CONSTANT;
 				mConst = mSrc[ci];
+				mNumOperands = 0;
 			}
 			else
 			{
 				mCode = IC_LOAD_TEMPORARY;
 				mSrc[0] = mSrc[ci];
+				mNumOperands = 1;
 			}
-			mNumOperands = 1;
 			return true;
 		}
 		break;

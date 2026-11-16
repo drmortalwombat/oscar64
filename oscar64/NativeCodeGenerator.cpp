@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"te_ins"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -12547,7 +12547,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				else if (ins->mSrc[1].IsUByte() && ins->mSrc[1].mRange.mMaxValue < ins->mSrc[0].mRange.mMaxValue && !CheckIsInAccu(BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]))
 				{
 					if (sins0)
-						LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
+						LoadValueToReg(proc, sins0, BC_REG_ACCU, nullptr, nullptr);
 					else
 					{
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -12558,7 +12558,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 					if (sins1)
 					{
-						LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
+						LoadValueToReg(proc, sins1, BC_REG_WORK, nullptr, nullptr);
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
 					}
 					else
@@ -54794,9 +54794,11 @@ bool NativeCodeBasicBlock::OptimizeSimpleForLoop(void)
 
 				if (!pblock->mFalseJump && eblock->mNumEntries == 1)
 				{
-					if (mIns.Size() == 2 && mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && mIns[1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[1].mMode) && !(mIns[0].mLive & LIVE_CPU_REG_Y) && !lbody->ReferencesYReg())
+					if (mIns.Size() == 2 && mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && 
+						mIns[1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[1].mMode) && !(mIns[0].mLive & LIVE_CPU_REG_Y) && !lbody->ReferencesYReg() && lbody->ChangesZeroPage(mIns[0].mAddress))
 					{
 						int		reg = mIns[0].mAddress;
+
 						bool	fail = false;
 
 						for (int i = 0; !fail && i < lbody->mIns.Size(); i++)
@@ -54868,6 +54870,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleForLoop(void)
 
 							pblock->mIns.Push(NativeCodeInstruction(mIns[0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, reg));
 							eblock->mIns.Insert(0, NativeCodeInstruction(mIns[0].mIns, ASMIT_STY, ASMIM_ZERO_PAGE, reg));
+							eblock->mIns.Insert(1, NativeCodeInstruction(mIns[0].mIns, ASMIT_TYA));
 
 							changed = true;
 

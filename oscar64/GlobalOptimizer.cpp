@@ -25,6 +25,7 @@ static const uint64 OPTF_CONST_FUNCTION = (1ULL << 16);
 static const uint64 OPTF_VAR_RANGE_LIMITED = (1ULL << 17);
 static const uint64 OPTF_VAR_COPY = (1ULL << 18);
 static const uint64 OPTF_VAR_INDEXED = (1ULL << 19);
+static const uint64 OPTF_VAR_ALIAS = (1ULL << 20);
 
 GlobalOptimizer::GlobalOptimizer(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)
@@ -1049,7 +1050,7 @@ bool GlobalOptimizer::Optimize(void)
 						}
 
 						if (pdec->mOptFlags & OPTF_VAR_RANGE_LIMITED)
-							pdec->mFlags |= DTF_FPARAM_RANGE_LIMITED;
+							pdec->mFlags |= DTF_RANGE_LIMITED;
 
 						pdec->mOptFlags = 0;
 						pdec = pdec->mNext;
@@ -1083,7 +1084,24 @@ bool GlobalOptimizer::Optimize(void)
 			}
 		}
 	}
+#if 0
+	for (int i = 0; i < mGlobalVariables.Size(); i++)
+	{
+		Declaration* var = mGlobalVariables[i];
 
+		if ((var->mOptFlags & OPTF_VAR_RANGE_LIMITED) && !(var->mOptFlags & OPTF_VAR_ALIAS))
+		{
+#if DUMP_OPTS
+			printf("Range variable %d : %s, %lld..%lld\n", i, var->mIdent->mString, var->mMinValue, var->mMaxValue);
+#endif
+			var->mBase = var->mBase->Clone();
+			var->mBase->mFlags |= DTF_RANGE_LIMITED;
+			var->mBase->mMinValue = var->mMinValue;
+			var->mBase->mMaxValue = var->mMaxValue;
+		}
+
+	}
+#endif
 	return changed;
 }
 
@@ -1130,7 +1148,7 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			{
 				if (adec->mParams->mFlags & DTF_GLOBAL)
 					AnalyzeGlobalVariable(adec->mParams);
-				adec->mParams->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+				adec->mParams->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS | OPTF_VAR_ALIAS;
 			}
 			else if (adec->mType == DT_LABEL)
 			{
@@ -1140,7 +1158,7 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			{
 				if (adec->mFlags & DTF_GLOBAL)
 					AnalyzeGlobalVariable(adec);
-				adec->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+				adec->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS | OPTF_VAR_ALIAS;
 			}
 			else if (adec->mType == DT_ARGUMENT)
 			{
@@ -1184,7 +1202,23 @@ void GlobalOptimizer::AnalyzeGlobalVariable(Declaration* dec)
 		}
 
 		if (dec->mFlags & DTF_VOLATILE)
-			dec->mOptFlags |= OPTF_VAR_ADDRESS;
+			dec->mOptFlags |= OPTF_VAR_ADDRESS | OPTF_VAR_ALIAS;
+		if ((dec->mFlags & DTF_GLOBAL) && dec->mBase->IsIntegerType())
+		{
+			if (dec->mValue)
+			{
+				if (dec->mValue->mType == EX_CONSTANT)
+				{
+					dec->mOptFlags |= OPTF_VAR_RANGE_LIMITED;
+					dec->mMinValue = dec->mMaxValue = dec->mValue->mDecValue->mInteger;
+				}
+			}
+			else
+			{
+				dec->mOptFlags |= OPTF_VAR_RANGE_LIMITED;
+				dec->mMinValue = dec->mMaxValue = 0;
+			}
+		}
 
 		mGlobalVariables.Push(dec);
 
@@ -1319,9 +1353,14 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		if (flags & ANAFL_RHS)
 			vdec->mOptFlags |= OPTF_VAR_USED;
 		if (flags & ANAFL_LHS)
+		{
 			vdec->mOptFlags |= OPTF_VAR_ADDRESS;
+			vdec->mOptFlags &= ~OPTF_VAR_RANGE_LIMITED;
+		}
 		if (vdec->mBase->IsReference() && (flags & ANAFL_ASSIGN))
 			vdec->mOptFlags |= OPTF_VAR_USED;
+		if (flags & ANAFL_ADDRESS)
+			vdec->mOptFlags |= OPTF_VAR_ALIAS;
 
 		if (vdec->mType == DT_ARGUMENT && (flags & ANAFL_LHS))
 		{
@@ -1340,7 +1379,28 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		if (exp->mToken == TK_ASSIGN)
 		{
 			if (exp->mType == EX_ASSIGNMENT)
-				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_ASSIGN | ANAFL_COPY | flags);
+			{
+				if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue->mType == DT_VARIABLE && exp->mLeft->mDecValue->mBase->IsIntegerType() && exp->mRight->mType == EX_CONSTANT && (exp->mLeft->mDecValue->mFlags & DTF_GLOBAL))
+				{
+					Declaration* vdec = exp->mLeft->mDecValue;
+
+					AnalyzeGlobalVariable(vdec);
+					procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
+
+					if (vdec->mOptFlags & OPTF_VAR_RANGE_LIMITED)
+					{
+						vdec->mMinValue = int64min(vdec->mMinValue, exp->mRight->mDecValue->mInteger);
+						vdec->mMaxValue = int64max(vdec->mMaxValue, exp->mRight->mDecValue->mInteger);
+					}
+
+					vdec->mOptFlags |= OPTF_VAR_COPY;
+					vdec->mOptFlags |= OPTF_VAR_ADDRESS;
+
+					ldec = vdec;
+				}
+				else
+					ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_ASSIGN | ANAFL_COPY | flags);
+			}
 			else
 				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_COPY | flags);
 		}
@@ -1348,7 +1408,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_COPY | flags);
 
 		if (exp->mLeft->mDecType->IsReference())
-			rdec = Analyze(exp->mRight, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_COPY);
+			rdec = Analyze(exp->mRight, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_COPY | ANAFL_ADDRESS);
 		else
 			rdec = Analyze(exp->mRight, procDec, ANAFL_RHS | ANAFL_COPY);
 
@@ -1382,6 +1442,9 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 	case EX_POSTFIX:
 		break;
 	case EX_POSTINCDEC:
+		if (exp->mLeft->mType == EX_VARIABLE)
+			exp->mLeft->mDecValue->mFlags &= ~OPTF_VAR_RANGE_LIMITED;
+
 		return Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS);
 	case EX_INDEX:
 		if (exp->mDecType->mFlags & DTF_VOLATILE)
@@ -1598,7 +1661,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 				{
 					if (!(procDec->mBase->mFlags & DTF_VIRTUAL) && pdec && pex && pex->mType == EX_VARIABLE && pex->mDecValue->mType == DT_ARGUMENT && pex->mDecValue->mBase->IsReference() && !pex->mDecValue->mForwardParam && !(pex->mDecValue->mOptFlags & OPTF_VAR_NO_FORWARD))
 					{
-						pex->mDecValue->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+						pex->mDecValue->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS | OPTF_VAR_ALIAS;
 						pex->mDecValue->mForwardParam = pdec;
 						pex->mDecValue->mForwardCall = ldec;
 					}
