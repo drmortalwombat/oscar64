@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"main"
+#define CHECK_FUNC			"ptr_insert"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -17049,6 +17049,33 @@ bool InterCodeBasicBlock::IsTempReferencedInRange(int from, int to, int temp)
 	return false;
 }
 
+bool InterCodeBasicBlock::IsTempExtendedInt(int dst, int src, InterOperator op) const
+{
+	for (int i = mInstructions.Size() - 1; i >= 0; i--)
+	{
+		if (mInstructions[i]->mDst.mTemp == dst)
+		{
+			if (mInstructions[i]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i]->mOperator == op)
+			{
+				if (mInstructions[i]->mSrc[0].mTemp == src)
+					return true;
+				if (i > 0 && mInstructions[i - 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i - 1]->mDst.mTemp == src &&
+					mInstructions[i - 1]->mSrc[0].mTemp == mInstructions[i]->mSrc[0].mTemp)
+					return true;
+			}
+
+			return false;
+		}
+		else if (mInstructions[i]->mDst.mTemp == src)
+			return false;
+	}
+
+	if (mEntryBlocks.Size() == 1)
+		return mEntryBlocks[0]->IsTempExtendedInt(dst, src, op);
+
+	return false;
+}
+
 InterInstruction* InterCodeBasicBlock::FindTempOrigin(int temp) const
 {
 	for (int i = mInstructions.Size() - 1; i >= 0; i--)
@@ -22013,6 +22040,52 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 									lcs[k].mInc->mCode = IC_NONE;
 									lcs[k].mInc->mDst.mTemp = -1;
 									lcs[k].mInc->mNumOperands = 0;
+								}
+							}
+						}
+					}
+					else if (exits.Size() == 0 && eblock->mInstructions.Size() >= 4)
+					{
+						int sz = eblock->mInstructions.Size();
+
+						if (eblock->mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && eblock->mInstructions[sz - 1]->mSrc[0].mTemp == eblock->mInstructions[sz - 2]->mDst.mTemp &&
+							eblock->mInstructions[sz - 3]->mCode == IC_BINARY_OPERATOR && eblock->mInstructions[sz - 3]->mOperator == IA_ADDU &&
+							eblock->mInstructions[sz - 3]->mSrc[1].mTemp == eblock->mInstructions[sz - 3]->mDst.mTemp &&
+							eblock->mInstructions[sz - 3]->mSrc[0].mTemp < 0 &&
+							eblock->mInstructions[sz - 3]->mDst.mType == IT_INT8 &&
+
+							eblock->mInstructions[sz - 4]->mCode == IC_BINARY_OPERATOR && eblock->mInstructions[sz - 4]->mOperator == IA_ADDS &&
+							eblock->mInstructions[sz - 4]->mSrc[1].mTemp == eblock->mInstructions[sz - 4]->mDst.mTemp &&
+							eblock->mInstructions[sz - 4]->mSrc[0].mTemp < 0 && eblock->mInstructions[sz - 3]->mSrc[0].mIntConst == eblock->mInstructions[sz - 4]->mSrc[0].mIntConst &&
+							eblock->mInstructions[sz - 4]->mDst.mType == IT_INT16 &&
+
+							!eblock->IsTempModifiedInRange(0, sz - 4, eblock->mInstructions[sz - 3]->mDst.mTemp) &&
+							!eblock->IsTempModifiedInRange(0, sz - 4, eblock->mInstructions[sz - 4]->mDst.mTemp))
+						{
+							int	tb = eblock->mInstructions[sz - 3]->mDst.mTemp, ti = eblock->mInstructions[sz - 4]->mDst.mTemp;
+
+							if (mLoopPrefix->IsTempExtendedInt(ti, tb, IA_EXT8TO16U))
+							{
+								int i = 0;
+								while (i < body.Size() && (body[i] == eblock || !body[i]->IsTempModified(tb) && !body[i]->IsTempModified(ti)))
+									i++;
+								if (i == body.Size())
+								{
+									eblock->mInstructions[sz - 4]->mCode = IC_NONE;
+									eblock->mInstructions[sz - 4]->mNumOperands = 0;
+									eblock->mInstructions[sz - 4]->mDst.mTemp = -1;
+										
+									InterInstruction* ins = new InterInstruction(eblock->mInstructions[sz - 4]->mLocation, IC_CONVERSION_OPERATOR);
+									ins->mOperator = IA_EXT8TO16U;
+									ins->mNumOperands = 1;
+									ins->mDst.mType = IT_INT16;
+									ins->mDst.mTemp = ti;
+									ins->mSrc[0].mType = IT_INT8;
+									ins->mSrc[0].mTemp = tb;
+									ins->mSrc[0].mRange = eblock->mInstructions[sz - 3]->mSrc[1].mRange;
+									ins->mDst.mRange = eblock->mInstructions[sz - 3]->mSrc[1].mRange;
+
+									eblock->mInstructions.Insert(0, ins);
 								}
 							}
 						}

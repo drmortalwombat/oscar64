@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test lineedittest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test concatenatedstringsizetest.c
 @if %errorlevel% neq 0 goto :error
 

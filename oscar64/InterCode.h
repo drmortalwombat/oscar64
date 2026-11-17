@@ -702,6 +702,7 @@ public:
 	bool IsInsModified(const InterInstruction* ins);
 	bool IsInsModifiedInRange(int from, int to, const InterInstruction* ins);
 
+	bool IsTempExtendedInt(int dst, int src, InterOperator op) const;
 	InterInstruction* FindTempOrigin(int temp) const;
 	InterInstruction* FindTempOriginSinglePath(int temp) const;
 

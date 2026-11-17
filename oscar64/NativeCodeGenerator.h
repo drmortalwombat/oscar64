@@ -638,6 +638,7 @@ public:
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
 	bool MoveASLMemUp(int start);
+	bool MoveIncDecUp(int at);
 	bool CombineImmediateADCUp(int at);
 	bool CombineImmediateADCUpX(int at);
 	bool MoveTXADCDown(int at);
