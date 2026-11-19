@@ -191,7 +191,7 @@ float pow(float p, float q)
 
 float sqrt(float f)
 {
-	if (f >= 0)
+	if (f > 0)
 	{
 		union {
 			float	f;
@@ -209,8 +209,10 @@ float sqrt(float f)
 		fq = 0.5 * (fq + f / fq);
 		return fq;
 	}
-	else
+	else if (f < 0)
 		return 0.0;
+	else
+		return f;
 }
 
 
