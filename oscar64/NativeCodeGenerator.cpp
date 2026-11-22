@@ -14534,10 +14534,12 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 	}
 	else if (ins->mSrc[0].mType == IT_POINTER)
 	{
-		// Special case counting to 256
+		// A low-byte comparison is sufficient if the range and constant span fewer than 256 bytes.
 		if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_ABSOLUTE && (op == IA_CMPEQ || op == IA_CMPNE) &&
 			ins->mSrc[1].mRange.IsBound() && ins->mSrc[1].mMemoryBase == IM_ABSOLUTE &&
-			ins->mSrc[1].mRange.mMaxValue - ins->mSrc[1].mRange.mMinValue < 256)
+			ins->mSrc[1].mRange.mMaxValue - ins->mSrc[1].mRange.mMinValue < 256 &&
+			ins->mSrc[0].mIntConst - ins->mSrc[1].mRange.mMinValue < 256 &&
+			ins->mSrc[1].mRange.mMaxValue - ins->mSrc[0].mIntConst < 256)
 		{
 			if (ins->mSrc[1].mTemp < 0)
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff));

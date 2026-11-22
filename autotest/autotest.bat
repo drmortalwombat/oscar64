@@ -90,6 +90,9 @@ rem @echo off
 @call :test looppointerbasetest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test pagealignedarraypointertest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test rolrortest.cpp
 @if %errorlevel% neq 0 goto :error
 
