@@ -604,6 +604,8 @@ public:
 
 	bool EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue);
 
+	bool IsOnlyConsumerOf(int at, int temp);
+
 	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
 	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps, bool loops);
 	bool SimplifyPointerOffsets(void);

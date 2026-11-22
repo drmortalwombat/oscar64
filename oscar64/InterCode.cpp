@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"ptr_insert"
+#define CHECK_FUNC			"mask"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -14442,6 +14442,21 @@ bool InterCodeBasicBlock::ForwardShortLoadStoreOffsets(void)
 	return changed;
 }
 
+bool InterCodeBasicBlock::IsOnlyConsumerOf(int at, int temp)
+{
+	while (at > 0)
+	{
+		at--;
+		InterInstruction* ins = mInstructions[at];
+		if (ins->mDst.mTemp == temp)
+			return true;
+		for (int i = 0; i < ins->mNumOperands; i++)
+			if (ins->mSrc[i].mTemp == temp)
+				return false;
+	}
+	return false;
+}
+
 bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps, bool loops)
 {
 	bool	changed = false;
@@ -14720,6 +14735,13 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ai0->mDst.mRange = ai0->mSrc[0].mRange;
 								ai0->mNumOperands = 1;
 							}
+							else
+							{
+								if (ai0->mSrc[1].mRange.IsBound())
+									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+							}
+							ins->mSrc[0].mRange = ai0->mDst.mRange;
+
 							ai1->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
 							if (ai1->mSrc[0].mIntConst == 0)
 							{
@@ -14728,6 +14750,15 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ai1->mDst.mRange = ai1->mSrc[0].mRange;
 								ai1->mNumOperands = 1;
 							}
+							else
+							{
+								if (ai1->mSrc[1].mRange.IsBound())
+									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+							}
+							ins->mSrc[1].mRange = ai1->mDst.mRange;
+							ins->mDst.mRange.Reset();
+							sins->mSrc[1].mRange.Reset();
+
 							mInstructions.Insert(i + 1, sins);
 
 							changed = true;
@@ -14771,7 +14802,8 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						InterInstruction* ai0 = ltvalue[ins->mSrc[0].mTemp], * ai1 = ltvalue[ins->mSrc[1].mTemp];
 						if (
 							ai0->mCode == IC_BINARY_OPERATOR && ai0->mOperator == IA_SHL && ai0->mSrc[0].mTemp < 0 &&
-							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == IA_SHL && ai1->mSrc[0].mTemp < 0)
+							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == IA_SHL && ai1->mSrc[0].mTemp < 0 &&
+							IsOnlyConsumerOf(i, ai0->mDst.mTemp) && IsOnlyConsumerOf(i, ai1->mDst.mTemp))
 						{
 							if (spareTemps + 2 >= ltvalue.Size())
 								return true;
@@ -14794,6 +14826,13 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ai0->mDst.mRange = ai0->mSrc[0].mRange;
 								ai0->mNumOperands = 1;
 							}
+							else
+							{
+								if (ai0->mSrc[1].mRange.IsBound())
+									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+							}
+							ins->mSrc[0].mRange = ai0->mDst.mRange;
+
 							ai1->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
 							if (ai1->mSrc[0].mIntConst == 0)
 							{
@@ -14802,6 +14841,15 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ai1->mDst.mRange = ai1->mSrc[0].mRange;
 								ai1->mNumOperands = 1;
 							}
+							else
+							{
+								if (ai1->mSrc[1].mRange.IsBound())
+									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+							}
+							ins->mSrc[1].mRange = ai1->mDst.mRange;
+							ins->mDst.mRange.Reset();
+							sins->mSrc[1].mRange.Reset();
+
 							mInstructions.Insert(i + 1, sins);
 
 							changed = true;
@@ -14831,7 +14879,8 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						InterInstruction* ai0 = ltvalue[ins->mSrc[0].mTemp], * ai1 = ltvalue[ins->mSrc[1].mTemp];
 						if (
 							ai0->mCode == IC_BINARY_OPERATOR && (ai0->mOperator == IA_SHL || ai0->mOperator == IA_SHR) && ai0->mSrc[0].mTemp < 0 &&
-							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == ai0->mOperator && ai1->mSrc[0].mTemp < 0)
+							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == ai0->mOperator && ai1->mSrc[0].mTemp < 0 &&
+							IsOnlyConsumerOf(i, ai0->mDst.mTemp) && IsOnlyConsumerOf(i, ai1->mDst.mTemp))
 						{
 							if (spareTemps + 2 >= ltvalue.Size())
 								return true;
@@ -14854,6 +14903,13 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ai0->mDst.mRange = ai0->mSrc[0].mRange;
 								ai0->mNumOperands = 1;
 							}
+							else
+							{
+								if (ai0->mSrc[1].mRange.IsBound())
+									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+							}
+							ins->mSrc[0].mRange = ai0->mDst.mRange;
+
 							ai1->mSrc[0].mIntConst -= sins->mSrc[0].mIntConst;
 							if (ai1->mSrc[0].mIntConst == 0)
 							{
@@ -14862,6 +14918,15 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ai1->mDst.mRange = ai1->mSrc[0].mRange;
 								ai1->mNumOperands = 1;
 							}
+							else
+							{
+								if (ai1->mSrc[1].mRange.IsBound())
+									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+							}
+							ins->mSrc[1].mRange = ai1->mDst.mRange;
+							ins->mDst.mRange.Reset();
+							sins->mSrc[1].mRange.Reset();
+
 							mInstructions.Insert(i + 1, sins);
 
 							changed = true;
