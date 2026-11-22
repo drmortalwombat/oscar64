@@ -52943,62 +52943,65 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		changed = true;
 	}
 #if 1
-	sz = mIns.Size();
-	int xi = 0, yi = 0;
-	while (xi < sz && !mIns[xi].ChangesXReg())
-		xi++;
-	while (yi < sz && !mIns[yi].ChangesYReg())
-		yi++;
-	if (xi < sz && yi < sz && !ChangesXReg(xi + 1) && !ChangesYReg(yi + 1))
+	if (pblock)
 	{
-		if (mIns[xi].mType == ASMIT_INX && mIns[yi].mType == ASMIT_INY || mIns[xi].mType == ASMIT_DEX && mIns[yi].mType == ASMIT_DEY)
+		sz = mIns.Size();
+		int xi = 0, yi = 0;
+		while (xi < sz && !mIns[xi].ChangesXReg())
+			xi++;
+		while (yi < sz && !mIns[yi].ChangesYReg())
+			yi++;
+		if (xi < sz && yi < sz && !ChangesXReg(xi + 1) && !ChangesYReg(yi + 1))
 		{
-			bool	usex = true, usey = true;
-			if ((mIns[xi].mLive & LIVE_CPU_REG_Z) || exitBlock->mEntryRequiredRegs[CPU_REG_X])
-				usey = false;
-			if ((mIns[yi].mLive & LIVE_CPU_REG_Z) || exitBlock->mEntryRequiredRegs[CPU_REG_Y])
-				usex = false;
-
-			for (int i = 0; i < mIns.Size(); i++)
+			if (mIns[xi].mType == ASMIT_INX && mIns[yi].mType == ASMIT_INY || mIns[xi].mType == ASMIT_DEX && mIns[yi].mType == ASMIT_DEY)
 			{
-				if (mIns[i].ReferencesYReg() && !mIns[i].CanSwapXYReg()) usex = false;
-				if (mIns[i].ReferencesXReg() && !mIns[i].CanSwapXYReg()) usey = false;
-			}
+				bool	usex = true, usey = true;
+				if ((mIns[xi].mLive & LIVE_CPU_REG_Z) || exitBlock->mEntryRequiredRegs[CPU_REG_X])
+					usey = false;
+				if ((mIns[yi].mLive & LIVE_CPU_REG_Z) || exitBlock->mEntryRequiredRegs[CPU_REG_Y])
+					usex = false;
 
-			if (usex || usey)
-			{
-				int	valx = pblock->RetrieveXValue(pblock->mIns.Size() - 1);
-				int	valy = pblock->RetrieveYValue(pblock->mIns.Size() - 1);
-
-				if (valx >= 0 && valx == valy)
+				for (int i = 0; i < mIns.Size(); i++)
 				{
-					if (ReferencesYReg(xi + 1, yi) && ReferencesXReg(xi + 1, yi) || ReferencesYReg(yi + 1, xi) && ReferencesXReg(yi + 1, xi))
-						;
-					else
-					{
-						if (usex)
-						{
-							if (ReferencesYReg(yi + 1, xi))
-								mIns[xi].mType = ASMIT_NOP;
-							else
-								mIns[yi].mType = ASMIT_NOP;
+					if (mIns[i].ReferencesYReg() && !mIns[i].CanSwapXYReg()) usex = false;
+					if (mIns[i].ReferencesXReg() && !mIns[i].CanSwapXYReg()) usey = false;
+				}
 
-							usey = false;
-						}
+				if (usex || usey)
+				{
+					int	valx = pblock->RetrieveXValue(pblock->mIns.Size() - 1);
+					int	valy = pblock->RetrieveYValue(pblock->mIns.Size() - 1);
+
+					if (valx >= 0 && valx == valy)
+					{
+						if (ReferencesYReg(xi + 1, yi) && ReferencesXReg(xi + 1, yi) || ReferencesYReg(yi + 1, xi) && ReferencesXReg(yi + 1, xi))
+							;
 						else
 						{
-							if (ReferencesXReg(xi + 1, yi))
-								mIns[yi].mType = ASMIT_NOP;
+							if (usex)
+							{
+								if (ReferencesYReg(yi + 1, xi))
+									mIns[xi].mType = ASMIT_NOP;
+								else
+									mIns[yi].mType = ASMIT_NOP;
+
+								usey = false;
+							}
 							else
-								mIns[xi].mType = ASMIT_NOP;
-						}
+							{
+								if (ReferencesXReg(xi + 1, yi))
+									mIns[yi].mType = ASMIT_NOP;
+								else
+									mIns[xi].mType = ASMIT_NOP;
+							}
 
-						for (int i = 0; i < mIns.Size(); i++)
-						{
-							if (usex && mIns[i].ReferencesYReg() || usey && mIns[i].ReferencesXReg()) mIns[i].SwapXYReg();
-						}
+							for (int i = 0; i < mIns.Size(); i++)
+							{
+								if (usex && mIns[i].ReferencesYReg() || usey && mIns[i].ReferencesXReg()) mIns[i].SwapXYReg();
+							}
 
-						changed = true;
+							changed = true;
+						}
 					}
 				}
 			}
