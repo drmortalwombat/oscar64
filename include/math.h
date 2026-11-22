@@ -2,7 +2,7 @@
 #define MATH_H
 
 #define	PI	3.141592653
-
+#define INF (1.0 / 0.0)
 
 float fabs(float f);
 float floor(float f);

@@ -3007,7 +3007,12 @@ split_texp:
 		lda	tmp + 3
 		rol
 		sta	tmp + 5
-		beq	.ZT
+		bne	.NT
+		asl tmp + 0
+		rol tmp + 1
+		rol tmp + 2
+		bcc .ZT
+.NT:
 		lda	tmp + 2
 		ora	#$80
 		sta	tmp + 2		
@@ -3019,7 +3024,12 @@ split_aexp:
 		lda	accu + 3
 		rol
 		sta	tmp + 4
-		beq	.ZA
+		bne .NA
+		asl accu + 0
+		rol accu + 1
+		rol accu + 2
+		bcc .ZA
+.NA:
 		lda	accu + 2
 		ora	#$80
 		sta	accu + 2
@@ -3037,6 +3047,24 @@ merge_aexp:
 		sta	accu + 2
 .W1:				
 		rts
+
+zero:
+		lda #0
+		sta accu
+		sta accu + 1
+		sta accu + 2
+		sta accu + 3
+		rts
+inf:
+		lda	accu + 3
+		ora #$7f
+		sta	accu + 3
+		lda #$80
+		sta accu + 2
+		lda #$00
+		sta accu + 0
+		sta accu + 1
+		rts		
 }
 		
 __asm faddsub
@@ -3052,15 +3080,7 @@ fadd:
 		cmp tmp + 5
 		bne .nINF
 .INF:
-		lda	accu + 3
-		ora #$7f
-		sta	accu + 3
-		lda #$80
-		sta accu + 2
-		lda #$00
-		sta accu + 0
-		sta accu + 1
-		rts		
+		jmp freg.inf
 .nINF:
 		sec
 		lda	tmp + 4
@@ -3123,7 +3143,7 @@ fas_align2nd:
 		lda	accu + 2
 		adc	tmp + 2
 		sta	accu + 2
-		bcc	.fas_done
+		bcc	.fas_pos
 		ror	accu + 2
 		ror	accu + 1
 		ror	accu
@@ -3168,6 +3188,9 @@ fas_align2nd:
 		eor	#$80
 		sta	accu + 3
 .fas_pos:
+		lda	tmp + 4
+		beq	.DN0
+
 		lda	accu + 2
 		bmi	.fas_done
 		
@@ -3176,20 +3199,20 @@ fas_align2nd:
 		beq	.fas_zero
 .L3:
 		dec	tmp + 4
-		beq	.fas_zero		// underflow
+		beq	.fas_denorm		// underflow
 		asl	accu
 		rol	accu + 1
 		rol	accu + 2
 		bpl	.L3
 		jmp	.fas_done
-.fas_zero:
-		lda	#0
-		sta	accu + 0
-		sta	accu + 1
-		sta	accu + 2
-		sta	accu + 3
+.DN0:
+		lsr	accu + 2
+		ror accu + 1
+		ror accu
+.fas_denorm:
 		rts
-
+.fas_zero:
+		jmp freg.zero
 }	
 
 
@@ -3213,21 +3236,22 @@ __asm inp_binop_sub_f32
 		
 __asm crt_fmul8
 {
+		beq .W2
 		sec
 		ror
 		bcc	.L2
 .L1:	tax
 		clc
-		tya
+		lda accu
 		adc	tmp + 6
 		sta	tmp + 6
-		lda	tmp + 7
-		adc	accu + 1
+		lda accu + 1
+		adc	tmp + 7		
 		sta	tmp + 7
-		lda	tmp + 8
+		tya
 		adc	accu + 2
 		ror
-		sta	tmp + 8
+		sta	accu + 2
 		txa
 		ror	tmp + 7
 		ror	tmp + 6
@@ -3235,13 +3259,20 @@ __asm crt_fmul8
 		beq	.W1
 		bcs	.L1
 .L2:
-		ror	tmp + 8
+		ror	accu + 2
 		ror	tmp + 7
 		ror	tmp + 6
 		lsr
 		bcc	.L2
 		bne	.L1
 .W1:
+		rts
+.W2:		
+		ldx tmp + 7
+		stx tmp + 6
+		ldx accu + 2
+		stx tmp + 7
+		sta accu + 2
 		rts
 }
 
@@ -3250,18 +3281,14 @@ __asm crt_fmul
 		lda	accu
 		ora	accu + 1
 		ora	accu + 2
-		beq	.E3
+		beq	.ZERO
 .W1:
 		lda	tmp
 		ora	tmp + 1
 		ora	tmp + 2
 		bne	.W2
-		sta	accu
-		sta	accu + 1
-		sta	accu + 2
-.E3:
-		sta	accu + 3
-		rts
+.ZERO:
+		jmp freg.zero
 W2:	
 		lda	accu + 3
 		eor	tmp + 3
@@ -3274,36 +3301,21 @@ W2:
 		cmp tmp + 5
 		beq .INF
 
-		lda	#0
+		lda #$00
 		sta	tmp + 6
 		sta	tmp + 7
-		sta	tmp + 8
+		ldy accu + 2
+		lda	#$80
+		sta	accu + 2
 		
-		ldy accu
 		lda	tmp
-		bne	.W4
-		lda tmp + 1
-		beq .W5
-		bne .W6
-.W4:
 		jsr	crt_fmul8
 		lda	tmp + 1
-.W6:		
 		jsr	crt_fmul8
-.W5:		
 		lda	tmp + 2
 		jsr	crt_fmul8
 		
-		sec
-		lda	tmp + 8
-		bmi	.W3
-		asl	tmp + 6
-		rol	tmp + 7
-		rol
 		clc
-.W3:	and	#$7f
-		sta	tmp + 8
-		
 		lda	tmp + 4
 		adc	tmp + 5
 		bcc .W7
@@ -3313,36 +3325,46 @@ W2:
 		cmp #$ff
 		bne .W8
 .INF:
-		lda	accu + 3
-		ora #$7f
-		sta	accu + 3
-		lda #$80
-.E2:
-		sta accu + 2
-		lda #$00
-		sta accu + 0
-		sta accu + 1
-		rts
+		jmp freg.inf
 .W7:
 		sbc	#$7e
-		bcc .ZERO
+		bcc .DN2
 .W8:
+		tax
+		inx
+		lda accu + 2
+		bmi .W9
+.L8:		
+		dex
+		beq	.DN0
+		asl tmp + 6
+		rol tmp + 7
+		rol accu + 2
+		bpl .L8
+.W9:	
+		asl	accu + 2
+		txa
 		lsr
 		ora	accu + 3
 		sta	accu + 3
-		lda	#0
-		ror
-		ora	tmp + 8
-		sta	accu + 2
-		lda	tmp + 7
-		sta	accu + 1
-		lda	tmp + 6
-		sta	accu
+		ror accu + 2
+.DN0:
+		lda tmp + 7
+		sta accu + 1
+		lda tmp + 6
+		sta accu + 0
 		rts
-.ZERO:
-		lda #0
-		sta accu + 3
-		beq .E2
+.DN2:
+		cmp #-24
+		bcc	.ZERO
+		tax
+.DN3:
+		lsr accu + 2
+		ror tmp + 7
+		ror tmp + 6
+		inx
+		bne .DN3
+		beq	.DN0
 }
 
 __asm inp_binop_mul_f32
@@ -3368,18 +3390,41 @@ __asm crt_fdiv
 		and	#$80
 		sta	accu + 3
 
+		lda tmp + 0
+		ora tmp + 1
+		ora tmp + 2
+		bne .nINF
+		jmp freg.inf
+.nINF:
 		lda tmp + 5
-		beq .INF
-		lda tmp + 4
 		cmp #$ff
-		beq .INF
+		beq .ZERO
 
 		lda	#0
 		sta	tmp + 6
 		sta	tmp + 7
 		sta	tmp + 8
 		ldx	#24
-		
+		lda tmp + 2
+		bmi .L0b
+
+.L0a:
+		inc tmp + 4
+		asl tmp
+		rol tmp + 1
+		rol
+		bpl	L0a
+		sta tmp + 2
+.L0b:
+		lda accu + 2
+		bmi .L1
+.L0c:
+		inc tmp + 5
+		asl accu
+		rol accu + 1
+		rol
+		bpl .L0c
+		sta accu + 2
 .L1:
 		lda	accu + 0
 		cmp	tmp + 0
@@ -3387,8 +3432,7 @@ __asm crt_fdiv
 		sbc	tmp + 1
 		lda	accu + 2
 		sbc	tmp + 2
-		bcc	.W2
-		
+		bcc	.W2		
 .L2:
 		lda	accu + 0
 		sbc	tmp + 0
@@ -3412,6 +3456,8 @@ __asm crt_fdiv
 		rol	accu + 2
 		bcs	.L2
 		bcc	.L1
+.ZERO:
+		jmp freg.zero
 .W3:
 		sec
 		lda	tmp + 8
@@ -3421,8 +3467,7 @@ __asm crt_fdiv
 		rol
 		clc
 .W4:
-		and	#$7f
-		sta	tmp + 8
+		sta accu + 2
 
 		lda	tmp + 4
 		sbc	tmp + 5
@@ -3434,41 +3479,37 @@ __asm crt_fdiv
 		cmp #$ff
 		bne .W6
 .INF:
-		lda	accu + 3
-		ora #$7f
-		sta	accu + 3
-		lda #$80
-		sta accu + 2
-		lda #$00
-		sta accu + 1
-		sta accu + 0
-		rts
+		jmp freg.inf
 .W5:
 		adc	#$7f
-		bcc .ZERO
+		beq	.DN1
+		bcc .DN2
 .W6:
+		asl accu + 2
 		lsr
 		ora	accu + 3
 		sta	accu + 3
-		lda	#0
-		ror
-		ora	tmp + 8
-		sta	accu + 2
+		ror accu + 2
 		lda	tmp + 7
+.W7:
 		sta	accu + 1
 		lda	tmp + 6
 		sta	accu
 		rts
-
-.ZERO:
-		lda #$00
-		sta	accu + 3
-		sta accu + 2
-		sta accu + 1
-		sta accu + 0
-		rts
-
-
+.DN2:
+		cmp #-24
+		bcc	.ZERO
+.DN1:
+		tax
+		dex
+		lda tmp + 7
+.DN3:
+		lsr accu + 2
+		ror 
+		ror tmp + 6
+		inx
+		bne .DN3
+		beq .W7
 }
 
 #pragma	bytecode(BC_BINOP_MUL_F32, inp_binop_mul_f32)

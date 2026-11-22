@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"ptr_insert"
+#define CHECK_FUNC			"test<3>"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -21490,6 +21490,70 @@ bool NativeCodeBasicBlock::MoveAccuTrainsDown(void)
 				else
 					apos[mIns[i].mAddress] = -1;
 			}
+#if 1
+			else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE && apos[mIns[i].mAddress] >= 0)
+			{
+				int addr = mIns[i].mAddress;
+
+				int pi = apos[addr];
+				int j = i;
+				while (j > pi && mIns[j - 1].mLive & LIVE_CPU_REG_A)
+					j--;
+				if (j > pi + 1 && !ReferencesYReg(j, i))
+				{
+					CheckLive();
+					if (MoveAccuTrainDown(pi, j))
+					{
+//						printf("MDDY %d : %d->%d\n", mIndex, pi, j);
+						if (mIns[i].RequiresXReg())
+							mIns[i].mLive |= LIVE_CPU_REG_X;
+						if (mIns[i].RequiresYReg())
+							mIns[i].mLive |= LIVE_CPU_REG_Y;
+
+						changed = true;
+						CheckLive();
+
+						for (int j = 0; j < 256; j++)
+							apos[j] = -1;
+					}
+					else
+						apos[mIns[i].mAddress] = -1;
+				}
+				else
+					apos[mIns[i].mAddress] = -1;
+			}
+			else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && apos[mIns[i].mAddress] >= 0)
+			{
+				int addr = mIns[i].mAddress;
+
+				int pi = apos[addr];
+				int j = i;
+				while (j > pi && mIns[j - 1].mLive & LIVE_CPU_REG_A)
+					j--;
+				if (j > pi + 1 && !ReferencesXReg(j, i))
+				{
+					CheckLive();
+					if (MoveAccuTrainDown(apos[addr], j))
+					{
+//						printf("MDDX %d : %d->%d\n", mIndex, pi, j);
+						if (mIns[i].RequiresXReg())
+							mIns[i].mLive |= LIVE_CPU_REG_X;
+						if (mIns[i].RequiresYReg())
+							mIns[i].mLive |= LIVE_CPU_REG_Y;
+
+						changed = true;
+						CheckLive();
+
+						for (int j = 0; j < 256; j++)
+							apos[j] = -1;
+					}
+					else
+						apos[mIns[i].mAddress] = -1;
+				}
+				else
+					apos[mIns[i].mAddress] = -1;
+			}
+#endif
 			else if (i + 1  < mIns.Size() && mIns[i].mType == ASMIT_CLC && mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && apos[mIns[i + 1].mAddress] >= 0)
 			{
 				int addr = mIns[i + 1].mAddress;
@@ -72252,6 +72316,50 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 				mExitRequiredRegs += CPU_REG_C;
 				mFalseJump->mEntryRequiredRegs += CPU_REG_C;
 				mIns[sz - 1].mLive |= LIVE_CPU_REG_C;
+			}
+			changed = true;
+		}
+	}
+
+	if (pass > 10 && sz > 0 && mIns[sz - 1].mType == ASMIT_LDA && mTrueJump && !mFalseJump && mTrueJump->mIns.Size() == 1 && !(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_A))
+	{
+		NativeCodeBasicBlock* block = mTrueJump;
+
+		if (block->mIns[0].mType == ASMIT_TAX && HasAsmInstructionMode(ASMIT_LDX, mIns[sz - 1].mMode))
+		{
+			mIns[0].mType = ASMIT_LDX; mIns[0].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+			mExitRequiredRegs += CPU_REG_X;
+
+			mBranch = block->mBranch;
+			block->mNumEntries--;
+			block->mEntryBlocks.RemoveAll(this);
+			mTrueJump = block->mTrueJump;
+			mTrueJump->mNumEntries++;
+			mTrueJump->mEntryBlocks.Push(this);
+			if (block->mFalseJump)
+			{
+				mFalseJump = block->mFalseJump;
+				mFalseJump->mNumEntries++;
+				mFalseJump->mEntryBlocks.Push(this);
+			}
+			changed = true;
+		}
+		else if (block->mIns[0].mType == ASMIT_TAY && HasAsmInstructionMode(ASMIT_LDY, mIns[sz - 1].mMode))
+		{
+			mIns[0].mType = ASMIT_LDY; mIns[0].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+			mExitRequiredRegs += CPU_REG_Y;
+
+			mBranch = block->mBranch;
+			block->mNumEntries--;
+			block->mEntryBlocks.RemoveAll(this);
+			mTrueJump = block->mTrueJump;
+			mTrueJump->mNumEntries++;
+			mTrueJump->mEntryBlocks.Push(this);
+			if (block->mFalseJump)
+			{
+				mFalseJump = block->mFalseJump;
+				mFalseJump->mNumEntries++;
+				mFalseJump->mEntryBlocks.Push(this);
 			}
 			changed = true;
 		}
