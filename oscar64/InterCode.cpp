@@ -960,6 +960,56 @@ static bool SameMem(const InterOperand& op1, const InterOperand& op2)
 	}
 }
 
+static bool SameMemBase(const InterOperand& op1, const InterOperand& op2)
+{
+	InterMemory	mem1 = op1.mMemory == IM_INDIRECT && op1.mMemoryBase != IM_NONE ? op1.mMemoryBase : op1.mMemory;
+	InterMemory	mem2 = op2.mMemory == IM_INDIRECT && op2.mMemoryBase != IM_NONE ? op2.mMemoryBase : op2.mMemory;
+
+	if (mem1 != mem2)
+		return false;
+
+	switch (mem1)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex == op2.mVarIndex;
+	case IM_ABSOLUTE:
+		return true;
+	case IM_GLOBAL:
+		return op1.mLinkerObject == op2.mLinkerObject;
+	case IM_INDIRECT:
+		return op1.mTemp == op2.mTemp;
+	default:
+		return false;
+	}
+}
+
+static bool NotSameMemBase(const InterOperand& op1, const InterOperand& op2)
+{
+	InterMemory	mem1 = op1.mMemory == IM_INDIRECT && op1.mMemoryBase != IM_NONE ? op1.mMemoryBase : op1.mMemory;
+	InterMemory	mem2 = op2.mMemory == IM_INDIRECT && op2.mMemoryBase != IM_NONE ? op2.mMemoryBase : op2.mMemory;
+
+	if (mem1 == IM_INDIRECT || mem2 == IM_INDIRECT)
+		return false;
+	if (mem1 != mem2)
+		return false;
+
+	switch (mem1)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex != op2.mVarIndex;
+	case IM_GLOBAL:
+		return op1.mLinkerObject != op2.mLinkerObject;
+	case IM_ABSOLUTE:
+	case IM_INDIRECT:
+	default:
+		return false;
+	}
+}
+
 static bool SameMemRegion(const InterOperand& op1, const InterOperand& op2)
 {
 	if (op1.mMemory != op2.mMemory)
@@ -9367,6 +9417,164 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 							cins->mOperator = IA_CMPGEU;
 						break;
 					}
+				}
+			}
+			else if (cins->mCode == IC_RELATIONAL_OPERATOR && cins->mSrc[0].mType == IT_POINTER && cins->mSrc[1].mType == IT_POINTER)
+			{
+				bool	constTrue = false, constFalse = false;
+				if (SameMemBase(cins->mSrc[0], cins->mSrc[1]))
+				{
+					if (cins->mSrc[0].mTemp < 0 && cins->mSrc[1].mRange.IsBound())
+					{
+						switch (cins->mOperator)
+						{
+						case IA_CMPEQ:
+							if (cins->mSrc[0].mIntConst < cins->mSrc[1].mRange.mMinValue || cins->mSrc[0].mIntConst > cins->mSrc[1].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPNE:
+							if (cins->mSrc[0].mIntConst < cins->mSrc[1].mRange.mMinValue || cins->mSrc[0].mIntConst > cins->mSrc[1].mRange.mMaxValue)
+								constTrue = true;
+							break;
+						case IA_CMPLS:
+						case IA_CMPLU:
+							if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mIntConst)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mIntConst)
+								constFalse = true;
+							break;
+						case IA_CMPLES:
+						case IA_CMPLEU:
+							if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mIntConst)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mIntConst)
+								constFalse = true;
+							break;
+						case IA_CMPGS:
+						case IA_CMPGU:
+							if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mIntConst)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mIntConst)
+								constFalse = true;
+							break;
+						case IA_CMPGES:
+						case IA_CMPGEU:
+							if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mIntConst)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mIntConst)
+								constFalse = true;
+							break;
+						}
+					}
+					else if (cins->mSrc[1].mTemp < 0 && cins->mSrc[0].mRange.IsBound())
+					{
+						switch (cins->mOperator)
+						{
+						case IA_CMPEQ:
+							if (cins->mSrc[1].mIntConst < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mIntConst > cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPNE:
+							if (cins->mSrc[1].mIntConst < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mIntConst > cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							break;
+						case IA_CMPLS:
+						case IA_CMPLU:
+							if (cins->mSrc[1].mIntConst < cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mIntConst >= cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPLES:
+						case IA_CMPLEU:
+							if (cins->mSrc[1].mIntConst <= cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mIntConst > cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPGS:
+						case IA_CMPGU:
+							if (cins->mSrc[1].mIntConst > cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mIntConst <= cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+							break;
+						case IA_CMPGES:
+						case IA_CMPGEU:
+							if (cins->mSrc[1].mIntConst >= cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mIntConst < cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+							break;
+						}
+					}
+					else if (cins->mSrc[0].mRange.IsBound() && cins->mSrc[1].mRange.IsBound())
+					{
+						switch (cins->mOperator)
+						{
+						case IA_CMPEQ:
+							if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPNE:
+								if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							break;
+						case IA_CMPLS:
+						case IA_CMPLU:
+							if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPLES:
+						case IA_CMPLEU:
+							if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constFalse = true;
+							break;
+						case IA_CMPGS:
+						case IA_CMPGU:
+							if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+							break;
+						case IA_CMPGES:
+							if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+							break;
+						case IA_CMPGEU:
+							if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+								constTrue = true;
+							else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+								constFalse = true;
+							break;
+						}
+					}
+				}
+				else if (NotSameMemBase(cins->mSrc[0], cins->mSrc[1]))
+				{
+					switch (cins->mOperator)
+					{
+					case IA_CMPEQ:
+						constFalse = true;
+						break;
+					case IA_CMPNE:
+						constTrue = true;
+						break;
+					}
+				}
+
+				if (constTrue || constFalse)
+				{
+					cins->mCode = IC_CONSTANT;
+					cins->mConst.mType = IT_BOOL;
+					cins->mConst.mIntConst = constTrue ? 1 : 0;
+					cins->mNumOperands = 0;
 				}
 			}
 		}
