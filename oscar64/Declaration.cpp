@@ -371,14 +371,27 @@ bool Expression::HasSideEffects(void) const
 
 	case EX_BINARY:
 	case EX_RELATIONAL:
-	case EX_INDEX:
 		return mLeft->HasSideEffects() || mRight->HasSideEffects();
+
+	case EX_INDEX:
+		if (mRight->mType == EX_CONSTANT)
+			return mLeft->HasSideEffects();
+		else
+			return true;
 
 	case EX_QUALIFY:
 	case EX_TYPECAST:
-	case EX_PREFIX:
 	case EX_POSTFIX:
 		return mLeft->HasSideEffects();
+
+	case EX_PREFIX:
+		if (mToken == TK_MUL)
+			return true;
+		else
+			return mLeft->HasSideEffects();
+
+	case EX_CONDITIONAL:
+		return mLeft->HasSideEffects() || mRight->mLeft->HasSideEffects() || mRight->mRight->HasSideEffects();
 
 	default:
 		return true;
@@ -1388,7 +1401,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			else if (!strcmp(iname->mString, "castf2u"))
 			{
 				union { float f; uint32 u; } cast;
-				cast.f = d;
+				cast.f = float(d);
 
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
@@ -1401,7 +1414,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			else if (!strcmp(iname->mString, "castu2f"))
 			{
 				union { float f; uint32 u; } cast;
-				cast.u = decp->mType == DT_CONST_FLOAT ? uint32(decp->mNumber) : decp->mInteger;
+				cast.u = decp->mType == DT_CONST_FLOAT ? uint32(decp->mNumber) : uint32(decp->mInteger);
 				d = cast.f;
 			}
 			else

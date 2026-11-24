@@ -7,7 +7,7 @@
 
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\cldiss.txt"
-#define CHECK_FUNC			"mask"
+#define CHECK_FUNC			"directionLookupSentinel_captureInput"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -14946,7 +14946,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							else
 							{
 								if (ai0->mSrc[1].mRange.IsBound())
-									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue << ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue << ai0->mSrc[0].mIntConst);
 							}
 							ins->mSrc[0].mRange = ai0->mDst.mRange;
 
@@ -14961,7 +14961,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							else
 							{
 								if (ai1->mSrc[1].mRange.IsBound())
-									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue << ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue << ai1->mSrc[0].mIntConst);
 							}
 							ins->mSrc[1].mRange = ai1->mDst.mRange;
 							ins->mDst.mRange.Reset();
@@ -15037,7 +15037,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							else
 							{
 								if (ai0->mSrc[1].mRange.IsBound())
-									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue << ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue << ai0->mSrc[0].mIntConst);
 							}
 							ins->mSrc[0].mRange = ai0->mDst.mRange;
 
@@ -15052,7 +15052,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							else
 							{
 								if (ai1->mSrc[1].mRange.IsBound())
-									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue << ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue << ai1->mSrc[0].mIntConst);
 							}
 							ins->mSrc[1].mRange = ai1->mDst.mRange;
 							ins->mDst.mRange.Reset();
@@ -15114,7 +15114,12 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							else
 							{
 								if (ai0->mSrc[1].mRange.IsBound())
-									ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+								{
+									if (ai0->mOperator == IA_SHL)
+										ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue << ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue << ai0->mSrc[0].mIntConst);
+									else
+										ai0->mDst.mRange.SetLimit(ai0->mSrc[1].mRange.mMinValue >> ai0->mSrc[0].mIntConst, ai0->mSrc[1].mRange.mMaxValue >> ai0->mSrc[0].mIntConst);
+								}
 							}
 							ins->mSrc[0].mRange = ai0->mDst.mRange;
 
@@ -15129,7 +15134,12 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							else
 							{
 								if (ai1->mSrc[1].mRange.IsBound())
-									ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+								{
+									if (ai1->mOperator == IA_SHL)
+										ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue << ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue << ai1->mSrc[0].mIntConst);
+									else
+										ai1->mDst.mRange.SetLimit(ai1->mSrc[1].mRange.mMinValue >> ai1->mSrc[0].mIntConst, ai1->mSrc[1].mRange.mMaxValue >> ai1->mSrc[0].mIntConst);
+								}
 							}
 							ins->mSrc[1].mRange = ai1->mDst.mRange;
 							ins->mDst.mRange.Reset();
