@@ -4744,13 +4744,26 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			}
 			else if (ins->mSrc[0].mTemp >= 0 && ins->mDst.mTemp != ins->mSrc[0].mTemp)
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
-				lins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp];
-				lins.mRegisterFinal = ins->mSrc[0].mFinal;
-				mIns.Push(lins);
-				ByteCodeInstruction	sins(InterTypeSize[ins->mDst.mType] == 1 ? BC_STORE_REG_8 : BC_STORE_REG_16);
-				sins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp];
-				mIns.Push(sins);
+				if (InterTypeSize[ins->mDst.mType] == 4)
+				{
+					ByteCodeInstruction	lins(BC_LOAD_REG_32);
+					lins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(lins);
+					ByteCodeInstruction	sins(BC_STORE_REG_32);
+					sins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp];
+					mIns.Push(sins);
+				}
+				else
+				{
+					ByteCodeInstruction	lins(BC_LOAD_REG_16);
+					lins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(lins);
+					ByteCodeInstruction	sins(InterTypeSize[ins->mDst.mType] == 1 ? BC_STORE_REG_8 : BC_STORE_REG_16);
+					sins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp];
+					mIns.Push(sins);
+				}
 			}
 			break;
 

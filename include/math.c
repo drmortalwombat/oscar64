@@ -1,42 +1,47 @@
 #include "math.h"
 #include "stdio.h"
 
+static __noinline float poly_mul(const float * fp, float g)
+{
+	float s = fp[0];
+	for(int i=1; i<6; i++)
+	{
+		s *= g;
+		s += fp[i];
+	}
+	return s;
+}
+
+
 float cos(float f)
 {
 	return sin(f + 0.5 * PI);
 }
 
-#define	F_SIN_1	6.283168
-#define	F_SIN_2	0.053878661
-#define	F_SIN_3	-42.5385038
-#define	F_SIN_4	9.23583223
-#define	F_SIN_5	55.7310503
-
+static const float sin_poly[] = {
+	-15.09466089,
+	42.05873568,
+	-76.70591896,
+	81.60529427,	
+	-41.34171592,
+	6.283186
+};
 
 float sin(float f)
 {
-	float	g = fabs(f);
-	float	m = f < 0.0 ? -1.0 : 1.0;
+	float	g = f * (0.5 / PI);
 	
-	g *= 0.5 / PI;
 	g -= floor(g);
 
 	if (g >= 0.5)
-	{
-		m = -m;
-		g -= 0.5;
-	}
+		g -= 1.0;
+
 	if (g >= 0.25)
 		g = 0.5 - g;
-	
-	float	s = F_SIN_5;
-	s *= g; s += F_SIN_4;
-	s *= g; s += F_SIN_3;
-	s *= g; s += F_SIN_2;
-	s *= g; s += F_SIN_1;
-	s *= g;
-	
-	return s * m;
+	else if (g <= -0.25)
+		g = -0.5 - g;
+
+	return poly_mul(sin_poly, g * g) * g;
 }
 
 float tan(float f)
@@ -59,17 +64,18 @@ float atan(float f)
 	return atan2(f, 1.0);
 }
 
-#define F_ATAN_0 	-6.435678E-5
-#define	F_ATAN_1	0.999648382
-#define	F_ATAN_2	0.018278903
-#define	F_ATAN_3	-0.444599298
-#define	F_ATAN_4	0.263177486
-#define	F_ATAN_5	-0.051078392
-
+static const float atan_poly[] = {
+		-0.011535025,
+		0.052216655,
+		-0.116062757,
+		0.193405977,
+		-0.332602256,
+		0.999976302
+};
 
 float atan2(float p, float q)
 {
-	int	quad = 0;
+	char	quad = 0;
 	
 	if (p < 0)
 	{
@@ -93,13 +99,8 @@ float atan2(float p, float q)
 		g = p / q;
 	}
 	
-	float	s = F_ATAN_5;
-	s *= g; s += F_ATAN_4;
-	s *= g; s += F_ATAN_3;
-	s *= g; s += F_ATAN_2;
-	s *= g; s += F_ATAN_1;
-	s *= g; s += F_ATAN_0;
-	
+	float s = poly_mul(atan_poly, g * g) * g;
+
 	if (quad & 1)
 		s = 0.5 * PI - s;
 	if (quad & 2)
@@ -110,12 +111,14 @@ float atan2(float p, float q)
 	return s;
 }
 
-#define F_EXP_0 	1.0
-#define F_EXP_1 	0.69315668
-#define F_EXP_2 	0.240132068
-#define F_EXP_3 	0.055876024
-#define F_EXP_4 	0.008940801
-#define F_EXP_5 	0.001894414
+static const float	exp_poly[] = {
+	0.001894414,
+	0.008940801,
+	0.055876024,
+	0.240132068,
+	0.69315668,
+	1.0
+};
 
 float exp(float f)
 {
@@ -124,58 +127,36 @@ float exp(float f)
 	float	ff = floor(f), g = f - ff;
 	
 	int	fi = (int)ff;
-	
-	union {
-		float	f;
-		int		i[2];
-	}	x;
-	x.f = 0;
 
-	x.i[1] = (fi + 0x7f) << 7;
-	
-	float	s = F_EXP_5;
-	s *= g; s += F_EXP_4;
-	s *= g; s += F_EXP_3;
-	s *= g; s += F_EXP_2;
-	s *= g; s += F_EXP_1;
-	s *= g; s += F_EXP_0;
+	float xf = castu2f((unsigned long)(fi + 0x7f) << 23);
 
-	return s * x.f;
+	float s = poly_mul(exp_poly, g);
+
+	return s * xf;
 }
 
-#define F_LOG_0 	-3.78717706
-#define F_LOG_1 	10.0960498
-#define F_LOG_2 	-13.975654
-#define F_LOG_3 	12.7580616
-#define F_LOG_4 	-6.48190725
-#define F_LOG_5 	1.39064767
+static const float	log_poly[] = {
+	1.41160635,
+	-6.58255755,
+	12.9408785,
+	-14.1347166,	
+	10.1628473,
+	-3.79805942	
+};
 
 float log(float f)
 {
-	if (f == 0.0)
-		return 1.0;
+	if (f <= 0)
+		return -INF;	
 
-	union {
-		float	f;
-		int		i[2];
-	}	x;
-	
-	x.f = f;
-	int	ei = x.i[1];
-	int ex = (ei >> 7) - 0x7e;
-	x.i[1] = (ei & 0x007f) | 0x3f00;
-	
-	float	g = x.f;
+	unsigned long uf = castf2u(f);
+	int ex = (int)(uf >> 23) - 0x7e;
+	float g = castu2f(uf & 0x007ffffful | 0x3f000000ul);
 
 	float	fex = ex;
 
-	float	s = F_LOG_5;
-	s *= g; s += F_LOG_4;
-	s *= g; s += F_LOG_3;
-	s *= g; s += F_LOG_2;
-	s *= g; s += F_LOG_1;
-	s *= g; s += F_LOG_0;
-	
+	float s = poly_mul(log_poly, g);
+
 	return (fex + s) * 0.6931471806;
 }
 
@@ -193,49 +174,26 @@ float sqrt(float f)
 {
 	if (f > 0)
 	{
-		union {
-			float	f;
-			int		i[2];
-		}	x;
+		float fq = castu2f(((castf2u(f) & 0x7f800000ul) + 0x3f800000ul) >> 1);
 
-		x.f = f;
-		int ex = (x.i[1] >> 7) - 0x7f;
-		ex /= 2;
-		x.i[1] = (ex + 0x7f) << 7;
-		float	fq = x.f;
-		fq = 0.5 * (fq + f / fq);
-		fq = 0.5 * (fq + f / fq);
-		fq = 0.5 * (fq + f / fq);
-		fq = 0.5 * (fq + f / fq);
+		for(int i=0; i<4; i++)
+			fq = 0.5 * (fq + f / fq);
+
 		return fq;
 	}
-	else if (f < 0)
+	else if (f == 0.0)
 		return 0.0;
 	else
-		return f;
+		return -INF;
 }
 
 
 bool isinf(float f)
 {
-	union {
-		float		f;
-		unsigned	i[2];
-	}	x;
-
-	x.f = f;
-
-	return ((x.i[1] >> 7) & 0xff) == 0xff;
+	return ((castf2u(f) >> 23) & 0xff) == 0xff;
 }
 
 bool isfinite(float f)
 {
-	union {
-		float		f;
-		unsigned	i[2];
-	}	x;
-
-	x.f = f;
-
-	return ((x.i[1] >> 7) & 0xff) != 0xff;
+	return ((castf2u(f) >> 23) & 0xff) != 0xff;
 }

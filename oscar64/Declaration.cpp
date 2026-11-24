@@ -1385,6 +1385,25 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				d = sqrt(d);
 			else if (!strcmp(iname->mString, "atan"))
 				d = atan(d);
+			else if (!strcmp(iname->mString, "castf2u"))
+			{
+				union { float f; uint32 u; } cast;
+				cast.f = d;
+
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
+				dec->mBase = TheUnsignedLongTypeDeclaration;
+				dec->mInteger = cast.u;
+				ex->mDecValue = dec;
+				ex->mDecType = dec->mBase;
+				return ex;
+			}
+			else if (!strcmp(iname->mString, "castu2f"))
+			{
+				union { float f; uint32 u; } cast;
+				cast.u = decp->mType == DT_CONST_FLOAT ? uint32(decp->mNumber) : decp->mInteger;
+				d = cast.f;
+			}
 			else
 				return this;
 

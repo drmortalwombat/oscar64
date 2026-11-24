@@ -4062,57 +4062,41 @@ fceil:
 		bpl	.frup
 
 .frdzero:
-		lda	#0
-		sta	accu
-		sta	accu + 1
-		sta	accu + 2
-		sta	accu + 3
-		rts
+		jmp freg.zero
 		
 .frdown:
-		lda	tmp + 4
-		cmp	#$7f
+		ldx	tmp + 4
+		cpx	#$7f
 		bcc	.frdzero
-		cmp	#$87
+		cpx	#$87
 		bcc	.frd1
-		cmp	#$8f
+		cpx	#$8f
 		bcc	.frd2
-		cmp	#$97
-		bcs	.frd3
+		cpx	#$97
+		bcs	.frdone
 
-		sec
-		sbc	#$8f
-		tax
 		lda	accu
-		and	ubitmask, x
+		and	ubitmask - 0x8f, x
 		sta	accu
 		
-		jmp	.frd3
+		jmp	freg.merge_aexp
 .frd1:
-		sec
-		sbc	#$7f
-		tax
 		lda	accu + 2
-		and	ubitmask, x
+		and	ubitmask - 0x7f, x
 		sta	accu + 2		
 		lda	#0
 		sta	accu
 		sta	accu + 1
 		
-		jmp	.frd3
+		jmp	freg.merge_aexp
 .frd2:
-		sec
-		sbc	#$87
-		tax
 		lda	accu + 1
-		and	ubitmask, x
+		and	ubitmask - 0x87, x
 		sta	accu + 1		
 		lda	#0
 		sta	accu
 
-		jmp	.frd3
-
-.frd3:
+.frdone:
 		jmp	freg.merge_aexp
 
 .frone:
@@ -4130,31 +4114,30 @@ fceil:
 		ora	accu + 1
 		ora	accu + 2
 		beq	.frdzero		
-		lda	tmp + 4
-		cmp	#$7f
+		ldx	tmp + 4
+		cpx	#$7f
 		bcc	.frone
-		cmp	#$87
+		cpx	#$87
 		bcc	.fru1
-		cmp	#$8f
+		cpx	#$8f
 		bcc	.fru2
-		cmp	#$97
-		bcs	.fru3
+		cpx	#$97
+		bcs	.frdone
 		
-		sec
-		sbc	#$8f
-		tax
-
 		clc
-		lda	ubitmask, x
+		lda	ubitmask - 0x8f, x
 		eor	#$ff				
 		adc	accu
 		sta	accu
 		lda	#0
+.frup1:
 		adc	accu + 1
 		sta	accu + 1
 		lda	#0
+.frup2:
 		adc	accu + 2		
 		bcc	.W1
+.frovflw:
 		ror
 		ror	accu + 1
 		ror	accu
@@ -4162,48 +4145,21 @@ fceil:
 .W1:	sta	accu + 2		
 		jmp	.frdown		
 .fru1:
-		sec
-		sbc	#$7f
-		tax
-
 		clc
 		lda	#$ff
 		adc	accu
 		lda	#$ff
 		adc	accu + 1
-		lda	ubitmask, x
+		lda	ubitmask - 0x7f, x
 		eor	#$ff				
-		adc	accu + 2
-		bcc	.W2
-		ror
-		ror	accu + 1
-		ror	accu
-		inc	tmp + 4
-.W2:	sta	accu + 2		
-		jmp	.frdown
+		jmp .frup2
 .fru2:
-		sec
-		sbc	#$87
-		tax
-
 		clc
 		lda	#$ff
 		adc	accu
-		lda	ubitmask, x
+		lda	ubitmask - 0x87, x
 		eor	#$ff				
-		adc	accu + 1
-		sta	accu + 1
-		lda	#0
-		adc	accu + 2		
-		bcc	.W3
-		ror
-		ror	accu + 1
-		ror	accu
-		inc	tmp + 4
-.W3:	sta	accu + 2		
-		jmp	.frdown		
-.fru3:
-		jmp	freg.merge_aexp
+		jmp .frup1
 }
 
 __asm store32

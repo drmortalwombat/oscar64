@@ -4,6 +4,9 @@
 #define	PI	3.141592653
 #define INF (1.0 / 0.0)
 
+float castu2f(unsigned long u);
+unsigned long castf2u(float f);
+
 float fabs(float f);
 float floor(float f);
 float ceil(float f);
@@ -41,6 +44,9 @@ bool isfinite(float f);
 
 #pragma intrinsic(pow)
 #pragma intrinsic(sqrt)
+
+#pragma intrinsic(castu2f)
+#pragma intrinsic(castf2u)
 
 #pragma compile("math.c")
 

@@ -3900,6 +3900,42 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					return ExValue(TheFloatTypeDeclaration, ins->mDst.mTemp);
 				}
+				else if (!strcmp(iname->mString, "castf2u"))
+				{
+					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
+
+					if (decf->mBase->mParams->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+					vr = CoerceType(proc, exp, block, inlineMapper, vr, decf->mBase->mParams);
+
+					InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_TYPECAST);
+					ins->mSrc[0].mType = IT_FLOAT;
+					ins->mSrc[0].mTemp = vr.mTemp;
+					ins->mDst.mType = IT_INT32;
+					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+					block->Append(ins);
+
+					return ExValue(TheUnsignedLongTypeDeclaration, ins->mDst.mTemp);
+				}
+				else if (!strcmp(iname->mString, "castu2f"))
+				{
+					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
+
+					if (decf->mBase->mParams->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+					vr = CoerceType(proc, exp, block, inlineMapper, vr, decf->mBase->mParams);
+
+					InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_TYPECAST);
+					ins->mSrc[0].mType = IT_INT32;
+					ins->mSrc[0].mTemp = vr.mTemp;
+					ins->mDst.mType = IT_FLOAT;
+					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+					block->Append(ins);
+
+					return ExValue(TheFloatTypeDeclaration, ins->mDst.mTemp);
+				}
 				else if (!strcmp(iname->mString, "sin"))
 				{
 				}

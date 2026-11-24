@@ -3423,10 +3423,14 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 				data.SetMask(CPU_REG_C, 1, 0);
 				data.SetMask(CPU_REG_A, data[CPU_REG_A].mMask, data[CPU_REG_A].mValue^ mAddress);
 			}
-			else if (mMode == ASMIM_IMMEDIATE && mAddress + ((data[CPU_REG_A].mValue & data[CPU_REG_A].mMask) | (~data[CPU_REG_A].mMask & 255)) < 256)
+			else if (mMode == ASMIM_IMMEDIATE)
 			{
-				data.SetMask(CPU_REG_C, 1, 0);
-				data.SetMask(CPU_REG_A, ~BinMask(mAddress + ((data[CPU_REG_A].mValue & data[CPU_REG_A].mMask) | (~data[CPU_REG_A].mMask & 255))) & 255, 0);
+				if (mAddress + ((data[CPU_REG_A].mValue & data[CPU_REG_A].mMask) | (~data[CPU_REG_A].mMask & 255)) < 256)
+					data.SetMask(CPU_REG_C, 1, 0);
+				else
+					data.ResetMask(CPU_REG_C);
+				int lmask = LowBinMask(~mAddress) & data[CPU_REG_A].mMask;
+				data.SetMask(CPU_REG_A, (~BinMask(mAddress + ((data[CPU_REG_A].mValue & data[CPU_REG_A].mMask) | (~data[CPU_REG_A].mMask & 255))) & 255) | lmask, lmask & data[CPU_REG_A].mValue);
 			}
 			else
 			{
@@ -3655,20 +3659,30 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		{
 			int	mask = data[iaddr].mMask, value = data[iaddr].mValue;
 
-			data.SetMask(iaddr, ((mask << 1) & 0xff) | 0x01, (value << 1) & 0xff);
-			
-			if (mask & 0x80)
-				data.SetMask(CPU_REG_C, 1, value >> 7);
-			else
-				data.ResetMask(CPU_REG_C);
-
-			if (mMode == ASMIM_IMPLIED && data[CPU_REG_A].mMask == 0xff && data[CPU_REG_C].mMask)
+			if (mask == 0xff && value == 0x00)
 			{
-				carryop = data[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
-				mType = ASMIT_LDA;
-				mMode = ASMIM_IMMEDIATE;
-				mAddress = data[CPU_REG_A].mValue;
+				mType = ASMIT_CLC;
+				mMode = ASMIM_IMPLIED;
+				data.SetMask(CPU_REG_C, 1, 0);
 				changed = true;
+			}
+			else
+			{
+				data.SetMask(iaddr, ((mask << 1) & 0xff) | 0x01, (value << 1) & 0xff);
+
+				if (mask & 0x80)
+					data.SetMask(CPU_REG_C, 1, value >> 7);
+				else
+					data.ResetMask(CPU_REG_C);
+
+				if (mMode == ASMIM_IMPLIED && data[CPU_REG_A].mMask == 0xff && data[CPU_REG_C].mMask)
+				{
+					carryop = data[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
+					mType = ASMIT_LDA;
+					mMode = ASMIM_IMMEDIATE;
+					mAddress = data[CPU_REG_A].mValue;
+					changed = true;
+				}
 			}
 		}
 		else
@@ -3739,6 +3753,12 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 				mAddress = data[CPU_REG_A].mValue;
 				changed = true;
 			}
+			else if (mMode == ASMIM_ZERO_PAGE && mask == 0xff && nmask == 0xff && value == nvalue && !(mLive & LIVE_CPU_REG_Z))
+			{
+				mType = ASMIT_NOP;
+				mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
 		}
 		else
 			data.ResetMask(CPU_REG_C);
@@ -3770,6 +3790,12 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
 				mAddress = data[CPU_REG_A].mValue;
+				changed = true;
+			}
+			else if (mMode == ASMIM_ZERO_PAGE && mask == 0xff && nmask == 0xff && value == nvalue && !(mLive & LIVE_CPU_REG_Z))
+			{
+				mType = ASMIT_NOP;
+				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
 		}
@@ -10973,7 +10999,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mLockOrder)
 			{
-				printf("LockedOrder %d, %d\n", ins->mSrc[sop0].mTemp, ins->mSrc[sop1].mTemp);
+//				printf("LockedOrder %d, %d\n", ins->mSrc[sop0].mTemp, ins->mSrc[sop1].mTemp);
 				// maintain order due to loop
 			}
 			else if (!sins0 && !sins1 && ins->mSrc[sop0].mTemp >= 0 && ins->mSrc[sop1].mTemp >= 0 && ins->mDst.mTemp == ins->mSrc[sop0].mTemp)
@@ -77294,6 +77320,13 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				{
 					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp] + 1));
+					if (InterTypeSize[ins->mDst.mType] > 2)
+					{
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 2));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp] + 2));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 3));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp] + 3));
+					}
 				}
 			}
 			break;

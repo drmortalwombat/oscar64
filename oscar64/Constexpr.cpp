@@ -1430,6 +1430,20 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
 			mResult.PutFloat(::pow(mParams[0].GetFloat(), mParams[1].GetFloat()));
 		}
+		else if (!strcmp(iname->mString, "castf2u"))
+		{
+			mResult = Value(exp->mLocation, TheUnsignedLongTypeDeclaration);
+			union { float f; uint32 u; } cast;
+			cast.f = float(mParams[0].GetFloat());
+			mResult.PutInt(cast.u);
+		}
+		else if (!strcmp(iname->mString, "castu2f"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			union { float f; uint32 u; } cast;
+			cast.u = uint32(mParams[0].GetInt());
+			mResult.PutFloat(cast.f);
+		}
 		else
 			mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 	}
