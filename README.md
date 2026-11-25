@@ -52,4 +52,8 @@ This is a link to third party projects using Oscar64 or providing libraries to u
 
 [The Necklace of Rodney](https://doobiesteintortoise.itch.io/the-necklace-of-rodney)
 
+[Atari XL/XE headers, library and examples](https://github.com/arekbr/oscar64-atari-include)
+
+[OscarTutorials for Atari XL/XE](https://github.com/arekbr/OscarTutorials-Atari-XLXE)
+
 []()
