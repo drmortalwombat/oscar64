@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"test<3>"
+#define CHECK_FUNC			"mark"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -6001,15 +6001,21 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 	{
 		PutByte(0x4c);
 
-		LinkerReference		rl;
-		rl.mObject = nullptr;
-		rl.mOffset = mCode.Size();
-		rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
-		rl.mRefObject = target->mIns[0].mLinkerObject;
-		rl.mRefOffset = target->mIns[0].mAddress;
-		mRelocations.Push(rl);
+		if (target->mIns[0].mLinkerObject)
+		{
+			LinkerReference		rl;
+			rl.mObject = nullptr;
+			rl.mOffset = mCode.Size();
+			rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+			rl.mRefObject = target->mIns[0].mLinkerObject;
+			rl.mRefOffset = target->mIns[0].mAddress;
+			mRelocations.Push(rl);
 
-		PutWord(0);
+			PutWord(0);
+		}
+		else
+			PutWord(target->mIns[0].mAddress);
+
 		return 3;
 	}
 	else if (to - from >= -126 && to - from <= 129)
