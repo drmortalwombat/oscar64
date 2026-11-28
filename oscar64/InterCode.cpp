@@ -7108,7 +7108,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 InterCodeBasicBlock::InterCodeBasicBlock(InterCodeProcedure * proc)
 	: mProc(proc),
 	mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mMergeAValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
-	mLoadStoreInstructions(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0)
+	mLoadStoreInstructions(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0), mLinearCombos({0, 0, 0})
 {
 	mVisited = false;
 	mInPath = false;
@@ -11409,20 +11409,43 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 	}
 }
 
-bool InterCodeBasicBlock::UpdateLinearCombinations(void)
+bool InterCodeBasicBlock::UpdateLinearCombinations(const GrowingArray<LinearCombo> & ncombos)
 {
 	bool	changed = false;
 
 	if (!mVisited)
 	{
-		mVisited = true;
-
-		struct LinearCombo
+		if (mLoopHead)
 		{
-			int		base, step, count;
-		};
+			mLinearCombos.SetSize(0);
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < mLinearCombos.Size(); i++)
+				{
+					if (mLinearCombos[i].step > 0)
+					{
+						if (mLinearCombos[i].base != ncombos[i].base ||
+							mLinearCombos[i].step != ncombos[i].step ||
+							mLinearCombos[i].count != ncombos[i].count)
+						{
+							mLinearCombos[i].step = 0;
+						}
+					}
+				}
+			}
+			else
+				mLinearCombos = ncombos;;
 
-		GrowingArray<LinearCombo>	combos(LinearCombo{ 0, 0, 0 });
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+				return false;
+		}
+
+		mVisited = true;
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
@@ -11434,7 +11457,7 @@ bool InterCodeBasicBlock::UpdateLinearCombinations(void)
 			{
 				int step = ins->mOperator == IA_SHL ? 1 << int(ins->mSrc[0].mIntConst) : int(ins->mSrc[0].mIntConst);
 
-				combos[ins->mDst.mTemp] = LinearCombo {
+				mLinearCombos[ins->mDst.mTemp] = LinearCombo {
 					int(ins->mSrc[1].mRange.mMinValue * step),
 					step,
 					int(ins->mSrc[1].mRange.mMaxValue + 1 - ins->mSrc[1].mRange.mMinValue) };
@@ -11442,10 +11465,10 @@ bool InterCodeBasicBlock::UpdateLinearCombinations(void)
 			}
 			else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp < 0 &&
 				ins->mSrc[1].mLinkerObject && (ins->mSrc[1].mLinkerObject->mFlags & LOBJF_CONST) &&
-				ins->mSrc[0].mTemp >= 0 && combos[ins->mSrc[0].mTemp].step > 0)
+				ins->mSrc[0].mTemp >= 0 && mLinearCombos[ins->mSrc[0].mTemp].step > 0)
 			{
-				LinearCombo	lc = combos[ins->mSrc[0].mTemp];
-				combos[ins->mDst.mTemp] = LinearCombo{
+				LinearCombo	lc = mLinearCombos[ins->mSrc[0].mTemp];
+				mLinearCombos[ins->mDst.mTemp] = LinearCombo{
 					lc.base + int(ins->mSrc[1].mIntConst),
 					lc.step,
 					lc.count };
@@ -11455,10 +11478,10 @@ bool InterCodeBasicBlock::UpdateLinearCombinations(void)
 				ins->mDst.mType == IT_INT8 &&
 				ins->mSrc[0].mLinkerObject &&
 				ins->mSrc[0].mStride == 1 &&
-				ins->mSrc[0].mTemp >= 0 && combos[ins->mSrc[0].mTemp].step > 0)
+				ins->mSrc[0].mTemp >= 0 && mLinearCombos[ins->mSrc[0].mTemp].step > 0)
 			{
 				LinkerObject* lo = ins->mSrc[0].mLinkerObject;
-				LinearCombo	lc = combos[ins->mSrc[0].mTemp];
+				LinearCombo	lc = mLinearCombos[ins->mSrc[0].mTemp];
 
 				int start = lc.base + int(ins->mSrc[0].mIntConst);
 				int end = start + lc.count * lc.step;
@@ -11505,11 +11528,11 @@ bool InterCodeBasicBlock::UpdateLinearCombinations(void)
 			}
 
 			if (ins->mDst.mTemp >= 0 && !checked)
-				combos[ins->mDst.mTemp].step = 0;
+				mLinearCombos[ins->mDst.mTemp].step = 0;
 		}
 
-		if (mTrueJump && mTrueJump->UpdateLinearCombinations()) changed = true;
-		if (mFalseJump && mFalseJump->UpdateLinearCombinations()) changed = true;
+		if (mTrueJump && mTrueJump->UpdateLinearCombinations(mLinearCombos)) changed = true;
+		if (mFalseJump && mFalseJump->UpdateLinearCombinations(mLinearCombos)) changed = true;
 	}
 	
 	return changed;
@@ -30623,7 +30646,7 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 	assert(mTemporaries.Size() == mLocalValueRange.Size());
 
 	ResetVisited();
-	mEntryBlock->UpdateLinearCombinations();
+	mEntryBlock->UpdateLinearCombinations(GrowingArray<InterCodeBasicBlock::LinearCombo>({0, 0, 0}));
 
 	DisassembleDebug("Estimated value range 2");
 }

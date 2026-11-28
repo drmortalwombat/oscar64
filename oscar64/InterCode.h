@@ -469,6 +469,13 @@ public:
 	int								mMergeSrc, mMergeDst;
 	int64							mMergeOffset;
 
+	struct LinearCombo
+	{
+		int		base, step, count;
+	};
+
+	GrowingArray<LinearCombo>		mLinearCombos;
+
 	InterCodeBasicBlock(InterCodeProcedure * proc);
 	~InterCodeBasicBlock(void);
 
@@ -558,7 +565,7 @@ public:
 	bool PropagateIntegerRangeConversionPair(InterInstruction* cins);
 	bool UpdateIntegerRangeConversionPairs(void);
 
-	bool UpdateLinearCombinations(void);
+	bool UpdateLinearCombinations(const GrowingArray<LinearCombo>& ncombos);
 
 	bool BuildGlobalIntegerRangeSets(bool initial);
 	void SimplifyIntegerRangeRelops(void);

@@ -8,7 +8,7 @@
 #define REYCLE_JUMPS		1
 #define DISASSEMBLE_OPT		0
 #define DISASSEMBLE_FILE	"r:\\ntivdiss.txt"
-#define CHECK_FUNC			"mark"
+#define CHECK_FUNC			"runner_init"
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -47483,15 +47483,15 @@ bool NativeCodeBasicBlock::MoveLoadSECSubInvZPStoreUp(int at)
 			{
 				if (!(mIns[j].mLive & LIVE_CPU_REG_X))
 				{
-					mIns[at + 1].mMode = ASMIM_ABSOLUTE_X;
-					mIns.Insert(j, NativeCodeInstruction(ins, ASMIT_LDX, mIns[at]));
+					mIns[at].mMode = ASMIM_ABSOLUTE_X;
+					mIns.Insert(j, NativeCodeInstruction(ins, ASMIT_LDX, mIns[at - 1]));
 					j++;
 					at++;
 				}
 				else if (!(mIns[j].mLive & LIVE_CPU_REG_Y))
 				{
-					mIns[at + 1].mMode = ASMIM_ABSOLUTE_Y;
-					mIns.Insert(j, NativeCodeInstruction(ins, ASMIT_LDY, mIns[at]));
+					mIns[at].mMode = ASMIM_ABSOLUTE_Y;
+					mIns.Insert(j, NativeCodeInstruction(ins, ASMIT_LDY, mIns[at - 1]));
 					j++;
 					at++;
 				}
